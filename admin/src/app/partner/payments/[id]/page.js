@@ -3,6 +3,7 @@ import React, { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Download, RefreshCw, AlertCircle, CheckCircle, XCircle, Clock, Ban } from "lucide-react";
 import { getPayment } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 
 export default function PaymentDetailsPage({ params }) {
   const resolvedParams = use(params);
@@ -13,6 +14,7 @@ export default function PaymentDetailsPage({ params }) {
   const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -24,14 +26,14 @@ export default function PaymentDetailsPage({ params }) {
         const paymentData = response?.payment || null;
         setPayment(paymentData);
       } catch (e) {
-        console.error("Failed to fetch payment", e);
+        addToast("error", "Failed to fetch payment details");
       } finally {
         if (mounted) setLoading(false);
       }
     };
     load();
     return () => (mounted = false);
-  }, [id]);
+  }, [id, addToast]);
 
   const handleRetry = async () => {
     setLoading(true);
@@ -40,7 +42,7 @@ export default function PaymentDetailsPage({ params }) {
       const paymentData = response?.payment || null;
       setPayment(paymentData);
     } catch (e) {
-      console.error("Failed to fetch payment", e);
+      addToast("error", "Failed to fetch payment details");
     } finally {
       setLoading(false);
     }
@@ -75,8 +77,7 @@ export default function PaymentDetailsPage({ params }) {
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       pdf.save(`Receipt-${payment?.reference || id}.pdf`);
     } catch (e) {
-      console.error('PDF download failed', e);
-      alert('Failed to download PDF. Please try again.');
+      addToast("error", "Failed to download PDF");
     } finally {
       setDownloading(false);
     }

@@ -1,25 +1,19 @@
 "use client";
 import React, { FormEvent, useState } from "react";
 import {
-    AlertCircle,
-    CheckCircle2,
     ChevronDown,
     KeyRound,
     Lock,
     ShieldCheck,
-    ShieldEllipsis,
     SwitchCamera,
 } from "lucide-react";
 import { usePartner } from "@/context/PartnerContext";
 import { changePassword, forgetPassword } from "@/lib/services/company";
-
-type Feedback = {
-    type: "success" | "error";
-    message: string;
-};
+import { useToast } from "@/context/ToastContext";
 
 export default function SecurityPage() {
     const { user } = usePartner();
+    const { addToast } = useToast();
 
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [forgetPasswordLoading, setForgetPasswordLoading] = useState(false);
@@ -30,27 +24,19 @@ export default function SecurityPage() {
         confirmPassword: "",
     });
 
-    const [passwordFeedback, setPasswordFeedback] = useState<Feedback | null>(null);
-
     const handlePasswordSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setPasswordFeedback(null);
 
         setPasswordLoading(true);
         try {
             const res = await changePassword(user?.uid, passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword);
 
             if (!res) {
-                setPasswordFeedback({
-                    type: "error",
-                    message: res.message || res.error || "Password updated Failed.",
-                });
+                addToast("error", "Unable to update password.");
+                return;
             }
 
-            setPasswordFeedback({
-                type: "success",
-                message: "Password updated successfully.",
-            });
+            addToast("success", "Password updated successfully.");
 
             setPasswordForm({
                 currentPassword: "",
@@ -58,63 +44,27 @@ export default function SecurityPage() {
                 confirmPassword: "",
             });
         } catch (error) {
-            setPasswordFeedback({
-                type: "error",
-                message: error instanceof Error ? error.message : "Unable to update password.",
-            });
+            addToast("error", error instanceof Error ? error.message : "Unable to update password.");
         } finally {
             setPasswordLoading(false);
         }
     };
 
     const handleForgetPassword = async () => {
-        setPasswordFeedback(null);
         setForgetPasswordLoading(true);
         try {
             const res = await forgetPassword(user?.uid || "");
             if (!res?.ok) {
-                setPasswordFeedback({
-                    type: "error",
-                    message: res?.message || res?.error || "Unable to process forgot password.",
-                });
+                addToast("error", res?.message || res?.error || "Unable to process forgot password.");
                 return;
             }
 
-            setPasswordFeedback({
-                type: "success",
-                message: res?.message || "Forgot password request completed successfully.",
-            });
+            addToast("success", res?.message || "Forgot password request completed successfully.");
         } catch (error) {
-            setPasswordFeedback({
-                type: "error",
-                message: error instanceof Error ? error.message : "Unable to process forgot password.",
-            });
+            addToast("error", error instanceof Error ? error.message : "Unable to process forgot password.");
         } finally {
             setForgetPasswordLoading(false);
         }
-    };
-
-
-    const renderFeedback = (feedback: Feedback | null) => {
-        if (!feedback) {
-            return null;
-        }
-
-        return (
-            <div
-                className={`mt-4 rounded-xl border p-3 text-sm flex items-center gap-2 ${feedback.type === "success"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : "bg-rose-50 border-rose-200 text-rose-700"
-                    }`}
-            >
-                {feedback.type === "success" ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                    <AlertCircle className="h-4 w-4" />
-                )}
-                <span>{feedback.message}</span>
-            </div>
-        );
     };
 
     return (
@@ -212,7 +162,6 @@ export default function SecurityPage() {
                             </button>
                         </div>
                     </form>
-                    {renderFeedback(passwordFeedback)}
                 </details>
             </div>
         </div>

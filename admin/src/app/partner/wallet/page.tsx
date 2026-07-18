@@ -20,6 +20,7 @@ import { usePartner } from "@/context/PartnerContext";
 import { useWallet } from "@/context/WalletContext";
 import { useRouter } from "next/navigation";
 import { Transaction, TransactionStatus, getWallet } from "@/lib/services/wallet";
+import { useToast } from "@/context/ToastContext";
 
 function WalletPage() {
     const router = useRouter();
@@ -36,6 +37,7 @@ function WalletPage() {
     );
     const [load, setLoad] = useState(false);
     const [wallet, setWallet] = useState<any>(null);
+    const { addToast } = useToast();
 
     const fetchWallet = useCallback(async () => {
         if (user?.uid) {
@@ -45,12 +47,12 @@ function WalletPage() {
             }
 
             catch (error) {
-                console.error("Error fetching wallet data:", error);
+                addToast("error", error instanceof Error ? error.message : "Unable to fetch wallet data.");
                 setWallet(null);
             }
 
         }
-    }, [user?.uid]);
+    }, [addToast, user.uid]);
 
     useEffect(() => {
         fetchWallet();
@@ -68,13 +70,13 @@ function WalletPage() {
                     setTransactions([]);
                 }
             } catch (error) {
-                console.error("Error fetching transactions:", error);
+                addToast("error", error instanceof Error ? error.message : "Unable to fetch transactions.");
                 setTransactions([]);
             } finally {
                 setLoad(false);
             }
         }
-    }, [wallet, getTransactions, user.uid, fromDate, toDate, query, typeFilter, statusFilter]);
+    }, [wallet, getTransactions, user.uid, fromDate, toDate, query, typeFilter, statusFilter, addToast]);
 
     useEffect(() => {
         fetChTransactions();

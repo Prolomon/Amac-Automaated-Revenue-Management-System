@@ -36,6 +36,7 @@ const performanceData = [
 
 import { getLocation } from "@/lib/services/location";
 import { usePartner } from "@/context/PartnerContext";
+import { useToast } from "@/context/ToastContext";
 
 export default function Agents() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function Agents() {
   });
   const [suggestions, setSuggestions] = useState<Array<{ id: string | number; name: string }>>([]);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<{ type: "" | "success" | "error"; msg: string }>({ type: "", msg: "" });
+  const { addToast } = useToast();
 
   const loadAgents = useCallback(async () => {
     setLoading(true);
@@ -67,11 +68,11 @@ export default function Agents() {
       setAgents(agentsList); 
       setMembers(memberRes?.data || null);
     } catch (e) {
-      console.log("Failed to load data", e);
+      addToast("error", "Failed to load agent data");
     } finally {
       setLoading(false);
     }
-  }, [setAgents, uid, user?.uid]);
+  }, [setAgents, uid, user?.uid, addToast]);
 
   useEffect(() => {
     loadAgents();
@@ -92,7 +93,7 @@ export default function Agents() {
       const res = await getLocation({ query: value, limit: 30 });
       setSuggestions(Array.isArray(res) ? res : []);
     } catch (e) {
-      console.error("Failed to fetch locations", e);
+      addToast("error", "Failed to fetch locations");
       setSuggestions([]);
     }
   };
@@ -110,8 +111,6 @@ export default function Agents() {
         center: user?.center || "",
         company: user?.uid || "",
       };
-
-      console.log("Creating agent with payload:", payload);
 
       const res = await createAgent(payload);
 
@@ -131,16 +130,12 @@ export default function Agents() {
         gender: "",
         batchNo: "",
       });
-      setStatus({ type: "success", msg: "Agent created successfully" });
+      addToast("success", "Agent created successfully");
       if (res?.agent?.uid) {
         router.push(`/partner/agents/${res.agent.uid}`);
       }
     } catch (e) {
-      console.error(e);
-      setStatus({
-        type: "error",
-        msg: e instanceof Error ? e.message : "Failed to create agent",
-      });
+      addToast("error", "Failed to create agent");
     } finally {
       setSaving(false);
     }
@@ -168,17 +163,6 @@ export default function Agents() {
           </button>
         </div>
       </div>
-
-      {status.msg && (
-        <div
-          className={`rounded-2xl border p-4 text-sm font-medium ${status.type === "success"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-rose-200 bg-rose-50 text-rose-700"
-            }`}
-        >
-          {status.msg}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
@@ -514,14 +498,6 @@ export default function Agents() {
                     <option value="FEMALE">Female</option>
                   </select>
                 </div>
-
-                {status.type === "error" && (
-                  <div
-                    className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700"
-                  >
-                    <p className="text-sm font-semibold">{status.msg}</p>
-                  </div>
-                )}
               </div>
 
               <div className="border-t border-slate-200 p-6">

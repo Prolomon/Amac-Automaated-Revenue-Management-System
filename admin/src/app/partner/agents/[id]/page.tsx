@@ -17,6 +17,7 @@ import {
 import { getAgent, updateAgent, Agent } from "@/lib/services/agent";
 import { getMembersByAgentId, Member as MemberType } from "@/lib/services/member";
 import { getWallet, Wallet as WalletType } from "@/lib/services/wallet";
+import { useToast } from "@/context/ToastContext";
 
 export default function AgentDetailPage({ params }) {
   const resolved: any = use(params);
@@ -36,7 +37,6 @@ export default function AgentDetailPage({ params }) {
   const [membersLoading, setMembersLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [toasts, setToasts] = useState([]);
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [isWalletExist, setIsWalletExist] = useState(false);
   const [memberPage, setMemberPage] = useState(1);
@@ -46,12 +46,7 @@ export default function AgentDetailPage({ params }) {
     limit: 10,
     totalPages: 1,
   });
-
-  const addToast = (type: string, message: string, ttl = 4000) => {
-    const toastId = Date.now().toString();
-    setToasts((s) => [...s, { id: toastId, type, message }]);
-    setTimeout(() => setToasts((s) => s.filter((t) => t.id !== toastId)), ttl);
-  };
+  const { addToast } = useToast();
 
   const loadAgentData = useCallback(async () => {
     setLoading(true);
@@ -67,7 +62,7 @@ export default function AgentDetailPage({ params }) {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [addToast, id]);
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -85,7 +80,7 @@ export default function AgentDetailPage({ params }) {
     } finally {
       setMembersLoading(false);
     }
-  }, [id, memberPage, memberMeta.limit]);
+  }, [memberPage, memberMeta.limit, id, addToast]);
 
   useEffect(() => {
     loadAgentData();
@@ -246,20 +241,6 @@ export default function AgentDetailPage({ params }) {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <div className="fixed right-6 top-6 z-50 flex flex-col gap-2">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`min-w-64 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${t.type === "success"
-              ? "bg-emerald-600 text-white"
-              : "bg-rose-600 text-white"
-              }`}
-          >
-            {t.message}
-          </div>
-        ))}
-      </div>
-
       <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

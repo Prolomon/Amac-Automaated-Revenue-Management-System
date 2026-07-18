@@ -15,6 +15,7 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 const paymentTrends = [
   { name: "Week 1", value: 90 },
@@ -26,6 +27,7 @@ const paymentTrends = [
 export default function AssurancePage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -37,7 +39,7 @@ export default function AssurancePage() {
         if (!mounted) return;
         setPayments(Array.isArray(list) ? list : []);
       } catch (e) {
-        console.error("Failed to load payments", e);
+        addToast("error", "Failed to load payment data");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -46,7 +48,7 @@ export default function AssurancePage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [addToast]);
 
   const escapeCSV = (v) => {
     if (v === null || v === undefined) return "";

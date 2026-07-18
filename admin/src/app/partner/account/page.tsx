@@ -15,6 +15,7 @@ import { Company, updateCompany } from "@/lib/services/company";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import { useRouter } from "next/navigation";
 import withPartnerAuth from "@/components/withPartnerAuth";
+import { useToast } from "@/context/ToastContext";
 
 type Feedback = {
     type: "success" | "error";
@@ -72,7 +73,7 @@ const mapPartnerToForm = (company: any): Partial<Company> & { category: string[]
 function AccountPage() {
     const router = useRouter();
     const { user, logout, refresh } = usePartner();
-
+    const { addToast } = useToast();
     const [form, setForm] = useState<(Partial<Company> & { category: string[] }) | null>(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
@@ -116,7 +117,7 @@ function AccountPage() {
                 const res = await getPricingByCenter(centerId);
                 setPricingOptions(Array.isArray(res?.data) ? res.data : []);
             } catch (error: any) {
-                console.error("Failed to fetch pricing data", error?.message || error);
+                addToast("error", "Failed to fetch pricing data");
             } finally {
                 setPricingLoading(false);
             }
@@ -125,7 +126,7 @@ function AccountPage() {
         if (user?.center) {
             fetchPricingOptions();
         }
-    }, [user?.center]);
+    }, [addToast, user?.center]);
 
     const selectedPricingIds = normalizePricingIds(form?.category || []);
     const selectedPricingCards = pricingOptions.filter((pricing) =>
@@ -187,13 +188,10 @@ function AccountPage() {
                 message: "Account details updated successfully",
             });
         } catch (error) {
-            setFeedback({
-                type: "error",
-                message:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to update account details",
-            });
+            addToast(
+                "error",
+                error instanceof Error ? error.message : "Failed to update account details",
+            );
         } finally {
             setSaving(false);
             setEditing(false);

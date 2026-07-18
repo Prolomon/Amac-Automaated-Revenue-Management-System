@@ -12,6 +12,7 @@ import Link from "next/link";
 import { getMembersByCompanyId, Member } from "@/lib/services/member";
 import { usePartner } from "@/context/PartnerContext";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/context/ToastContext";
 
 export default function EntitiesPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function EntitiesPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("All");
   const centerId = user?.uid || "";
+  const { addToast } = useToast();
 
   const fetchData = useCallback(async () => {
       setLoading(true);
@@ -42,11 +44,11 @@ export default function EntitiesPage() {
         );
 
       } catch (error) {
-        console.error("Failed to fetch data", error);
+        addToast("error", "Failed to fetch entity data");
       } finally {
         setLoading(false);
       }
-  }, [page, centerId, uid]);
+  }, [page, centerId, uid, addToast]);
 
   useEffect(() => {
     fetchData();
@@ -150,7 +152,7 @@ export default function EntitiesPage() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("Export failed", e);
+      addToast("error", "Export failed");
     }
   };
 
