@@ -20,27 +20,7 @@ jobs:
           npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BASE_URL: ${{ secrets.BASE_URL }}
-          BULK_SMS_API_KEY: ${{ secrets.BULK_SMS_API_KEY }}
-          BULK_SMS_API_URL: ${{ secrets.BULK_SMS_API_URL }}
-          BULK_SMS_SENDER: ${{ secrets.BULK_SMS_SENDER }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          NOMBA_ACCOUNT_ID: ${{ secrets.NOMBA_ACCOUNT_ID }}
-          NOMBA_API_BASE_URL: ${{ secrets.NOMBA_API_BASE_URL }}
-          NOMBA_CLIENT_ID: ${{ secrets.NOMBA_CLIENT_ID }}
-          NOMBA_PRIVATE_SECRET: ${{ secrets.NOMBA_PRIVATE_SECRET }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM: ${{ secrets.RESEND_FROM }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          
+                    
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Deploy to Heroku (Backend)
