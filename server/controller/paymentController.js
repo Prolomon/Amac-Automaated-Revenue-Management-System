@@ -1,0 +1,1102 @@
+import { prisma } from "../config/db.js";
+import {
+  createPaymentSchema,
+  updatePaymentScheduleSchema,
+  verifyPaymentSchema,
+  makePaymentSchema,
+} from "../validator/paymentValidator.js";
+import { customAlphabet } from "nanoid";
+import { initiateTransfer as nombaTransfer } from "../service/wallet.js";
+import { generateTransactionReference } from "./paymentTransactionController.js";
+import argon2 from "argon2";
+
+const paymentReferenceSuffix = customAlphabet(
+  "0123456789",
+  8
+);
+
+const generatePaymentReference = () => {
+  const date = new Date();
+  return `PAY-REF|${date.getFullYear()}${date.getMonth() + 1}${date.getHours()}${date.getMinutes()}${date.getSeconds()}${paymentReferenceSuffix()}`;
+};
+
+const getWalletBankDetails = (wallet) => {
+  const bank = wallet?.bank || {};
+
+  return {
+    accountNumber: wallet?.accountNo || null,
+    accountName: wallet?.accountName || null,
+    bankName: bank?.name || null,
+    bankCode: bank?.code || null,
+  };
+};
+
+const generateReceipt = ({
+  reference,
+  paymentRecord,
+  grossAmount,
+  fee,
+  netAmount,
+  mainAmount,
+  agentAmount,
+  technologyAmount,
+  senderWallet,
+  mainWallet,
+  agentWallet,
+}) => {
+  const sender = getWalletBankDetails(senderWallet);
+
+  return {
+    reference,
+    paymentReference: paymentRecord.reference,
+    paymentId: paymentRecord.id,
+    date: new Date().toISOString(),
+    grossAmount,
+    fee,
+    netAmount,
+    sender,
+    recipients: {
+      admin: getWalletBankDetails(mainWallet),
+      agent: getWalletBankDetails(agentWallet),
+    },
+    breakdown: {
+      main: mainAmount,
+      agent: agentAmount,
+      technology: technologyAmount,
+    },
+  };
+};
+
+const normalizeSessions = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).map((item) => String(item));
+  }
+
+  return [String(value)].filter(Boolean);
+};
+
+const getNextDueDate = (dueDate, frequency) => {
+  const nextDueDate = new Date(dueDate || new Date());
+  const normalizedFrequency = String(frequency || "MONTHLY").toUpperCase();
+
+  switch (normalizedFrequency) {
+    case "DAILY":
+      nextDueDate.setDate(nextDueDate.getDate() + 1);
+      break;
+    case "WEEKLY":
+      nextDueDate.setDate(nextDueDate.getDate() + 7);
+      break;
+    case "BIWEEKLY":
+      nextDueDate.setDate(nextDueDate.getDate() + 14);
+      break;
+    case "QUARTERLY":
+      nextDueDate.setMonth(nextDueDate.getMonth() + 3);
+      break;
+    case "YEARLY":
+      nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
+      break;
+    case "MONTHLY":
+    default:
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      break;
+  }
+
+  return nextDueDate;
+};
+
+const generateUniquePaymentId = async (client = prisma) => {
+  const generateId = customAlphabet("0123456789", 12);
+  
+  let id;
+  let exists = true;
+  
+  while (exists) {
+    id = generateId();
+    const existingPayment = await client.payment.findUnique({
+      where: { id },
+    });
+    exists = !!existingPayment;
+  }
+  
+  return id;
+};
+
+const createPaymentRecord = async (data, client = prisma) => {
+  const uniqueId = await generateUniquePaymentId(client);
+  
+  return client.payment.create({
+    data: {
+      id: uniqueId,
+      reference: data.reference || generatePaymentReference(),
+      userId: data.userId,
+      frequency: data.frequency || "MONTHLY",
+      sessions: normalizeSessions(data.sessions),
+      debt: Number(data.debt ?? 0),
+      due: data.due ? new Date(data.due) : new Date(),
+      amount: Number(data.amount),
+      payment: String(data.payment),
+      centerId: data.centerId || null,
+      companyId: data.companyId || null,
+      status: data.status || "PENDING",
+      isVerify: Boolean(data.isVerify),
+    },
+  });
+};
+
+const createRecurringPaymentForPayment = async (payment, client = prisma) => {
+  const nextDueDate = getNextDueDate(payment.due, payment.frequency);
+  const existingNextPayment = await client.payment.findFirst({
+    where: {
+      userId: payment.userId,
+      payment: payment.payment,
+      due: nextDueDate,
+    },
+    select: { id: true },
+  });
+
+  if (existingNextPayment) {
+    return { created: false, payment: null };
+  }
+
+  const nextPayment = await client.payment.create({
+    data: {
+      reference: generatePaymentReference(),
+      userId: payment.userId,
+      frequency: payment.frequency,
+      sessions: [],
+      debt: Number(payment.debt ?? 0),
+      due: nextDueDate,
+      amount: Number(payment.amount),
+      payment: payment.payment,
+      status: "PENDING",
+      isVerify: false,
+    },
+  });
+
+  return { created: true, payment: nextPayment };
+};
+
+const createPayment = async (req, res) => {
+  try {
+    const { error, value } = createPaymentSchema.validate(req.body, {
+      abortEarly: false,
+    });
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return res.status(400).json({
+        ok: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
+    const payment = await createPaymentRecord(value);
+
+    try {
+      const notificationType =
+        payment.status === "SUCCESS" ? "SUCCESS" : "PENDING";
+      const notificationTitle =
+        payment.status === "SUCCESS" ? "Payment Successful" : "Payment Pending";
+      const notificationDescription =
+        payment.status === "SUCCESS"
+          ? `Your payment of ${payment.amount} has been processed successfully.`
+          : `Your payment of ${payment.amount} is pending approval.`;
+
+      await prisma.notification.create({
+        data: {
+          userId: payment.userId,
+          title: notificationTitle,
+          description: notificationDescription,
+          type: notificationType,
+          date: new Date(),
+        },
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create payment notification:",
+        notificationError.message || notificationError
+      );
+    }
+
+    return res
+      .status(201)
+      .json({ ok: true, message: "Payment created successfully", payment });
+  } catch (err) {
+    console.error("Create payment error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const getPaymentsByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "User ID is required" });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: { userId },
+      include: { member: true, pricing: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ ok: true, payments });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const getPaymentByReference = async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Payment reference is required" });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { reference },
+      include: { member: true, pricing: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, message: "Payment not found" });
+    }
+
+    return res.status(200).json({ ok: true, payment });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const getPaymentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Payment id is required" });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+      include: { member: true, pricing: true },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, message: "Payment not found" });
+    }
+
+    return res.status(200).json({ ok: true, payment });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const getAllPayments = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100
+    );
+    const skip = (page - 1) * limit;
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          member: {
+            select: {
+              id: true,
+              fullname: true,
+              email: true,
+              uid: true,
+              businessName: true,
+              category: true,
+              type: true,
+            },
+          },
+          pricing: true,
+        },
+      }),
+      prisma.payment.count(),
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      data: payments,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const verifyPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // const { error, value } = verifyPaymentSchema.validate(req.body, {
+    //   abortEarly: false,
+    // });
+
+    // if (error) {
+    //   const errors = error.details.map((detail) => detail.message);
+    //   return res.status(400).json({
+    //     ok: false,
+    //     message: errors[0],
+    //     errors,
+    //   });
+    // }
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Payment ID or reference is required" });
+    }
+
+    // Try to find payment by reference first, then by ID
+    const payment = await prisma.payment.findFirst({
+      where: {
+        OR: [
+          { reference: id },
+          { id: id },
+        ],
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, message: "Payment not found" });
+    }
+
+    // const incomingSessions = normalizeSessions(value.session ?? value.sessions);
+    // const updatedSessions = Array.from(
+    //   new Set([...(payment.sessions || []), ...incomingSessions])
+    // );
+
+    const updatedPayment = await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        isVerify: true,
+      },
+      include: { member: true, pricing: true },
+    });
+
+    if (updatedPayment.userId) {
+      await prisma.notification.create({
+        data: {
+          userId: updatedPayment.userId,
+          title: "Payment Verified",
+          description: `Your payment of ${updatedPayment.amount} has been verified successfully.`,
+          type: "SUCCESS",
+          date: new Date(),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: "Payment verified successfully",
+      payment: updatedPayment,
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const updatePaymentSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error, value } = updatePaymentScheduleSchema.validate(req.body, {
+      abortEarly: false,
+    });
+
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return res.status(400).json({
+        ok: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Payment id is required" });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, message: "Payment not found" });
+    }
+
+    const updatedPayment = await prisma.payment.update({
+      where: { id },
+      data: {
+        frequency: value.frequency,
+        amount: value.amount,
+        due: value.due,
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Payment schedule updated successfully",
+      payment: updatedPayment,
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const makePayment = async (req, res) => {
+  try {
+    const { error, value } = makePaymentSchema.validate(req.body, {
+      abortEarly: false,
+    });
+
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return res.status(400).json({
+        ok: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
+    const { amount, center, company, pin } = value;
+    const { userId, paymentId } = req.params;
+
+    const member = await prisma.member.findUnique({
+      where: { uid: userId },
+      select: { uid: true, secureToken: true },
+    });
+
+    if (!member) {
+      return res.status(404).json({ ok: false, message: "Member not found" });
+    }
+
+    if (!member.secureToken) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Security token is not set" });
+    }
+
+    const securityCode = String(pin || value.securityCode || "").trim();
+
+    if (!securityCode) {
+      return res.status(400).json({ ok: false, message: "PIN is required" });
+    }
+
+    const isValid = await argon2.verify(member.secureToken, securityCode);
+
+    if (!isValid) {
+      return res.status(401).json({ ok: false, message: "Invalid security code" });
+    }
+
+    const [
+      paymentRecord,
+      main,
+      mainWallet,
+      agentWallet,
+      senderWallet,
+      technologyWallet,
+    ] = await Promise.all([
+      prisma.payment.findFirst({
+        where: { payment: paymentId },
+        select: {
+          id: true,
+          reference: true,
+          userId: true,
+          frequency: true,
+          sessions: true,
+          debt: true,
+          due: true,
+          amount: true,
+          payment: true,
+          status: true,
+          isVerify: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.admin.findFirst({
+        where: { uid: center },
+        select: {
+          id: true,
+          uid: true,
+          center: true,
+          email: true,
+          password: true,
+          avatar: true,
+          role: true,
+          paymentConfig: true,
+          createdAt: true,
+          updatedAt: true,
+          location: true,
+          state: true,
+          address: true,
+          lga: true,
+          country: true,
+          status: true,
+          phone: true,
+          adminName: true,
+          adminEmail: true,
+          adminLocation: true,
+          adminPhone: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId: center, role: "ADMIN" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          accountHolderId: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId: company, role: "COMPANY" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountHolderId: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId, role: "MEMBER" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountHolderId: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: {
+          userId: "URMSAD-8485HB5SQ3",
+          role: "ADMIN",
+        },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountName: true,
+          currency: true,
+          accountHolderId: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+    ]);
+
+    if (!paymentRecord) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Payment record not found" });
+    }
+
+    if (!main) {
+      return res
+        .status(500)
+        .json({ ok: false, message: "Main admin not found" });
+    }
+
+    if (!main.paymentConfig) {
+      return res
+        .status(500)
+        .json({ ok: false, message: "Payment configuration is incomplete" });
+    }
+
+    // Parse payment config for split percentages
+    const paymentConfig = main.paymentConfig || {
+      main: 65,
+      agent: 25,
+      technology: 10,
+    };
+
+    const grossAmount = Number(amount);
+    const feePercentage = 0.02; // 5% fee
+    const fee = grossAmount * feePercentage;
+    const totalAmount = grossAmount - fee;
+    const receiptReference = generateTransactionReference();
+
+    console.log(grossAmount, fee, totalAmount);
+
+    if (senderWallet && Number(senderWallet.balance) < grossAmount) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Insufficient balance in sender wallet" });
+    }
+
+    // Calculate split amounts
+    const mainShare = Number(paymentConfig.main ?? 0);
+    const agentShare = Number(paymentConfig.agent ?? 0);
+    const technologyShare = Number(paymentConfig.technology ?? 0);
+
+    const mainAmount = (totalAmount * mainShare) / 100;
+    const agentAmount = (totalAmount * agentShare) / 100;
+    const technologyAmount = (totalAmount * technologyShare) / 100;
+
+    const senderDetails = getWalletBankDetails(senderWallet);
+    const receipt = generateReceipt({
+      reference: receiptReference,
+      paymentRecord,
+      grossAmount,
+      fee,
+      netAmount: totalAmount,
+      mainAmount,
+      agentAmount,
+      technologyAmount,
+      senderWallet,
+      mainWallet,
+      agentWallet,
+    });
+
+    const paymentResult = await prisma.$transaction(async (tx) => {
+      // Calculate debt: first clear any existing debt (from paymentRecord.debt), then handle current cycle
+      // Use grossAmount (what the user actually paid) for debt calculation, not totalAmount (net after fee).
+      // The fee is a platform processing cost and should not reduce the amount credited toward the user's debt.
+      const existingDebt = Number(paymentRecord.debt || 0);
+      const currentAmount = Number(paymentRecord.amount || 0);
+
+      let remainingPayment = grossAmount;
+      let updatedDebt = existingDebt;
+
+      // If there is existing debt, pay it off first
+      if (existingDebt > 0) {
+        if (remainingPayment >= existingDebt) {
+          remainingPayment -= existingDebt;
+          updatedDebt = 0;
+        } else {
+          updatedDebt = existingDebt - remainingPayment;
+          remainingPayment = 0;
+        }
+      }
+
+      // Remaining amount goes toward current cycle's expected amount
+      if (remainingPayment > 0) {
+        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
+        updatedDebt += outstandingForCurrentCycle;
+      }
+
+      const isFullyPaid = updatedDebt <= 0;
+
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentRecord.id },
+        data: {
+          debt: updatedDebt,
+          status: isFullyPaid ? "COMPLETED" : "PENDING",
+        },
+      });
+
+      if (mainWallet) {
+        await tx.wallet.update({
+          where: { id: mainWallet.id },
+          data: {
+            balance: {
+              increment: mainAmount,
+            },
+          },
+        });
+      }
+
+      if (agentWallet) {
+        await tx.wallet.update({
+          where: { id: agentWallet.id },
+          data: {
+            balance: {
+              increment: agentAmount,
+            },
+          },
+        });
+      }
+
+      if (technologyWallet) {
+        await tx.wallet.update({
+          where: { id: technologyWallet.id },
+          data: {
+            balance: {
+              increment: technologyAmount + fee,
+            },
+          },
+        });
+      }
+
+      if (senderWallet) {
+        await tx.wallet.update({
+          where: { id: senderWallet.id },
+          data: {
+            balance: {
+              decrement: grossAmount,
+            },
+          },
+        });
+      }
+
+      if (main) {
+        await tx.admin.update({
+          where: { id: main.id },
+          data: {
+            ledger: {
+              increment: totalAmount,
+            },
+          },
+        });
+      }
+
+      await Promise.all([
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-ADMIN`,
+            merchantTxRef: main.uid,
+            event: "payment.admin.credit",
+            status: "SUCCESS",
+            amount: mainAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Admin wallet credited",
+            customerEmail: main.adminEmail || main.email || null,
+            paymentId: paymentRecord.id,
+            userId: main.uid,
+            metadata: {
+              receipt,
+              role: "ADMIN",
+              transactionType: "CREDIT",
+              creditedAmount: mainAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-AGENT`,
+            merchantTxRef: company,
+            event: "payment.agent.credit",
+            status: "SUCCESS",
+            amount: agentAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Agent wallet credited",
+            customerEmail: agentWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: company,
+            metadata: {
+              receipt,
+              role: "AGENT",
+              transactionType: "CREDIT",
+              creditedAmount: agentAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-SENDER`,
+            merchantTxRef: userId,
+            event: "payment.sender.debit",
+            status: "SUCCESS",
+            amount: grossAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Sender wallet debited",
+            customerEmail: senderWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: senderWallet?.userId || userId,
+            metadata: {
+              receipt,
+              role: "SENDER",
+              transactionType: "DEBIT",
+              debitedAmount: grossAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-IT`,
+            merchantTxRef: technologyWallet?.userId || "URMSAD-8485HB5SQ3",
+            event: "payment.it.debit",
+            status: "SUCCESS",
+            amount: technologyAmount + fee,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "IT wallet credited",
+            customerEmail: senderWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: "URMSAD-ZWKN67CO79",
+            metadata: {
+              receipt,
+              role: "IT",
+              transactionType: "CREDIT",
+              creditedAmount: technologyAmount + fee,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+      ]);
+
+      const paymentTransaction = await tx.paymentTransaction.create({
+        data: {
+          reference: `${receiptReference}-PAYMENT`,
+          userId,
+          pricingId: paymentRecord.payment,
+          companyId: company || null,
+          centerId: center || main.uid,
+          amount: grossAmount,
+          currency: "NGN",
+          paymentId: paymentRecord.id,
+          date: new Date(),
+          type: Number(updatedPayment.debt) > 0 ? "PART_PAYMENT" : "COMPLETE",
+          billing: paymentRecord.frequency || "MONTHLY",
+          status: "SUCCESS",
+          metadata: {
+            receipt,
+            paymentReference: paymentRecord.reference,
+            split: {
+              mainAmount,
+              agentAmount,
+              technologyAmount,
+              fee,
+            },
+          },
+        },
+      });
+
+      return { payment: updatedPayment, paymentTransaction };
+    });
+
+    // Initiate Nomba transfer to agent's bank account if agent wallet exists
+    if (agentWallet && agentWallet.accountNo && agentWallet.bank?.code) {
+      try {
+        const agentTransfer = await nombaTransfer(
+          agentAmount,
+          agentWallet.accountNo,
+          agentWallet.accountName || 'Agent',
+          agentWallet.bank.code,
+          `${receiptReference}-AGENT-TRANSFER`,
+          `${senderDetails.accountName || ' - Payment Split'}`,
+          'Agent wallet payout'
+        );
+
+        if (!agentTransfer?.status) {
+          console.error('Agent Nomba transfer failed:', agentTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error('Agent Nomba transfer error:', transferError?.message || transferError);
+      }
+    }
+
+    // Initiate Nomba transfer to admin's bank account if main wallet exists
+    if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
+
+      const payout = await prisma.payout.findFirst({
+        where: {
+          userId: center,
+        },
+      })
+
+      try {
+        const adminTransfer = await nombaTransfer(
+          mainAmount,
+          payout.accountNumber || mainWallet.accountNo,
+          payout.accountName || 'Admin',
+          payout.bankCode || mainWallet.bank?.code,
+          `${receiptReference}-ADMIN-TRANSFER`,
+          `${senderDetails.accountName || ' - Payment Split'}`,
+          'Admin wallet payout'
+        );
+
+        if (!adminTransfer?.status) {
+          console.error('Admin Nomba transfer failed:', adminTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error('Admin Nomba transfer error:', transferError?.message || transferError);
+      }
+    }
+
+    return res.status(201).json({
+      ok: true,
+      message:
+        "Payment initiated, split and transfers initialized successfully",
+      data: {
+        payment: paymentResult.payment,
+        paymentTransaction: paymentResult.paymentTransaction,
+        amountBreakdown: {
+          grossAmount,
+          fee,
+          netAmount: totalAmount,
+        },
+        split: {
+          mainWallet: mainAmount,
+          agentWallet: agentAmount,
+          technologyWallet: technologyAmount + fee,
+          breakdown: {
+            main: mainAmount,
+            agent: agentAmount,
+            technology: technologyAmount,
+          },
+        },
+        receipt,
+      },
+    });
+
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
+const getPaymentsByPartnerId = async (req, res) => {
+  try {
+    const { partnerId } = req.params;
+
+    if (!partnerId) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Partner ID is required" });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: { companyId: partnerId },
+      include: { member: true, pricing: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ ok: true, payments });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+const getPaymentsByCenterId = async (req, res) => {
+  try {
+    const { centerId } = req.params;
+
+    if (!centerId) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "center ID is required" });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: { centerId },
+      include: { member: true, pricing: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ ok: true, payments });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
+export {
+  createPayment,
+  getPaymentsByUserId,
+  getPaymentByReference,
+  getPaymentById,
+  getAllPayments,
+  verifyPayment,
+  updatePaymentSchedule,
+  makePayment,
+  createPaymentRecord,
+  createRecurringPaymentForPayment,
+  generatePaymentReference,
+  getNextDueDate,
+  getPaymentsByPartnerId,
+  getPaymentsByCenterId,
+};

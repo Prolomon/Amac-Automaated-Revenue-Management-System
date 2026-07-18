@@ -1,0 +1,596 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import { Info, PieChart as PieChartIcon } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { useAuth } from "@/context/AuthContext";
+import { getTransactions } from "@/lib/services/payments";
+import { getMembers } from "@/lib/services/member";
+import { useToast } from "@/context/ToastContext";
+import { useRouter } from "next/navigation";
+
+export default function PaymentSplit() {
+  const router = useRouter();
+  const { user, uid, role } = useAuth();
+  const addToast = useToast();
+  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+
+  const defaultSplits = [
+    { key: "main", name: "Main Account", value: 65, color: "#10b981" },
+    { key: "agent", name: "Agent Commission", value: 25, color: "#3b82f6" },
+    { key: "technology", name: "Technology Fund", value: 10, color: "#8b5cf6" },
+  ];
+
+  const [transactions, setTransactions] = useState([]);
+  const [splits, setSplits] = useState(defaultSplits);
+  const [loading, setLoading] = useState(false);
+  const [paymentChecks, setPaymentChecks] = useState([]);
+  const [grossRevenue, setGrossRevenue] = useState(0);
+  const [totalDebt, setTotalDebt] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [splitAmounts, setSplitAmounts] = useState({});
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  if (role !== "ADMIN" && user?.permission.canViewSplit !== true) {
+    router.push("/admin");
+  }
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await getTransactions(1, 100, centerId);
+
+      if (response?.data) {
+        setTransactions(response.data.filter((tx) => {
+          const txDate = new Date(tx?.date || tx?.createdAt || null)
+          if (!txDate || isNaN(txDate.getTime())) return false;
+          const isToday =
+            txDate.getDate() === selectedDate.getDate() &&
+            txDate.getMonth() === selectedDate.getMonth() &&
+            txDate.getFullYear() === selectedDate.getFullYear();
+          return isToday;
+        }));
+      }
+
+    } catch (e) {
+      addToast("error", e.message || "Failed to fetch transactions");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, selectedDate, centerId]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  // Currency formatter
+  const currencyFormatter = new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  const colorPalette = [
+    "#10b981",
+    "#3b82f6",
+    "#8b5cf6",
+    "#f59e0b",
+    "#ef4444",
+    "#14b8a6",
+    "#6366f1",
+    "#22c55e",
+  ];
+
+  const keyToDisplay = {
+    main: "Main Account",
+    agent: "Agent Commission",
+    technology: "Technology Fund",
+  };
+
+  const normalizeSplits = (config) => {
+    // Only allow these three split keys (in this order)
+    const allowedKeys = ["main", "agent", "technology"];
+    const synonyms = { admin: "main" };
+
+    const toKey = (k) => {
+      if (!k) return undefined;
+      const low = String(k).toLowerCase();
+      if (allowedKeys.includes(low)) return low;
+      if (synonyms[low]) return synonyms[low];
+      return undefined;
+    };
+
+    if (!config) return defaultSplits;
+
+    const itemsMap = new Map();
+
+    if (Array.isArray(config)) {
+      config.forEach((item, idx) => {
+        const rawKey = item?.key || item?.name || item?.label;
+        const key = toKey(rawKey);
+        const value = typeof item?.value === "number" ? item.value : typeof item?.percentage === "number" ? item.percentage : 0;
+        const name = item?.name || keyToDisplay[key] || item?.label || `Split ${idx + 1}`;
+        const color = item?.color || colorPalette[idx % colorPalette.length];
+        if (key) itemsMap.set(key, { key, name, value, color });
+      });
+    } else if (typeof config === "object" && config !== null) {
+      Object.entries(config).forEach(([k, v], idx) => {
+        const key = toKey(k);
+        if (!key) return;
+        const value = Number(v) || 0;
+        const name = keyToDisplay[key] || k;
+        const color = colorPalette[idx % colorPalette.length];
+        itemsMap.set(key, { key, name, value, color });
+      });
+    }
+
+    // Ensure we always return the three allowed splits in the canonical order
+    return allowedKeys.map((k, idx) => {
+      if (itemsMap.has(k)) return itemsMap.get(k);
+      // fallback to default if not provided
+      const def = defaultSplits.find((d) => d.key === k) || {};
+      return { key: k, name: keyToDisplay[k] || def.name || k, value: def.value || 0, color: def.color || colorPalette[idx % colorPalette.length] };
+    });
+  };
+
+  const resolvePaymentName = (payment, memberLookup) => {
+    const userId = payment?.userId || payment?.uid || payment?.memberId || payment?.customerId;
+    const member = memberLookup.get(String(userId || ""));
+
+    return (
+      member?.fullname ||
+      member?.businessName ||
+      payment?.name ||
+      payment?.fullName ||
+      payment?.customerName ||
+      payment?.paymentName ||
+      payment?.reference ||
+      "Unknown user"
+    );
+  };
+
+  const calculateSplitAmounts = (baseAmount, currentSplits) => {
+    setTotalRevenue(baseAmount);
+
+    const amounts = {};
+    currentSplits.forEach((split) => {
+      const splitKey = split.key || split.name;
+      amounts[splitKey] = {
+        name: split.name,
+        amount: (baseAmount * Number(split.value || 0)) / 100,
+        percentage: split.value,
+        color: split.color,
+      };
+    });
+    setSplitAmounts(amounts);
+  };
+
+  const loadConfig = async () => {
+    setLoading(true);
+    try {
+      const config = user?.paymentConfig;
+
+      const normalized = normalizeSplits(config);
+      setSplits(normalized);
+      if (!centerId) {
+        setPaymentChecks([]);
+        setGrossRevenue(0);
+        setTotalDebt(0);
+        calculateSplitAmounts(0, normalized);
+        addToast("error", "Failed to fetch transactions");
+        return;
+      }
+
+      const memberResponse = await getMembers(1, 1000, centerId);
+      const members = Array.isArray(memberResponse?.data) ? memberResponse.data : [];
+
+      const memberLookup = new Map(
+        members
+          .filter((member) => member?.uid || member?.id)
+          .map((member) => [String(member?.uid || member?.id), member]),
+      );
+
+      // Using the transactions state directly as requested
+      const mappedPayments = transactions.map((payment) => {
+        const amount = Number(payment?.amount || 0);
+        const debt = Number(payment?.debt || 0);
+        // Use netAmount from metadata receipt
+        const net = Number(payment?.metadata?.receipt?.netAmount || Math.max(amount - debt, 0));
+
+        // Extracting split values directly from metadata.split or metadata.receipt.breakdown
+        const mainAmount = Number(payment?.metadata?.split?.mainAmount || payment?.metadata?.receipt?.breakdown?.main || 0);
+        const agentAmount = Number(payment?.metadata?.split?.agentAmount || payment?.metadata?.receipt?.breakdown?.agent || 0);
+        const technologyAmount = Number(payment?.metadata?.split?.technologyAmount || payment?.metadata?.receipt?.breakdown?.technology || 0);
+
+        return {
+          id: payment?.id || payment?.reference || `${payment?.userId}-${Date.now()}`,
+          userId: payment?.userId || "",
+          name: resolvePaymentName(payment, memberLookup),
+          reference: payment?.reference || "",
+          status: payment?.status || "",
+          amount,
+          debt,
+          net,
+          mainAmount,
+          agentAmount,
+          technologyAmount,
+          date: payment?.date || payment?.createdAt || null,
+        };
+      });
+
+      const grossTotal = mappedPayments.reduce((sum, item) => sum + item.amount, 0);
+      const debtTotal = mappedPayments.reduce((sum, item) => sum + item.debt, 0);
+      const netTotal = mappedPayments.reduce((sum, item) => sum + item.net, 0);
+
+      // Aggregate specific split totals from metadata values
+      const totalMain = mappedPayments.reduce((sum, item) => sum + item.mainAmount, 0);
+      const totalAgent = mappedPayments.reduce((sum, item) => sum + item.agentAmount, 0);
+      const totalTech = mappedPayments.reduce((sum, item) => sum + item.technologyAmount, 0);
+      const actualSplitTotal = totalMain + totalAgent + totalTech;
+
+      setPaymentChecks(mappedPayments);
+      setGrossRevenue(grossTotal);
+      setTotalDebt(debtTotal);
+      setTotalRevenue(actualSplitTotal || netTotal);
+
+      // Map actual split data to splitAmounts state to reflect real transaction breakdown
+      const amounts = {};
+      normalized.forEach((split) => {
+        const key = split.key;
+        let amount = (netTotal * Number(split.value || 0)) / 100; // Fallback to calculation
+        if (key === "main") amount = totalMain || amount;
+        else if (key === "agent") amount = totalAgent || amount;
+        else if (key === "technology") amount = totalTech || amount;
+
+        amounts[key] = {
+          name: split.name,
+          amount: amount,
+          percentage: split.value,
+          color: split.color,
+        };
+      });
+      setSplitAmounts(amounts);
+
+    } catch (e) {
+      console.log("Error loading config:", e);
+      addToast("error", e.message || "Failed to load config");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, uid, transactions]);
+
+  const handleSplitChange = (index, newValue) => {
+    const val = parseInt(newValue, 10) || 0;
+    const newSplits = splits.map((split, idx) =>
+      idx === index ? { ...split, value: val } : split,
+    );
+    setSplits(newSplits);
+
+    // Recalculate split amounts from the net distributable base.
+    calculateSplitAmounts(totalRevenue, newSplits);
+  };
+
+  const totalAllocation = splits.reduce((acc, curr) => acc + curr.value, 0);
+
+  return (
+    <div className="space-y-4 p-4 md:p-6">
+      {/* Header Card */}
+      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Info className="text-emerald-600" size={28} />
+              Payment Split Configuration
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 md:text-base">
+              Define how collected revenue is automatically distributed across
+              departments.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date Picker */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <input
+                type="date"
+                value={
+                  selectedDate instanceof Date && !isNaN(selectedDate.getTime())
+                    ? selectedDate.toISOString().split("T")[0]
+                    : new Date().toISOString().split("T")[0]
+                }
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value + "T00:00:00");
+                  if (!isNaN(newDate.getTime())) {
+                    setSelectedDate(newDate);
+                  }
+                }}
+                className="text-sm text-slate-700 outline-none bg-transparent"
+              />
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${totalAllocation === 100
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border border-rose-200 bg-rose-50 text-rose-700"
+                }`}
+            >
+              Total: {totalAllocation}%
+            </span>
+            <button
+              onClick={loadConfig}
+              disabled={loading}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${loading
+                  ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+            >
+              Reload
+            </button>
+            {/* <button
+              onClick={handleSave}
+              disabled={saving || totalAllocation !== 100}
+              className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+                saving
+                  ? "bg-emerald-500 text-white"
+                  : totalAllocation !== 100
+                    ? "cursor-not-allowed bg-slate-300 text-slate-500"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+            >
+              <Save size={17} />
+              {saving ? "Saving..." : "Save Changes"}
+            </button> */}
+          </div>
+        </div>
+      </div>
+
+      {/* Total Revenue Summary */}
+      <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+        <p className="text-xs uppercase tracking-wide text-slate-500">
+          Total Revenue
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-emerald-700">
+          {currencyFormatter.format(totalRevenue)}
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Net distributable revenue after debt deduction
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Gross payments
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-800">
+              {currencyFormatter.format(grossRevenue)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-rose-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-rose-600">
+              Total debt
+            </p>
+            <p className="mt-1 text-lg font-semibold text-rose-700">
+              {currencyFormatter.format(totalDebt)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-emerald-500">
+              Wallet share
+            </p>
+            <p className="mt-1 text-lg font-semibold text-emerald-700">
+              {currencyFormatter.format(splitAmounts.main?.amount || 0)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: Allocation Editor + Chart */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Left: Split Configuration */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <PieChartIcon className="text-emerald-600" size={20} />
+                Revenue Allocation
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              {(loading ? defaultSplits : splits).map((split, idx) => (
+                <div
+                  key={split.key || split.name}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="h-4 w-4 shrink-0 rounded-full"
+                      style={{ backgroundColor: split.color }}
+                    />
+                    <div className="flex-1">
+                      <div className="font-semibold text-slate-800">
+                        {split.name}
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className="h-full transition-all"
+                          style={{
+                            width: `${split.value}%`,
+                            backgroundColor: split.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2">
+                      <input
+                        type="number"
+                        min={split.key === "technology" ? 10 : 0}
+                        max={100}
+                        value={split.value}
+                        onChange={(e) => handleSplitChange(idx, e.target.value)}
+                        className="w-16 text-right text-sm font-bold text-slate-800 outline-none bg-transparent"
+                      />
+                      <span className="text-sm font-medium text-slate-500">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className={`mt-4 rounded-xl border p-4 transition-all ${totalAllocation === 100
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-rose-200 bg-rose-50"
+                }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-800">
+                  Total Allocation
+                </span>
+                <span
+                  className={`text-xl font-extrabold ${totalAllocation === 100
+                      ? "text-emerald-700"
+                      : "text-rose-700"
+                    }`}
+                >
+                  {totalAllocation}%
+                </span>
+              </div>
+            </div>
+
+            {totalAllocation !== 100 && (
+              <p className="mt-2 text-xs font-medium text-rose-600">
+                ⚠ Total must equal 100% to save configuration.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-600">
+              Member Payment Check
+            </h4>
+            <div className="mt-3 max-h-72 space-y-2 overflow-auto pr-1">
+              {paymentChecks.length ? (
+                paymentChecks.map((payment) => (
+                  <div key={payment.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-slate-800 uppercase">{payment.name}</span>
+                      <span className="font-semibold text-slate-900">
+                        {currencyFormatter.format(payment.net)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <span>Amount: {currencyFormatter.format(payment.amount)}</span>
+                      {payment.debt > 0 ? (
+                        <span>Debt: {currencyFormatter.format(payment.debt)}</span>
+                      ) : null}
+                      {payment.reference ? (
+                        <span>Ref: {payment.reference}</span>
+                      ) : null}
+                    </div>
+                    {/* Appended breakdown values per transaction */}
+                    <div className="mt-2 flex gap-3 border-t border-slate-200 pt-2 text-[10px]">
+                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
+                        <span className="text-slate-600 text-sm font-bold">Main</span>
+                        <span className="font-semibold text-emerald-600 text-base">{currencyFormatter.format(payment.mainAmount)}</span>
+                      </div>
+                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
+                        <span className="text-slate-600 text-sm font-bold">Agent</span>
+                        <span className="font-semibold text-blue-600 text-base">{currencyFormatter.format(payment.agentAmount)}</span>
+                      </div>
+                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
+                        <span className="text-slate-600 text-sm font-bold">Tech</span>
+                        <span className="font-semibold text-violet-600 text-base">{currencyFormatter.format(payment.technologyAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">No matching payments found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Visual Breakdown */}
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900">
+            Visual Breakdown
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={loading ? defaultSplits : splits}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={100}
+                  paddingAngle={1}
+                  dataKey="value"
+                >
+                  {(loading ? defaultSplits : splits).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    `${value}% (${currencyFormatter.format(splitAmounts[props.payload.key]?.amount || (totalRevenue * value) / 100)})`,
+                    name || props.payload.name,
+                  ]}
+                />
+                {/* <Legend verticalAlign="bottom" height={30} /> */}
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-600">
+              Distribution Summary
+            </h4>
+            <div className="space-y-2">
+              {(loading ? defaultSplits : splits).map((split) => {
+                const splitKey = split.key || split.name;
+                const splitAmount = splitAmounts[splitKey]?.amount || 0;
+                return (
+                  <div
+                    key={split.name}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-slate-600">{split.name}</span>
+                    <span className="font-semibold text-slate-800">
+                      {currencyFormatter.format(splitAmount)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-slate-300 pt-3 mt-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-slate-700">Total</span>
+                <span className="font-extrabold text-lg text-slate-900">
+                  {currencyFormatter.format(totalRevenue)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

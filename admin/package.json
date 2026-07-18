@@ -1,0 +1,41 @@
+{
+  "name": "amrun",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p $PORT",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.27",
+    "dotenv": "^17.3.1",
+    "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.14.0",
+    "js-cookie": "^3.0.8",
+    "jspdf": "^4.0.0",
+    "lucide-react": "^0.562.0",
+    "next": "^16.2.7",
+    "postcss": "^8.5.13",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-to-print": "^3.3.0",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "postcss-preset-env": "^11.3.2",
+    "tailwindcss": "^4.2.2"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.11.1": true,
+    "sharp@0.34.5": true,
+    "core-js@3.47.0": true
+  }
+}

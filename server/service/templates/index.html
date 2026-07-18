@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demand Notice - Unified Revenue Management System</title>
+    <!-- Include Tailwind CSS via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+    </style>
+  </head>
+  <body
+    class="text-[#1e293b] bg-[#f8fafc] m-0 py-10 px-5 text-[13px] leading-relaxed antialiased"
+  >
+    <div
+      class="max-w-[900px] my-0 mx-auto bg-white p-[50px] rounded-xl shadow-[0_4px_20px_rgba(15,23,42,0.04),0_1px_3px_rgba(15,23,42,0.02)] box-border relative border border-[#e2e8f0]"
+    >
+      <!-- Top Bar Branding -->
+      <div class="flex justify-between items-start mb-7.5">
+        <div class="flex flex-col">
+          <div
+            class="flex items-center text-[24px] font-extrabold text-[#0f172a] tracking-tight"
+          >
+            <span class="text-[#009966] mr-2 flex items-center">
+              <img src="https://res.cloudinary.com/dwq2uwkk2/image/upload/v1784073682/icon_agowv7.png" alt="AMAC Icon" width="32" height="32" />
+            </span>
+            AMAC
+          </div>
+          <div
+            class="text-[11px] text-[#009966] font-bold tracking-widest mt-0.5"
+          >
+            AMAC REVENUE MANAGEMENT SYSTEM
+          </div>
+          <div class="text-[#64748b] text-[11px] mt-1.5 font-normal">
+            Automated Revenue & Compliance Framework
+          </div>
+        </div>
+
+        <div class="text-right text-[12px] text-[#64748b] line-height-[1.5]">
+          <strong class="text-[#0f172a] text-[14px] font-bold">FCT Revenue Administration</strong>
+          <br />
+          Revenue & Tax Solutions Division<br />
+          Abuja Municipal Area Council Secretariat, Abuja<br />
+          Email: info@amac-revenue.ng<br />
+          Website: www.amac-revenue.ng
+        </div>
+      </div>
+
+      <div class="border-t border-[#e2e8f0] my-6.25 mx-0 mb-8.75"></div>
+
+      <!-- Document Context Header -->
+      <div
+        class="mb-7.5 bg-[#f0fff9] py-4 px-6 rounded-lg border-l-4 border-[#009966]"
+      >
+        <div class="text-[#0f172a] text-[18px] font-extrabold tracking-tight">
+          DEMAND NOTICE
+        </div>
+      </div>
+
+      <!-- Split Meta Information Dashboard -->
+      <div class="grid grid-cols-[1.2fr_0.8fr] gap-10 mb-8.75">
+        <div class="bg-transparent">
+          <div
+            class="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+          >
+            Taxpayer / Entity Details
+          </div>
+          <div class="text-[13px] text-[#1e293b]">
+            <strong class="text-[15px] text-[#0f172a] font-bold">{{MEMBER_NAME}}</strong>
+            <br />
+            {{MEMBER_LOCATION}}<br /><br />
+            <strong class="font-bold">Taxpayer TIN:</strong> {{MEMBER_TIN}}
+          </div>
+        </div>
+        <div>
+          <div
+            class="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+          >
+            Notice System Metadata
+          </div>
+          <table class="w-full border-collapse">
+            <tbody>
+              <tr>
+                <td
+                  class="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  Reference No:
+                </td>
+                <td
+                  class="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  AMAC/DN/{{YEAR}}/{{REFERENCE_NO}}
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  Date of Issue:
+                </td>
+                <td
+                  class="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  {{DATE_OF_ISSUE}}
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  Assessment Period:
+                </td>
+                <td
+                  class="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                >
+                  {{ASSESSMENT_PERIOD}}
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b-0"
+                >
+                  Audit Track Code:
+                </td>
+                <td
+                  class="font-semibold text-[#0f172a] text-right py-1 px-0 border-b-0"
+                >
+                  {{AUDIT_TRACK}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Notice Context text block -->
+      <div
+        class="mb-8.75 text-[#1e293b] text-[13px] bg-white border border-[#e2e8f0] p-5 rounded-lg"
+      >
+        <p class="m-0 mb-2.5">
+          <strong class="font-bold">OFFICIAL DEMAND NOTICE</strong>
+        </p>
+        <p class="m-0 mb-2.5">
+          This document serves as a formal Demand Notice issued by the Abuja
+          Municipal Area Council (AMAC) Revenue Administration. It constitutes
+          an official assessment of outstanding tax liabilities, penalties, and
+          accrued interest against your entity as itemized in the liability
+          breakdown below.
+        </p>
+        <p class="m-0 mb-0">
+          This notice is generated under the authority of the Federal Revenue
+          Administration Framework and carries the full weight of legal
+          enforcement provisions.
+        </p>
+      </div>
+
+      <!-- Core Transaction Layout Grid -->
+      <div class="grid grid-cols-[1.3fr_0.7fr] gap-7.5 mb-8.75">
+        <div>
+          <div
+            class="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+          >
+            Liability Breakdown
+          </div>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr>
+                <th
+                  class="bg-[#f1f5f9] text-[#64748b] font-bold text-left py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0]"
+                >
+                  Revenue Component Description
+                </th>
+                <th
+                  class="bg-[#f1f5f9] text-[#64748b] font-bold text-right py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0] w-32.5"
+                >
+                  Amount (&#8358;)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Placeholder row mimicking loop dynamic outputs safely -->
+              {{LIABILITY_ROWS}}
+              <tr class="font-semibold bg-[#f8fafc] text-[#0f172a]">
+                <td class="py-3.5 px-4 border-b border-[#e2e8f0]">
+                  Subtotal (Principal + VAT + Charges)
+                </td>
+                <td
+                  class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                >
+                  {{SUBTOTAL_AMOUNT}}
+                </td>
+              </tr>
+              <tr class="font-medium text-[#1e293b]">
+                <td class="py-3.5 px-4 border-b border-[#e2e8f0]">
+                  Penalty Accrued Over Time
+                </td>
+                <td
+                  class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                >
+                  {{PENALTY_AMOUNT}}
+                </td>
+              </tr>
+              <tr class="font-medium text-[#1e293b]">
+                <td class="py-3.5 px-4 border-b border-[#e2e8f0]">
+                  Interest Accrued
+                </td>
+                <td
+                  class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                >
+                  {{INTEREST_AMOUNT}}
+                </td>
+              </tr>
+              <tr
+                class="bg-[#0f172a] text-white font-bold text-[15px] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] border-0"
+              >
+                <td class="p-4 rounded-l-md">
+                  TOTAL COMPLIANCE AMOUNT PAYABLE
+                </td>
+                <td
+                  class="p-4 rounded-r-md text-right w-32.5 text-[#38bdf8] font-extrabold text-[16px] tracking-wide"
+                >
+                  {{TOTAL_AMOUNT}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="italic text-[11px] text-[#64748b] mt-3">
+            * Interest charges continue to accumulate iteratively daily until
+            the exact financial settlement position registers as zero.
+          </div>
+        </div>
+
+        <!-- Visual Pay Now Sidebar Panel -->
+        <div
+          class="border border-[#e2e8f0] rounded-lg p-6 text-center bg-[#f8fafc] flex flex-col items-center"
+        >
+          <div
+            class="text-[#0f172a] font-extrabold text-[14px] tracking-tight mb-1"
+          >
+            SECURE WEB GATEWAY
+          </div>
+          <div class="text-[11px] text-[#64748b] mb-5">
+            Scan via AMAC Mobile or Banking apps.
+          </div>
+
+          <div
+            class="w-full border border-[#e2e8f0] rounded-md mb-5 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] aspect-square overflow-hidden object-cover"
+          >
+            <img
+              src="{{QR_CODE_URL}}"
+              alt="QR Code"
+              class="w-60 h-60 object-cover"
+            />
+          </div>
+
+          <div
+            class="text-[11px] text-[#64748b] font-600 uppercase tracking-wider mb-1"
+          >
+            System Payment Reference
+          </div>
+          <div
+            class="font-mono font-bold text-[#009966] text-[14px] bg-white py-1.5 px-3 border border-[#e2e8f0] rounded mb-5 tracking-wide"
+          >
+            {{PAYMENT_REFERENCE}}
+          </div>
+
+          <div class="text-[10px] text-[#64748b] leading-normal">
+            This verification signature profile matches this demand note
+            instance specifically. Do not replicate.
+          </div>
+        </div>
+      </div>
+
+      <!-- Other Payment Options -->
+      <div class="grid grid-cols-[1.3fr_0.7fr] gap-7.5 mb-8.75">
+        <div class="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+          <div
+            class="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+          >
+            OTHER PAYMENT OPTIONS
+          </div>
+
+          <!-- settlement account -->
+          <div class="grid grid-cols-[0.7fr_1.3fr] gap-7.5 mb-4 pb-4 border-b border-[#e2e8f0]">
+            <div class="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+              <svg class="text-[#64748b]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21h18"></path>
+                <path d="M3 10h18"></path>
+                <path d="M5 6l7-3 7 3"></path>
+                <path d="M4 10v11"></path>
+                <path d="M20 10v11"></path>
+                <path d="M8 14v3"></path>
+                <path d="M12 14v3"></path>
+                <path d="M16 14v3"></path>
+              </svg>
+              <span><b>Settlement Account</b></span>
+            </div>
+            <div class="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+              <span><b>Account Number: </b>{{SETTLEMENT_ACCOUNT_NUMBER}}</span>
+              <span><b>Bank Name: </b>{{SETTLEMENT_BANK_NAME}}</span>
+              <span><b>Account Name: </b>{{SETTLEMENT_ACCOUNT_NAME}}</span>
+            </div>
+          </div>
+
+          <!-- payment account -->
+          <div class="grid grid-cols-[0.7fr_1.3fr] gap-7.5 mb-4 pb-4 border-b border-[#e2e8f0]">
+            <div class="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+              <svg class="text-[#64748b]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21h18"></path>
+                <path d="M3 10h18"></path>
+                <path d="M5 6l7-3 7 3"></path>
+                <path d="M4 10v11"></path>
+                <path d="M20 10v11"></path>
+                <path d="M8 14v3"></path>
+                <path d="M12 14v3"></path>
+                <path d="M16 14v3"></path>
+              </svg>
+              <span><b>Payment Account</b></span>
+            </div>
+            <div class="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+              <span><b>Account Number: </b>{{PAYMENT_ACCOUNT_NUMBER}}</span>
+              <span><b>Bank Name: </b>{{PAYMENT_BANK_NAME}}</span>
+              <span><b>Account Name: </b>{{PAYMENT_ACCOUNT_NAME}}</span>
+            </div>
+          </div>
+
+          <!-- pay on website -->
+          <div class="grid grid-cols-[0.7fr_1.3fr] gap-7.5">
+            <div class="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+              <svg class="text-[#64748b]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <span><b>Pay on Website</b></span>
+            </div>
+            <div class="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+              <span><b>AMAC/DN/{{YEAR}}/{{REFERENCE_NO}}</b></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+          <div
+            class="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+          >
+            REVENUE ASSISTANCE HELP DESK
+          </div>
+
+          <div
+            class="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+          >
+            <svg
+              class="text-[#64748b] mr-3 shrink-0"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+              />
+            </svg>
+            <span>0700-REVENUE-AMAC</span>
+          </div>
+
+          <div
+            class="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+          >
+            <svg
+              class="text-[#64748b] mr-3 shrink-0"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+              />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            <span>support@amac.ng</span>
+          </div>
+
+          <div
+            class="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+          >
+            <svg
+              class="text-[#64748b] mr-3 shrink-0"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span>Abuja Municipal Area Council Secretariat, Abuja</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sign-off System Block Layout -->
+      <div class="grid grid-cols-2 gap-10 items-end mb-12.5">
+        <div class="text-[13px]">
+          <div class="font-bold text-[#0f172a]">Regards,</div>
+          <div class="h-11.25"></div>
+          <div class="border-b border-[#e2e8f0] mb-6.25 w-50"></div>
+          <div class="font-bold text-[#0f172a]">Adekunle Adeyanju</div>
+          <div class="text-[#64748b] text-[12px]">
+            Director of Audit & Compliance Division<br />Amac Revenue
+            Management System
+          </div>
+        </div>
+
+        <div
+          class="border border-[#fde047] bg-[#fffbeb] rounded-lg p-5 flex items-start"
+        >
+          <div
+            class="bg-[#b45309] text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[11px] mr-3 shrink-0"
+          >
+            !
+          </div>
+          <div class="text-[12px] text-[#b45309] leading-relaxed">
+            <strong
+              class="block mb-1 uppercase text-[11px] tracking-wider font-bold"
+            >System Notice Note:</strong
+            >
+            This is an automated legal financial document statement. If matching
+            payment records have cleared recently, disregard and present
+            verification codes to the portal to update.
+          </div>
+        </div>
+      </div>
+
+      <!-- Seamless Edge-to-Edge Footer Strip -->
+      <div
+        class="bg-[#0f172a] text-white py-4 px-7.5 flex justify-between items-center text-[12px] mt-12.5 -mx-12.5 -mb-12.5 rounded-b-xb"
+      >
+        <div class="flex items-center opacity-80">
+          <svg
+            class="mr-2 text-[#009966]"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Ensuring fiscal optimization through unified digital integrity.
+        </div>
+        <div class="flex items-center">
+          <svg
+            class="mr-2 opacity-60"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path
+              d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            />
+          </svg>
+          <a
+            href="https://www.amac-revenue.ng"
+            target="_blank"
+            class="text-white no-underline font-semibold"
+          >portal.amac-revenue.ng</a
+          >
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

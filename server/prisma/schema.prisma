@@ -1,0 +1,375 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+model Member {
+  id               String           @id @default(cuid())
+  uid              String           @unique
+  fullname         String
+  businessName     String?
+  center           String
+  email            String           @unique
+  phone            String
+  type             BusinessType     @default(BUSINESS)
+  billingFrequency BillingFrequency @default(MONTHLY)
+  password         String
+  category         String
+  location         Json?
+  zone             String
+  status           Boolean          @default(true)
+  avatar           String?
+  secureToken      String?
+  pricing          String[]
+  role             Role             @default(USER)
+  company          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  notifications    Notification[]
+  payments         Payment[]
+  agent            String?
+
+  demandNotices     Demand[]
+
+  @@index([uid, email, center, secureToken, status, type])
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  uid       String   @unique
+  name      String
+  password  String
+  phone     String
+  category  String[] @default([])
+  email     String   @unique
+  avatar    String?
+  status    Boolean  @default(true)
+  center    String
+  zone      String
+  role      String   @default("COMPANY")
+  location  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([uid, email, center, zone, status, category])
+}
+
+model Staff {
+  id         String   @id @default(cuid())
+  uid        String   @unique
+  fullname   String
+  email      String   @unique
+  phone      String
+  gender     String
+  status     Boolean  @default(true)
+  password   String
+  location   Json?
+  avatar     String?
+  center     String
+  role       String   @default("STAFF")
+  permission Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([uid, email, center, status, phone])
+}
+
+model Wallet {
+  id              String   @id @default(cuid())
+  userId          String?
+  role            Role
+  balance         Float    @default(0.00)
+  accountNo       String   
+  accountName     String
+  accountHolderId String?  @default(cuid())
+  currency        String
+  bank            Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  status          Boolean  @default(true)
+  identification  String?
+  verify          Boolean  @default(false)
+
+  demandNotices     Demand[]
+
+  @@index([userId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  title       String
+  description String
+  date        DateTime         @default(now())
+  type        NotificationType
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  member      Member           @relation(fields: [userId], references: [uid], onDelete: Cascade)
+}
+
+model Payment {
+  id           String           @id @default(cuid())
+  reference    String           @unique
+  userId       String
+  frequency    BillingFrequency @default(MONTHLY)
+  sessions     String[]
+  debt         Float            @default(0)
+  due          DateTime         @default(now())
+  amount       Float
+  payment      String
+  pricing      Pricing @relation(fields: [payment], references: [id])
+  status       PaymentStatus    @default(PENDING)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  member       Member           @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  isVerify     Boolean          @default(false)
+  companyId    String?
+  centerId     String?
+  transactions Transaction[]
+  idDemand     Boolean?
+
+  demandNotices Demand[]
+
+  @@index([reference, userId, status, payment, centerId, companyId])
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  reference       String            @unique
+  merchantTxRef   String?
+  event           String
+  status          TransactionStatus @default(PENDING)
+  amount          Float
+  currency        String            @default("NGN")
+  channel         String?
+  gatewayResponse String?
+  customerEmail   String?
+  paymentId       String?
+  userId          String?
+  metadata        Json?
+  rawPayload      Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([reference, merchantTxRef, userId, paymentId, status, event, customerEmail])
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  uid         String   @unique
+  fullname    String
+  email       String   @unique
+  phone       String
+  gender      String
+  status      Boolean  @default(true)
+  password    String
+  location    String
+  avatar      String?
+  center      String
+  batchNo     String?
+  company     String?
+  secureToken String?
+  role        Role     @default(ADMIN)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([uid, email, center, id, secureToken, status])
+}
+ 
+model Admin {
+  id            String   @id @default(cuid())
+  uid           String   @unique
+  center        String
+  email         String   @unique
+  password      String
+  phone         String
+  adminName     String
+  adminEmail    String
+  adminPhone    String
+  adminLocation String
+  avatar        String?
+  role          Role     @default(ADMIN)
+  location      Json?
+  state         String?
+  prefix        String?
+  address       String?
+  lga           String?
+  country       String?
+  status        Boolean  @default(true)
+  paymentConfig Json?
+  ledger        Float    @default(0.00)
+  secureToken   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([uid, email, center, secureToken, state, status])
+}
+
+model Pricing {
+  status      Boolean          @default(true)
+  id          String           @id @default(cuid())
+  title       String
+  price       String
+  category    String
+  subCategory String[]         @default([])
+  type        PricingType      @default(BUSINESS)
+  frequency   BillingFrequency @default(MONTHLY)
+  code        String?
+  center      String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  payments Payment[]
+
+  @@index([id, type])
+}
+
+model PaymentTransaction {
+  id        String           @id @default(cuid())
+  reference String           @unique
+  userId    String
+  pricingId String
+  companyId String?
+  centerId  String
+  amount    Float
+  currency  String           @default("NGN")
+  paymentId String
+  date      DateTime         @default(now())
+  type      PaymentType      @default(COMPLETE)
+  category  String?
+  name      String?
+  billing   BillingFrequency @default(MONTHLY)
+  status    PaymentStatus    @default(PENDING)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([reference, userId, paymentId, centerId, status, date])
+}
+
+model Recruitment {
+  id            String   @id @default(cuid())
+  fullname      String
+  email         String
+  phone         String
+  dob           DateTime
+  gender        String
+  state         String
+  lga           String
+  address       String
+  accountNumber String
+  bank          String
+  accountName   String
+  isCopper      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email, phone, state, lga, accountNumber])
+}
+
+model Payout {
+  id            String   @id @default(cuid())
+  userId        String
+  bankName      String
+  accountNumber String
+  bankCode      String
+  accountName   String
+  status        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, status])
+}
+
+model Demand {
+  id          String       @id @default(cuid())
+  userId      String
+  paymentId   String
+  reference   String?      @default("cuid()")
+  amount      Float
+  center      String
+  walletId    String?
+  wallet      Wallet?      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  status      DemandStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  member      Member       @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  payment     Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  isSent      Boolean      @default(false)
+
+  @@index([userId, paymentId, status])
+}
+
+enum DemandStatus {
+  CREATED
+  PENDING
+  PAID
+}
+
+enum BusinessType {
+  BUSINESS
+  INDIVIDUAL
+}
+
+enum BillingFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum Role {
+  USER
+  ADMIN
+  AGENT
+  COMPANY
+  STAFF
+  MEMBER
+}
+
+enum NotificationType {
+  UPDATE
+  SUCCESS
+  FAILED
+  PENDING
+  REQUEST
+  REMINDER
+  WELCOME
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PricingType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum PaymentType {
+  COMPLETE
+  PART_PAYMENT
+}
