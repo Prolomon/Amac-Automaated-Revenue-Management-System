@@ -172,10 +172,9 @@ export default function Pricing() {
       !formData.code ||
       !formData.category ||
       !formData.price ||
-      !formData.type ||
-      selectedSubCategories.length === 0
+      !formData.type
     ) {
-      addToast("error", "Please fill in all required fields and select at least one sub-category.");
+      addToast("error", "Please fill in all required fields");
       return;
     }
     e.preventDefault();
