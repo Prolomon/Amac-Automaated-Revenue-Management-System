@@ -26,7 +26,6 @@ model Member {
   zone             String
   status           Boolean          @default(true)
   avatar           String?
-  secureToken      String?
   pricing          String[]
   role             Role             @default(USER)
   company          String?
@@ -38,7 +37,7 @@ model Member {
 
   demandNotices     Demand[]
 
-  @@index([uid, email, center, secureToken, status, type])
+  @@index([uid, email, center, status, type])
 }
 
 model Company {
@@ -177,12 +176,11 @@ model Agent {
   center      String
   batchNo     String?
   company     String?
-  secureToken String?
   role        Role     @default(ADMIN)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([uid, email, center, id, secureToken, status])
+  @@index([uid, email, center, id, status])
 }
  
 model Admin {
@@ -207,11 +205,10 @@ model Admin {
   status        Boolean  @default(true)
   paymentConfig Json?
   ledger        Float    @default(0.00)
-  secureToken   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@index([uid, email, center, secureToken, state, status])
+  @@index([uid, email, center, state, status])
 }
 
 model Pricing {

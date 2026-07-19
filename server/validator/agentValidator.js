@@ -69,50 +69,8 @@ const loginAgentSchema = Joi.object({
   }),
 });
 
-const createSecurityTokenSchema = Joi.object({
-  secureToken: Joi.string().pattern(alphaNumPattern).length(6).required().messages({
-    'string.pattern.base': 'Security token must contain only letters and numbers',
-    'string.length': 'Security token must be exactly 6 characters long',
-    'string.empty': 'Security token is required',
-    'any.required': 'Security token is required',
-  }),
-  confirmSecureToken: Joi.string().valid(Joi.ref('secureToken')).required().messages({
-    'any.only': 'Confirm security token must match security token',
-    'any.required': 'Confirm security token is required',
-  }),
-});
-
-const changeSecurityTokenSchema = Joi.object({
-  oldSecureToken: Joi.string().pattern(alphaNumPattern).required().messages({
-    'string.pattern.base': 'Old secure token must contain only letters and numbers',
-    'string.empty': 'Old secure token is required',
-    'any.required': 'Old secure token is required',
-  }),
-  newSecureToken: Joi.string().pattern(alphaNumPattern).length(6).required().messages({
-    'string.pattern.base': 'New secure token must contain only letters and numbers',
-    'string.length': 'New secure token must be exactly 6 characters long',
-    'string.empty': 'New secure token is required',
-    'any.required': 'New secure token is required',
-  }),
-  confirmSecureToken: Joi.string().valid(Joi.ref('newSecureToken')).required().messages({
-    'any.only': 'Confirm secure token must match new secure token',
-    'any.required': 'Confirm secure token is required',
-  }),
-});
-
-const verifySecurityCodeSchema = Joi.object({
-  secureToken: Joi.string().pattern(alphaNumPattern).required().messages({
-    'string.pattern.base': 'Secure token must contain only letters and numbers',
-    'string.empty': 'Secure token is required',
-    'any.required': 'Secure token is required',
-  }), 
-});
-
 export {
   createAgentSchema,
   updateAgentSchema,
   loginAgentSchema,
-  createSecurityTokenSchema,
-  changeSecurityTokenSchema,
-  verifySecurityCodeSchema,
 };

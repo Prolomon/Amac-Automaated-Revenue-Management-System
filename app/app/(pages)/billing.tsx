@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { verifySecurityCode } from "@/lib/services/member";
+import { useWallet } from "@/hooks/use-wallet";
 import { getPayments, makePayment } from "@/lib/services/payment";
 import { getPricingByCenter } from "@/lib/services/pricing";
 import { Payment, Pricing } from "@/lib/types";
@@ -36,6 +36,7 @@ export default function MakePayment() {
   const [pricing, setPricing] = useState<Pricing[]>([]);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const { pin } = useWallet();
 
   const fetchPricing = useCallback(async () => {
     try {
@@ -122,6 +123,18 @@ export default function MakePayment() {
       return;
     }
 
+    if (secureTokenInput !== pin) {
+      setError("Invalid secure token");
+      failed("Invalid secure token");
+      return;
+    }
+
+    if (!selectedPayment) {
+      setError("No payment selected");
+      failed("No payment selected");
+      return;
+    }
+
     try {
 
       const paymentRes = await makePayment(
@@ -130,7 +143,6 @@ export default function MakePayment() {
         selectedPayment?.payment as string,
         currentUser.center as string,
         currentUser.company as string,
-        secureTokenInput.trim(),
         token as string
       );
 

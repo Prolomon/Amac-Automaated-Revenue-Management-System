@@ -1,11 +1,12 @@
 "use client";
-import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE } from "@/lib/api";
+import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_PIN, AUTH_MEMBER_WALLET_STATE } from "@/lib/api";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getWallet, createWallet, initiateTransfer, resolveBankAccount, getBanks } from "@/lib/services/wallet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Wallet } from "@/lib/types";
 import { getTransactions, getTransaction } from "@/lib/services/transaction";
+import { useAuth } from "@/hooks/use-auth";
 
 const walletContext = createContext<any>(null);
 
@@ -18,46 +19,75 @@ export const useWallet = () => {
 };
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
+    const { currentUser, token: authUserToken } = useAuth();
+    const [localUid, setLocalUid] = useState<string | null>(null);
+    const [localToken, setLocalToken] = useState<string | undefined>(undefined);
+
+    const uid = currentUser?.uid || localUid;
+    const token = authUserToken || localToken;
+
     const [wallet, setWallet] = useState<Wallet | null>(null);
-    const [walletState, setWalletState] = useState<boolean>(false);
     const [isWallet, setIsWallet] = useState<boolean>(true);
     const [loading, setLoading] = useState(true);
+    const [pin, setPin] = useState<string>("");
     const [error, setError] = useState<Error | null>(null);
     const [message, setMessage] = useState<string | null>(null);
-    const [uid, setUid] = useState<string | null>(null);
-    const [token, setToken] = useState<string | undefined>(undefined);
     const [hide, setHide] = useState(false);
 
-    const toggleHide = async (toggle: boolean) => {
-        if (toggle) {
-            setWalletState(false);
-        } else {
-            setWalletState(true);
-        }
-    }
+    const setUid = (newUid: string | null) => {
+        setLocalUid(newUid);
+    };
 
-    // Get CustomerCode from session storage on initial load
+    const createPin = async (pin: string) => {
+        try {
+            setPin(pin);
+            await AsyncStorage.setItem(AUTH_MEMBER_PIN, pin);
+        } catch (error) {
+            setError(error instanceof Error ? error : new Error("Unknown error"));
+        }
+    };
+
     useEffect(() => {
         (async () => {
-            const adminData = await AsyncStorage.getItem(AUTH_MEMBER);
-
-            if (adminData) {
-                const parsedAdmin = JSON.parse(adminData);
-                setUid(parsedAdmin.uid ?? null);
-            } else {
-                setUid(null);
+            const code = await AsyncStorage.getItem(AUTH_MEMBER_PIN);
+            if (code) {
+                setPin(code);
             }
+        })();
+    }, []);
 
-            const tok = await AsyncStorage.getItem(AUTH_MEMBER_TOKEN);
+    const toggleHide = async (toggle: boolean) => {
+        setHide(toggle);
+        try {
+            await AsyncStorage.setItem(AUTH_MEMBER_WALLET_STATE, JSON.stringify(toggle));
+        } catch (e) {
+            // ignore
+        }
+    };
 
-            if (walletState) {
-                setHide(walletState);
+    // Load initial data from AsyncStorage
+    useEffect(() => {
+        (async () => {
+            try {
+                const adminData = await AsyncStorage.getItem(AUTH_MEMBER);
+                if (adminData) {
+                    const parsedAdmin = JSON.parse(adminData);
+                    setLocalUid(parsedAdmin.uid ?? null);
+                }
+
+                const tok = await AsyncStorage.getItem(AUTH_MEMBER_TOKEN);
+                if (tok) {
+                    setLocalToken(tok);
+                }
+
+                const savedState = await AsyncStorage.getItem(AUTH_MEMBER_WALLET_STATE);
+                if (savedState !== null) {
+                    setHide(JSON.parse(savedState));
+                }
+            } catch (e) {
+                // ignore
             }
-
-            if (tok) {
-                setToken(tok);
-            }
-        })()
+        })();
     }, []);
 
     // Fetch wallet data when customerCode is available
@@ -93,12 +123,19 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     }, [token, uid]);
 
+    // Handle uid changes and trigger refetch or reset
     useEffect(() => {
-        fetchWallet();
-    }, [fetchWallet]);
+        if (!uid) {
+            setWallet(null);
+            setIsWallet(true); // Default to true when logged out so next login doesn't immediately redirect
+            setLoading(false);
+        } else {
+            fetchWallet();
+        }
+    }, [uid, fetchWallet]);
 
-    const refresh = useCallback(() => {
-        fetchWallet();
+    const refresh = useCallback(async () => {
+        await fetchWallet();
     }, [fetchWallet]);
 
     const value = {
@@ -107,6 +144,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         wallet,
         isWallet,
         loading,
+        pin,
         error,
         message,
         refresh,
@@ -116,7 +154,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         getBanks,
         getTransactions,
         getTransaction,
-        createWallet
+        createWallet,
+        createPin,
     };
 
     return (

@@ -500,7 +500,7 @@ const makePayment = async (req, res) => {
       });
     }
 
-    const { amount, center, company, pin } = value;
+    const { amount, center, company } = value;
     const { userId, paymentId } = req.params;
 
     const member = await prisma.member.findUnique({
@@ -510,24 +510,6 @@ const makePayment = async (req, res) => {
 
     if (!member) {
       return res.status(404).json({ ok: false, message: "Member not found" });
-    }
-
-    if (!member.secureToken) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Security token is not set" });
-    }
-
-    const securityCode = String(pin || value.securityCode || "").trim();
-
-    if (!securityCode) {
-      return res.status(400).json({ ok: false, message: "PIN is required" });
-    }
-
-    const isValid = await argon2.verify(member.secureToken, securityCode);
-
-    if (!isValid) {
-      return res.status(401).json({ ok: false, message: "Invalid security code" });
     }
 
     const [
@@ -641,8 +623,7 @@ const makePayment = async (req, res) => {
       }),
       prisma.wallet.findFirst({
         where: {
-          userId: "URMSAD-8485HB5SQ3",
-          role: "ADMIN",
+          role: "IT",
         },
         select: {
           id: true,

@@ -145,63 +145,6 @@ const loginSchema = Joi.object({
   }),
 });
 
-const createSecurityTokenSchema = Joi.object({
-  securityToken: Joi.string().min(6)
-    .max(8)
-    .required()
-    .messages({
-      "string.min": "Security token must be at least 8 characters long",
-      "string.max": "Security token must be at most 100 characters long",
-      "string.empty": "Security token is required",
-      "any.required": "Security token is required",
-    }),
-  confirmSecurityToken: Joi.string()
-    .valid(Joi.ref("securityToken"))
-    .required()
-    .messages({
-      "any.only": "Confirm security token must match security token",
-      "any.required": "Confirm security token is required",
-    }),
-});
-
-const changeSecurityTokenSchema = Joi.object({
-  oldSecurityToken: Joi.string().pattern(alphaNumPattern).required().messages({
-    "string.pattern.base":
-      "Old security token must contain only letters and numbers",
-    "string.empty": "Old security token is required",
-    "any.required": "Old security token is required",
-  }),
-  newSecurityToken: Joi.string()
-    .pattern(alphaNumPattern)
-    .min(8)
-    .max(100)
-    .required()
-    .messages({
-      "string.pattern.base":
-        "New security token must contain only letters and numbers",
-      "string.min": "New security token must be at least 8 characters long",
-      "string.max": "New security token must be at most 100 characters long",
-      "string.empty": "New security token is required",
-      "any.required": "New security token is required",
-    }),
-  confirmSecurityToken: Joi.string()
-    .valid(Joi.ref("newSecurityToken"))
-    .required()
-    .messages({
-      "any.only": "Confirm security token must match new security token",
-      "any.required": "Confirm security token is required",
-    }),
-});
-
-const verifySecurityCodeSchema = Joi.object({
-  securityCode: Joi.string().required().messages({
-    "string.pattern.base":
-      "Security code must contain only letters and numbers",
-    "string.empty": "Security code is required",
-    "any.required": "Security code is required",
-  }),
-});
-
 const billingFrequencySchema = Joi.object({
   frequency: Joi.string()
     .uppercase()
@@ -257,9 +200,6 @@ export {
   createMemberSchema,
   updateMemberSchema,
   loginSchema,
-  createSecurityTokenSchema,
-  changeSecurityTokenSchema,
-  verifySecurityCodeSchema,
   billingFrequencySchema,
   pricingActionSchema,
   changeMemberAgentSchema,

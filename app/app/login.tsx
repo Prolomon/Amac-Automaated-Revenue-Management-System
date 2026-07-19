@@ -3,7 +3,8 @@ import { useToast } from "@/hooks/use-toast";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Image,
   KeyboardAvoidingView,
@@ -22,9 +23,27 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, currentUser, loading: authLoading } = useAuth();
   const { success, failed } = useToast();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkRedirect = async () => {
+      if (!authLoading && currentUser) {
+        try {
+          const pin = await AsyncStorage.getItem("amac_member_pin");
+          if (pin) {
+            router.replace("/lock");
+          } else {
+            router.replace("/(pages)");
+          }
+        } catch {
+          router.replace("/lock");
+        }
+      }
+    };
+    checkRedirect();
+  }, [currentUser, authLoading, router]);
 
   const handleSubmit = async () => {
     setLoading(true);

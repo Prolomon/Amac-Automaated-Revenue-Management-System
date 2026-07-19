@@ -18,8 +18,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CompleteProfileScreen() {
     const router = useRouter();
-    const { createCode, token, currentUser } = useAuth();
-    const { wallet, createWallet, refresh, setUid } = useWallet();
+    const { token, currentUser, createCode } = useAuth();
+    const { wallet, createWallet, refresh, setUid, createPin } = useWallet();
     const { success, failed } = useToast();
 
     const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -83,6 +83,7 @@ export default function CompleteProfileScreen() {
             }
 
             success(res?.message || "Wallet created successfully");
+            await refresh();
             setStep(3);
         } catch (error: any) {
             failed(error?.message || "Wallet Creation failed");
@@ -112,11 +113,13 @@ export default function CompleteProfileScreen() {
             setLoading(true);
             const res = await createCode(securityCode, confirmSecurityCode);
             if (!res.ok) {
-                failed(res.message || "Failed to set security code");
+                failed(res.message || "Security code creation failed");
                 return;
             }
 
-            success(res.message || "Security code set successfully");
+            await createPin(securityCode);
+            await refresh();
+            
             router.replace("/(pages)" as RelativePathString);
         }
         catch (e: any) {

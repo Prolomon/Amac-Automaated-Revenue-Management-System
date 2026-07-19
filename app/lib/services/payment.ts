@@ -77,7 +77,7 @@ export async function schedulePayment(userId: string, frequency: string, amount:
     return data;
 }
 
-export async function makePayment (userId: string, amount: number, paymentId: string, center: string, company: string, pin: string, token: string): Promise<{
+export async function makePayment (userId: string, amount: number, paymentId: string, center: string, company: string, token: string): Promise<{
     ok: boolean;
     payment?: any;
     message?: string;
@@ -88,7 +88,7 @@ export async function makePayment (userId: string, amount: number, paymentId: st
     const response = await fetch(`${API_URL}/payment/make/${userId}/${paymentId}`, {
         method: "POST",
         headers: buildHeaders(true, token),
-        body: JSON.stringify({ amount, center, company, pin }),
+        body: JSON.stringify({ amount, center, company }),
     });
     const data = await response.json();
     if (!response.ok) {

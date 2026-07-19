@@ -8,11 +8,7 @@ import {
   updateMember, 
   deleteMember,
   login,
-  forgotPassword, 
-  createSecurityToken,
-  forgotSecurityToken,
-  changeSecurityToken,
-  verifySecurityCode,
+  forgotPassword,
   updateBillingFrequency,
   updateBalance,
   updateDueBalance,
@@ -28,10 +24,6 @@ import { loginLimiter } from '../middleware/rateLimiter.js';
 
 router.post('/login', loginLimiter, login);
 router.post('/forgot-password/:id', authMiddleware, roleMiddleware(['user', 'admin']), forgotPassword);
-router.post('/security-token/:id', authMiddleware, roleMiddleware(['user', 'admin']), createSecurityToken);
-router.post('/forgot-security-token/:id', authMiddleware, roleMiddleware(['user', 'admin']), forgotSecurityToken);
-router.post('/change-security-token/:id', authMiddleware, roleMiddleware(['user', 'admin']), changeSecurityToken);
-router.post('/verify-security-code/:id', authMiddleware, roleMiddleware(['user', 'admin']), verifySecurityCode);
 router.post('/', createMember);
 router.get('/:id/center', authMiddleware, roleMiddleware(['user', "admin"]), getMembers);
 router.get('/agent/:agentId', authMiddleware, roleMiddleware(['admin']), getMembersByAgentId);

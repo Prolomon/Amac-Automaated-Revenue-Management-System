@@ -25,14 +25,11 @@ const createAdminSchema = Joi.object({
   lga: Joi.string().max(100).optional(),
   country: Joi.string().max(100).optional(),
   prefix: Joi.string().max(5).required(),
-  secureToken: Joi.string().max(200).optional(),
   phone: Joi.string().max(20).optional(),
   adminName: Joi.string().max(100).optional(),
   adminEmail: Joi.string().email().optional(),
   adminPhone: Joi.string().max(20).optional(),
   adminLocation: Joi.string().max(200).optional(),
-  paystackCustomerId: Joi.string().max(200).optional(),
-  paystackCustomerCode: Joi.string().max(200).optional(),
 });
 
 const updateAdminSchema = Joi.object({
@@ -55,15 +52,12 @@ const updateAdminSchema = Joi.object({
   address: Joi.string().max(200).optional(),
   lga: Joi.string().max(100).optional(),
   country: Joi.string().max(100).optional(),
-  secureToken: Joi.string().max(200).optional(),
   status: Joi.boolean().optional(),
   phone: Joi.string().max(20).optional(),
   adminName: Joi.string().max(100).optional(),
   adminEmail: Joi.string().email().optional(),
   adminPhone: Joi.string().max(20).optional(),
   adminLocation: Joi.string().max(200).optional(),
-  paystackCustomerId: Joi.string().max(200).optional(),
-  paystackCustomerCode: Joi.string().max(200).optional(),
 });
 
 const loginAdminSchema = Joi.object({
@@ -110,45 +104,6 @@ const changePasswordSchema = Joi.object({
   }),
 });
 
-const createSecurityTokenSchema = Joi.object({
-  securityToken: Joi.string().pattern(alphaNumPattern).length(6).required().messages({
-    'string.pattern.base': 'Security token must contain only letters and numbers',
-    'string.length': 'Security token must be 6 characters long',
-    'string.empty': 'Security token is required',
-    'any.required': 'Security token is required',
-  }),
-  confirmSecurityToken: Joi.string().valid(Joi.ref('securityToken')).required().messages({
-    'any.only': 'Confirm security token must match security token',
-    'any.required': 'Confirm security token is required',
-  }),
-});
-
-const changeSecurityTokenSchema = Joi.object({
-  oldSecurityToken: Joi.string().pattern(alphaNumPattern).required().messages({
-    'string.pattern.base': 'Old security token must contain only letters and numbers',
-    'string.empty': 'Old security token is required',
-    'any.required': 'Old security token is required',
-  }),
-  newSecurityToken: Joi.string().pattern(alphaNumPattern).length(6).required().messages({
-    'string.pattern.base': 'New security token must contain only letters and numbers',
-    'string.length': 'New security token must be 6 characters long',
-    'string.empty': 'New security token is required',
-    'any.required': 'New security token is required',
-  }),
-  confirmSecurityToken: Joi.string().valid(Joi.ref('newSecurityToken')).required().messages({
-    'any.only': 'Confirm security token must match new security token',
-    'any.required': 'Confirm security token is required',
-  }),
-});
-
-const verifySecurityCodeSchema = Joi.object({
-  securityCode: Joi.string().pattern(alphaNumPattern).required().messages({
-    'string.pattern.base': 'Security code must contain only letters and numbers',
-    'string.empty': 'Security code is required',
-    'any.required': 'Security code is required',
-  }),
-});
-
 const updateAdminStatusSchema = Joi.object({
   status: Joi.boolean().required().messages({
     'any.required': 'Status is required',
@@ -160,9 +115,6 @@ export {
   createAdminSchema,
   updateAdminSchema,
   loginAdminSchema,
-  createSecurityTokenSchema,
-  changeSecurityTokenSchema,
-  verifySecurityCodeSchema,
   forgotPasswordSchema,
   changePasswordSchema,
   updateAdminStatusSchema,

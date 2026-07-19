@@ -9,10 +9,6 @@ import {
   loginAdmin,
   forgotPassword,
   changePassword,
-  createSecurityToken,
-  forgotSecurityToken,
-  changeSecurityToken,
-  verifySecurityCode,
   updatePaymentConfig,
   updateAdminStatus,
 } from '../controller/adminController.js';
@@ -25,10 +21,6 @@ router.post('/',  createAdmin);
 router.post('/login', loginAdmin);
 router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin']), forgotPassword);
 router.put('/:uid/change-password', authMiddleware, roleMiddleware(['admin']), changePassword);
-router.post('/:uid/security-token', authMiddleware, roleMiddleware(['admin']), createSecurityToken);
-router.post('/:uid/forgot-security-token', authMiddleware, roleMiddleware(['admin']), forgotSecurityToken);
-router.put('/:uid/change-security-token', authMiddleware, roleMiddleware(['admin']), changeSecurityToken);
-router.post('/:uid/verify-security-code', authMiddleware, roleMiddleware(['admin']), verifySecurityCode);
 router.get('/', authMiddleware, roleMiddleware(['admin']), getAllAdmins);
 router.get('/id/:id', authMiddleware, roleMiddleware(['admin']), getAdminById);
 router.get('/:uid', authMiddleware, roleMiddleware(['admin']), getAdmin);
