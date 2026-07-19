@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "amac",
-    "slug": "aurms",
+    "slug": "amac",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aurms.app"
+      "bundleIdentifier": "com.amac.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.aurms.app"
+      "package": "com.amac.app"
     },
     "web": {
       "output": "static",
@@ -53,8 +53,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "9296469e-1197-45d6-a94e-d31853e9f22b"
-      }
+        "projectId": "99b5352e-e606-47eb-8fc4-1d49d58d3b3b"
+      },
+      "router": {}
     },
     "owner": "prolomon"
   }
