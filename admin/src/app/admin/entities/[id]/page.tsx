@@ -338,7 +338,7 @@ export default function EntityDetailsPage({ params }) {
 
   const handleCompanyChange = async (companyId: string) => {
     if (!companyId) {
-      addToast("error", "Please select a company");
+      addToast("error", "Please select a partner");
       return;
     }
 
@@ -346,14 +346,14 @@ export default function EntityDetailsPage({ params }) {
       const res = await changeCompany(id || customerCode, companyId);
 
       if (!res.ok) {
-        addToast("error", res.message || "Failed to update company");
+        addToast("error", res.message || "Failed to update partner");
         return;
       }
 
-      addToast("success", "Company updated");
+      addToast("success", "Partner updated successfully");
       fetchData();
     } catch (error: any) {
-      addToast("error", error?.message || "Failed to update company");
+      addToast("error", error?.message || "Failed to update partner");
     }
   };
 
@@ -553,11 +553,8 @@ export default function EntityDetailsPage({ params }) {
     }
 
     if (pricing) {
-      const filteredPricing = pricing.filter((p) => {
-        const cat = (p.category || "").toUpperCase();
-        const type = (p.type || "").toUpperCase();
-        return cat === memberCategory && type === memberType && !memberPrices.includes(p.id || "");
-      });
+      const filteredPricing = pricing.filter((p) => p.category?.toUpperCase() === memberCategory?.toUpperCase() && p?.type?.toUpperCase() == memberType?.toUpperCase());
+  
       setAvailablePricing(filteredPricing);
     } else {
       setAvailablePricing([]);
@@ -1096,33 +1093,28 @@ export default function EntityDetailsPage({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPricingIds(memberPrices);
-                setIsPricingModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-            >
-              Upgrade
-            </button>
-            {selectedPricing && (
-              <button
-                type="button"
-                onClick={async () => {
-                  if (selectedPricing.id) {
-                    setSelectedPricingIds((current) =>
-                      current.filter((id) => id !== selectedPricing.id),
-                    );
-                    handlePricingSubmit("downgrade");
-                  }
-                  setSelectedPricing(null);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
-              >
-                Downgrade
-              </button>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPricingIds([]);
+                      setIsPricingModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                  >
+                    Upgrade
+                  </button>
+                  {selectedPricing && selectedPricing.id && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handlePricingSubmit("downgrade");
+                        setSelectedPricing(null);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                    >
+                      Downgrade
+                    </button>
+                  )}
           </div>
         </div>
 
@@ -1568,18 +1560,31 @@ export default function EntityDetailsPage({ params }) {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 md:p-6">
-              <p className="text-sm text-slate-600">
-                {Number(selectedPricingIds.length - 1)} plan(s) selected
-              </p>
-              <button
-                type="button"
-                onClick={() => handlePricingSubmit("upgrade")}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-              >
-                Submit Selected
-              </button>
-            </div>
+              <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 md:p-6">
+                <p className="text-sm text-slate-600">
+                  {selectedPricingIds.length} plan(s) selected
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPricingIds([]);
+                      setIsPricingModalOpen(false);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePricingSubmit("upgrade")}
+                    disabled={selectedPricingIds.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Submit Selected
+                  </button>
+                </div>
+              </div>
           </div>
         </div>
       )}

@@ -159,13 +159,62 @@ export const createAccount = async (name, bvn, id) => {
     }
 };
 
-export const initiateTransfer = async (amount, accountNumber, accountName, bankCode, merchantTxRef, senderName, narration = 'User wallet payout') => {
+export const deleteAccount = async (id) => {
     if (!process.env.NOMBA_PRIVATE_SECRET || !process.env.NOMBA_ACCOUNT_ID || !process.env.NOMBA_API_BASE_URL) {
         return {
             status: false,
             message: 'NOMBA_PRIVATE_SECRET is not configured',
             data: null,
         };
+    }
+
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/virtual/${id}`; // customer creation endpoint
+
+    try {
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers,
+        });
+
+        const data = await response.json();
+
+        console.log('Nomba deleteAccount response', { data });
+
+        if (!response.ok || !data?.status) {
+            console.log('Nomba createAccount error', { data });
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        console.log('Nomba createAccount exception', { error });
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
+};
+
+export const initiateTransfer = async (amount, accountNumber, accountName, bankCode, merchantTxRef, senderName, narration = 'User wallet payout') => {
+    if (!process.env.NOMBA_PRIVATE_SECRET || !process.env.NOMBA_ACCOUNT_ID || !process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_PRIVATE_SECRET is not configured',
+            data: null,
+        };  
     }
 
     const url = `${process.env.NOMBA_API_BASE_URL}/v2/transfers/bank`;
@@ -287,8 +336,6 @@ export const resolveBankAccount = async (accountNumber, bankCode) => {
         });
 
         const data = await response.json();
-
-        console.log('Nomba resolveBankAccount response', { data });
 
         if (!response.ok || !data?.status) {
             return {

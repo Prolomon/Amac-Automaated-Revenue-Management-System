@@ -39,13 +39,13 @@ export const AuthProvider = ({ children }) => {
         if (res.ok) {
           setAdmin(res.admin);
           setIsAuthenticated(true);
-          sessionStorage.setItem("amac_session", JSON.stringify(res.admin));
+          Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
           setUid(res.admin.uid);
           setToken(res.token);
           setRole(res.admin.role);
 
-          Cookies.set("amac_token", res.token, { path: "/", expires: 3 }); // 3 days
-          Cookies.set("amac_role", res.admin.role, { path: "/", expires: 3 }); // 3 days
+          Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
+          Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
         } else {
           throw new Error(res.message || "Failed to refresh user data");
         }
@@ -55,12 +55,12 @@ export const AuthProvider = ({ children }) => {
         if (res.ok) {
           setStaff(res.staff);
           setIsAuthenticated(true);
-          sessionStorage.setItem("amac_session", JSON.stringify(res.staff));
+          Cookies.set("amac_session", JSON.stringify(res.staff), { path: "/", expires: 1 });
           setUid(res.staff.uid);
           setToken(res.token);
           setRole(res.role || res.staff.role);
-          Cookies.set("amac_token", res.token, { path: "/", expires: 3 }); // 3 days
-          Cookies.set("amac_role", res.role || res.staff.role, { path: "/", expires: 3 }); // 3 days
+          Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
+          Cookies.set("amac_role", res.role || res.staff.role, { path: "/", expires: 1 }); // 3 days
         } else {
           throw new Error(res.message || "Failed to refresh user data");
         }
@@ -87,12 +87,12 @@ export const AuthProvider = ({ children }) => {
 
       setAdmin(res.admin);
       setIsAuthenticated(true);
-      sessionStorage.setItem("amac_session", JSON.stringify(res.admin));
+      Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
       setUid(res.admin.uid);
       setToken(res.token);
       setRole(res.role || res.admin.role);
-      Cookies.set("amac_token", res.token, { path: "/", expires: 3 }); // 3 days
-      Cookies.set("amac_role", res.admin.role, { path: "/", expires: 3 }); // 3 days
+      Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
+      Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
 
       router.replace("/admin");
     } catch (err) {
@@ -107,8 +107,7 @@ export const AuthProvider = ({ children }) => {
   const logout = (route: string) => {
     Cookies.remove("amac_token");
     Cookies.remove("amac_role");
-    localStorage.removeItem("loggedIn");
-    sessionStorage.removeItem("urms_session");
+    Cookies.remove("amac_session");
     setAdmin(null);
     setStaff(null);
     setIsAuthenticated(false);
@@ -121,8 +120,9 @@ export const AuthProvider = ({ children }) => {
   // Get admin data function
   useEffect(() => {
     try {
-      const adminData = sessionStorage.getItem("urms_session");
+      const adminData = Cookies.get("amac_session");
       const cookieData = Cookies.get("amac_token");
+      const adminRole = Cookies.get("amac_role");
 
       if (adminData) {
         const parsedAdmin = JSON.parse(adminData);
@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
         setToken(cookieData ? cookieData.split("=")[1] : null);
         setAdmin(parsedAdmin);
         setUid(parsedAdmin?.uid || null);
-        setRole(parsedAdmin?.role || null);
+        setRole(adminRole || parsedAdmin?.role || null);
       } else {
         setIsAuthenticated(false);
         setToken(null);

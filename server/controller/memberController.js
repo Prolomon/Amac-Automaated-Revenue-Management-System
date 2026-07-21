@@ -13,7 +13,7 @@ import {
 import { createPaymentRecord, generatePaymentReference } from "./paymentController.js";
 import { customAlphabet } from "nanoid";
 import { sendEmail } from "../service/mail.js";
-import { createCustomer, createAccount } from "../service/paystack.js";
+import { deleteAccount } from "../service/wallet.js";
 import {
   loginAlert,
   accountCreation,
@@ -217,7 +217,7 @@ const createMember = async (req, res) => {
           continue;
         }
 
-        const uniqueId = await generateUniquePaymentId(client);
+        const uniqueId = await generateUniquePaymentId(tx);
 
         const createdPayment = await createPaymentRecord(
           {
@@ -444,6 +444,18 @@ const deleteMember = async (req, res) => {
     await prisma.notification.deleteMany({
       where: { userId: memberToDelete.id },
     });
+
+    const isWallet = await prisma.wallet.findFirst({
+      where: { userId: req.params.id }
+    })
+
+    if (isWallet) {
+      await deleteAccount(isWallet?.accountHolderId);
+    }
+
+    await prisma.wallet.delete({
+      where: {userId: req.params.id }
+    })
 
     // Then delete the member
     const member = await prisma.member.delete({

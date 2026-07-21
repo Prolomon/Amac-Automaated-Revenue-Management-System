@@ -8,6 +8,7 @@ import { getBanks } from "@/lib/services/wallet";
 import { useWallet } from "@/context/WalletContext";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import { useToast } from "@/context/ToastContext";
+import bankData from "@/lib/jsons/banklist.json";
 
 export default function AddPartnerPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function AddPartnerPage() {
     bankCode: "",
     accountName: "",
   })
+  const [priceLoading, setPriceLoading] = useState(false);
   const { resolveBankAccount } = useWallet();
   const centerId = role === "ADMIN" ? user?.uid : user?.center;
 
@@ -34,11 +36,20 @@ export default function AddPartnerPage() {
   const fetchPricingOptions = useCallback(async () => {
     if (!centerId) return;
 
-    const res = await getPricingByCenter(centerId);
-    if (res.ok && res.data) {
-      setPricingOptions(res.data);
-    } else {
-      addToast("error", res.message || "Failed to fetch pricing options");
+    setPriceLoading(true);
+
+    try {
+      const res = await getPricingByCenter(centerId);
+      console.log("Pricing Options Response:", res); // Debugging line
+      if (res.ok && res.data) {
+        setPricingOptions(res.data);
+      } else {
+        addToast("error", res.message || "Failed to fetch pricing options");
+      }
+    } catch (error) {
+      addToast("error", "Failed to fetch pricing options");
+    } finally {
+      setPriceLoading(false)
     }
   }, [centerId, addToast]);
 
@@ -50,8 +61,11 @@ export default function AddPartnerPage() {
     try {
       const data = await getBanks();
 
-      if (data.ok && data.banks) {
+      if (data.ok && data.banks.status) {
         setBankList(data.banks?.data);
+      } else {
+        bankData.map((bank) => ({ code: bank?.code || bank?.longcode, logo: null, name: bank?.name, nipCode: bank?.longcode }))
+        setBankList(bankData as unknown as { code: string, logo: string, name: string, nipCode: null }[]);
       }
 
     } catch (e) {
@@ -304,7 +318,7 @@ export default function AddPartnerPage() {
                 className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="">Select bank</option>
-                {bankList.map((bank) => (
+                {bankList && bankList.map((bank) => (
                   <option key={bank.code} value={bank.code}>
                     {bank.name}
                   </option>
@@ -356,7 +370,15 @@ export default function AddPartnerPage() {
           </div>
 
           {/* Pricing Plans */}
-          {pricingOptions.length > 0 && (
+          {priceLoading ? (
+            <div className="col-span-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              </div>
+            </div>
+          ) : pricingOptions.length > 0 ? (
             <div className="space-y-4 pb-6">
               <h2 className="text-lg font-semibold text-slate-900">
                 Pricing Plans
@@ -434,6 +456,10 @@ export default function AddPartnerPage() {
                   );
                 })}
               </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-500">No pricing plans available for this center.</p>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     ArrowLeft,
     Building2,
@@ -66,6 +66,8 @@ export default function AddEntityPage() {
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [companyLoading, setCompanyLoading] = useState(false);
+    const [priceLoading, setPriceLoading] = useState(false);
     const { addToast } = useToast();
 
     const categoryOptions = [
@@ -174,45 +176,60 @@ export default function AddEntityPage() {
     const zoneOptions = ["A", "B", "C", "D", "E"];
 
     // Load companies and pricing options
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            try {
-                const [companiesRes, pricingRes] = await Promise.all([
-                    getCompanies(centerId, metaData.page, metaData.limit),
-                    getPricingByCenter(centerId),
-                ]);
+    const fetchPricing = useCallback(async () => {
+        setPriceLoading(true);
+        try {
+            const pricingRes = await getPricingByCenter(centerId)
 
-                const companyList = Array.isArray(companiesRes?.data) ? companiesRes.data : [];
-                const pricingList = Array.isArray(pricingRes?.data) ? pricingRes.data : [];
+            const pricingList = Array.isArray(pricingRes?.data) ? pricingRes.data : [];
 
-                // Get pricing options that match the selected category
-                const normalizedCategory = (formData.category.toUpperCase() || "");
-                const matchingPricing = pricingList.filter((p) => {
-                    const cats = Array.isArray(p.category) ? p.category : [p.category || ""];
-                    return cats.some((cat) => String(cat || "").toUpperCase() === normalizedCategory);
-                });
-
-                // Filter companies whose category matches any of the pricing-derived categories
-                setCompanies(
-                    companyList.filter((c) => {
-                        const cats = Array.isArray(c.category) ? c.category : [c.category || ""];
-                        return cats.some((cat) => matchingPricing.map((p) => p.id).includes(String(cat || "")));
-                    })
-                );
-                setSelectedCompany(null);
-                setPricingOptions(pricingList);
-            } catch (e) {
-                addToast("error", e.message || e.error || "Failed to load companies or pricing options");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (centerId) {
-            loadData();
+            setPricingOptions(pricingList);
+        } catch (e) {
+            addToast("error", e.message || e.error || "Failed to pricing options");
+        } finally {
+            setPriceLoading(false);
         }
-    }, [addToast, centerId, formData.category, metaData.limit, metaData.page]);
+    }, [addToast, centerId]);
+
+    useEffect(() => {
+        fetchPricing()
+    }, [fetchPricing])
+
+    const fetchCompany = useCallback(async () => {
+        setCompanyLoading(true)
+
+        try {
+            const companiesRes = await getCompanies(centerId, metaData.page, metaData.limit)
+
+            const companyList = Array.isArray(companiesRes?.data) ? companiesRes.data : [];
+
+            // Get pricing options that match the selected category
+            const normalizedCategory = (formData.category.toUpperCase() || "");
+
+            const matchingPricing = pricingOptions.filter((p) => {
+                const cats = Array.isArray(p.category) ? p.category : [p.category || ""];
+                return cats.some((cat) => String(cat || "").toUpperCase() === normalizedCategory);
+            });
+
+            // Filter companies whose category matches any of the pricing-derived categories
+            setCompanies(
+                companyList.filter((c) => {
+                    const cats = Array.isArray(c.category) ? c.category : [c.category || ""];
+                    return cats.some((cat) => matchingPricing.map((p) => p.id).includes(String(cat || "")));
+                })
+            );
+            setSelectedCompany(null);
+        } catch (e) {
+            addToast("error", e.message || "Failed to get partners information")
+        } finally {
+            setCompanyLoading(false)
+        }
+
+    }, [addToast, centerId, formData.category, metaData.limit, metaData.page, pricingOptions])
+
+    useEffect(() => {
+        fetchCompany()
+    }, [fetchCompany])
 
     const handleInputChange = (
         field: keyof Omit<Member, "location">,
@@ -391,7 +408,7 @@ export default function AddEntityPage() {
 
     const getFilteredPricing = () => {
         const normalizedCategory = (formData.category || "").toLowerCase();
-        const filteredPricing = pricingOptions.filter((p) => {
+        const filteredPricing = pricingOptions.filter(p => p?.type?.toUpperCase() === formData.type?.toUpperCase()).filter((p) => {
             const cats = Array.isArray(p.category) ? p.category : [p.category || ""];
             return cats.some((cat) => String(cat || "").toLowerCase() === normalizedCategory);
         });
@@ -477,6 +494,7 @@ export default function AddEntityPage() {
                                     }
                                     className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                                 >
+                                    <option hidden>Select a category</option>
                                     {categoryOptions.map((category) => (
                                         <option key={category.value} value={category.value}>
                                             {category.label}
@@ -572,23 +590,31 @@ export default function AddEntityPage() {
 
                     <hr className="border-b border-slate-200" />
 
-                    {/* Section 3: Company Selection */}
+                    {/* Section 3: Partner Selection */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-900">
-                                    Company Selection
+                                    Partner Selection
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-600">
-                                    Select the company this member belongs to.
+                                    Select the partner this member belongs to.
                                 </p>
                             </div>
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                {selectedCompany?.uid ? `Selected: ${selectedCompany.name}` : "Select one company"}
+                                {selectedCompany?.uid ? `Selected: ${selectedCompany.name}` : "Select one partner"}
                             </span>
                         </div>
 
-                        {companies.length > 0 ? (
+                        {companyLoading ? (
+                            <div className="col-span-full py-16 text-center">
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="mb-4 animate-spin">
+                                        <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : companies.length > 0 ? (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                                 {companies.map((company) => {
                                     const isSelected = selectedCompany?.uid === company.uid;
@@ -636,7 +662,7 @@ export default function AddEntityPage() {
                             </div>
                         ) : (
                             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-                                No companies found for this center.
+                                No partner found for this center.
                             </div>
                         )}
                     </div>
@@ -645,12 +671,21 @@ export default function AddEntityPage() {
 
                     {/* Section 4: Location */}
                     <div className="space-y-4">
-                        <h2 className="text-lg font-semibold text-slate-900">Location</h2>
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">
+                                    Location
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-600">
+                                    Select a location for this member.
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                Select location
+                            </span>
+                        </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                Search Location
-                            </label>
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 mb-1">State</label>
@@ -693,9 +728,7 @@ export default function AddEntityPage() {
                                 </div>
                                 {/* Zones */}
                                 <div className="md:col-span-2">
-                                    <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                        Zone
-                                    </label>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Zone</label>
                                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                                         {zoneOptions.map((zone) => {
                                             const isSelected = formData.zone === zone;
@@ -723,7 +756,7 @@ export default function AddEntityPage() {
                                 <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-emerald-300 bg-white p-2">
                                     {locationSuggestions.map((suggestion) => (
                                         <button
-                                            key={suggestion.id}
+                                            key={suggestion.id || suggestion.name + suggestion.display_name}
                                             type="button"
                                             onClick={() => handleLocationSelect(suggestion)}
                                             className="w-full text-left cursor-pointer rounded-lg px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-emerald-500 hover:text-white"
@@ -764,86 +797,111 @@ export default function AddEntityPage() {
                         </div>
                     </div>
 
-                    {/* Section 5: Pricing Plans */}
-                    {getFilteredPricing().length > 0 && (
-                        <div className="space-y-4 pb-6">
-                            <h2 className="text-lg font-semibold text-slate-900">
-                                Pricing Plans
-                            </h2>
+                    <hr className="border-b border-slate-200" />
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {getFilteredPricing().map((pricing) => {
-                                    const isSelected = (formData.pricing || []).includes(pricing.id as string);
-                                    return (
-                                        <label
-                                            key={pricing.id}
-                                            className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ${isSelected
-                                                ? "border-emerald-400 bg-emerald-50"
-                                                : "border-slate-300 hover:border-emerald-400 hover:bg-emerald-50"
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() =>
-                                                    handlePricingToggle(pricing.id as string)
-                                                }
-                                                className="hidden"
-                                            />
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <Zap size={16} className={isSelected ? "text-emerald-700" : "text-amber-500"} />
-                                                    <p className={`font-semibold ${isSelected ? "text-emerald-700" : "text-slate-900"}`}>
-                                                        {pricing.title}
-                                                    </p>
-                                                </div>
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${isSelected
-                                                        ? "bg-emerald-100 text-emerald-700"
-                                                        : "bg-slate-100 text-slate-600"
-                                                        }`}>
-                                                        {pricing.category || "No category"}
-                                                    </span>
-                                                    {pricing.subCategory && (
+                    {/* Section 5: Pricing Plans */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">
+                                    Pricing Plan Selection
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-600">
+                                    Select a pricing plan for this member.
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                Select one pricing plan
+                            </span>
+                        </div>
+                        {priceLoading ? (
+                            <div className="col-span-full py-16 text-center">
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="mb-4 animate-spin">
+                                        <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : getFilteredPricing().length > 0 ? (
+                            <div className="space-y-4 pb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {getFilteredPricing().map((pricing) => {
+                                        const isSelected = (formData.pricing || []).includes(pricing.id as string);
+                                        return (
+                                            <label
+                                                key={pricing.id}
+                                                className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ${isSelected
+                                                    ? "border-emerald-400 bg-emerald-50"
+                                                    : "border-slate-300 hover:border-emerald-400 hover:bg-emerald-50"
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() =>
+                                                        handlePricingToggle(pricing.id as string)
+                                                    }
+                                                    className="hidden"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Zap size={16} className={isSelected ? "text-emerald-700" : "text-amber-500"} />
+                                                        <p className={`font-semibold ${isSelected ? "text-emerald-700" : "text-slate-900"}`}>
+                                                            {pricing.title}
+                                                        </p>
+                                                    </div>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
                                                         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${isSelected
                                                             ? "bg-emerald-100 text-emerald-700"
                                                             : "bg-slate-100 text-slate-600"
                                                             }`}>
-                                                            {formatSubCategory(pricing.subCategory)}
+                                                            {pricing.category || "No category"}
                                                         </span>
+                                                        {pricing.subCategory && (
+                                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${isSelected
+                                                                ? "bg-emerald-100 text-emerald-700"
+                                                                : "bg-slate-100 text-slate-600"
+                                                                }`}>
+                                                                {formatSubCategory(pricing.subCategory)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className={`mt-1 text-xs font-bold ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
+                                                        ₦{Number(pricing.price)?.toLocaleString()}
+                                                        <span className="font-medium text-slate-500">
+                                                            {
+                                                                (() => {
+                                                                    const f = String(pricing.frequency || "").toUpperCase();
+                                                                    const map: Record<string, string> = {
+                                                                        DAILY: "/day",
+                                                                        WEEKLY: "/week",
+                                                                        MONTHLY: "/month",
+                                                                        YEARLY: "/year",
+                                                                        QUARTERLY: "/quarter",
+                                                                        BIWEEKLY: "/2-weeks"
+                                                                    };
+                                                                    return map[f] || (pricing.frequency ? pricing.frequency : "/month");
+                                                                })()
+                                                            }
+                                                        </span>
+                                                    </p>
+                                                    {pricing.code && (
+                                                        <p className={`mt-1 text-xs ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
+                                                            {pricing.code}
+                                                        </p>
                                                     )}
                                                 </div>
-                                                <p className={`mt-1 text-xs font-bold ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
-                                                    ₦{Number(pricing.price)?.toLocaleString()}
-                                                    <span className="font-medium text-slate-500">
-                                                        {
-                                                            (() => {
-                                                                const f = String(pricing.frequency || "").toUpperCase();
-                                                                const map: Record<string, string> = {
-                                                                    DAILY: "/day",
-                                                                    WEEKLY: "/week",
-                                                                    MONTHLY: "/month",
-                                                                    YEARLY: "/year",
-                                                                    QUARTERLY: "/quarter",
-                                                                    BIWEEKLY: "/2-weeks"
-                                                                };
-                                                                return map[f] || (pricing.frequency ? pricing.frequency : "/month");
-                                                            })()
-                                                        }
-                                                    </span>
-                                                </p>
-                                                {pricing.code && (
-                                                    <p className={`mt-1 text-xs ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
-                                                        {pricing.code}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </label>
-                                    );
-                                })}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="py-8 text-center">
+                                <p className="text-sm text-slate-500">No pricing plans available for this center.</p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-6">
@@ -864,7 +922,6 @@ export default function AddEntityPage() {
                     </div>
                 </form>
             </div>
-
         </div>
     );
 }

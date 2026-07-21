@@ -1,4 +1,8 @@
 import { useEffect } from "react";
+import { Buffer } from "buffer";
+// @ts-ignore
+global.Buffer = global.Buffer || Buffer;
+
 import { AuthProvider } from "@/hooks/use-auth";
 import { ToastProvider } from "@/hooks/use-toast";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
@@ -7,7 +11,6 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { WalletProvider } from "@/hooks/use-wallet";
 import * as SplashScreen from "expo-splash-screen";
-import { ObserveRoot, useObserve } from "expo-observe";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,12 +19,12 @@ export const unstable_settings = {
 };
 
 function RootLayout() {
-  const { markInteractive } = useObserve();
 
   useEffect(() => {
-    SplashScreen.hide();
-    markInteractive();
-  }, [markInteractive]);
+    setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 1000); // Adjust the delay as needed
+  }, []);
 
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -59,4 +62,4 @@ function RootLayout() {
   );
 }
 
-export default ObserveRoot.wrap(RootLayout);
+export default RootLayout;

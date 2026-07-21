@@ -8,11 +8,15 @@ import {
   resendDemandNotice,
   getDemandByCenter,
   getDemandByUser,
-  getDemandByPayment
+  getDemandByPayment,
+  createDemandNoticeByPayment
 } from '../controller/demandController.js';
 
 // Send demand notice to a single member
 router.post('/send', createDemandNotice);
+
+// Send demand notice to a single member by payment ID
+router.post('/send-by-payment', createDemandNoticeByPayment);
 
 // Send demand notices to multiple members
 router.post('/send-multiple', createMultipleDemandNotice);

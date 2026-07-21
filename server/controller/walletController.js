@@ -14,6 +14,9 @@ import {
   getTransactions
 } from "../service/wallet.js";
 import argon2 from "argon2";
+import { customAlphabet } from "nanoid";
+
+const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 
 const validationErrorResponse = (res, error) => {
   const errors = error.details.map((detail) => detail.message);
@@ -206,12 +209,12 @@ const initiateTransferController = async (req, res) => {
     }
 
     const { amount, accountNumber, accountName, bankCode, narration, pin, type, id } = value;
+    let userEmail;
 
     if (type === "ADMIN") {
-
       const admin = await prisma.admin.findUnique({
         where: { uid: req.userId },
-        select: { uid: true, secureToken: true },
+        select: { uid: true, secureToken: true, email: true },
       });
 
       if (!admin) {
@@ -233,11 +236,12 @@ const initiateTransferController = async (req, res) => {
       if (!isValid) {
         return res.status(401).json({ ok: false, message: "Invalid security code" });
       }
-    } else if (type === "AGENT") {
 
+      userEmail = admin?.email || null;
+    } else if (type === "AGENT") {
       const agent = await prisma.agent.findUnique({
         where: { uid: req.userId },
-        select: { uid: true, secureToken: true },
+        select: { uid: true, secureToken: true, email: true },
       });
 
       if (!agent) {
@@ -260,37 +264,38 @@ const initiateTransferController = async (req, res) => {
         return res.status(401).json({ ok: false, message: "Invalid security code" });
       }
 
+      userEmail = agent?.email || null;
     } else if (type === "MEMBER") {
-
       const member = await prisma.member.findUnique({
         where: { uid: req.userId },
-        select: { uid: true, secureToken: true },
+        select: { uid: true, email: true },
       });
 
       if (!member) {
         return res.status(404).json({ ok: false, message: "Member not found" });
       }
 
-      if (!member.secureToken) {
-        return res
-          .status(400)
-          .json({ ok: false, message: "Security token is not set" });
-      }
-
       if (!pin) {
         return res.status(400).json({ ok: false, message: "pin is required" });
       }
 
-      const isValid = await argon2.verify(member.secureToken, pin);
-
-      if (!isValid) {
-        return res.status(401).json({ ok: false, message: "Invalid security code" });
-      }
+      userEmail = member?.email || null;
     }
 
     const wallet = await prisma.wallet.findFirst({
       where: { userId: id, role: type },
     });
+
+    if (!wallet) {
+      return res.status(404).json({ ok: false, message: "Wallet not found" });
+    }
+
+    if (wallet.balance < amount) {
+      return res.status(400).json({ ok: false, message: "Insufficient wallet balance" });
+    }
+
+    // Generate transaction reference
+    const transactionReference = `WALLET-${nanoid()}`;
 
     // Use authenticated user's UID as merchant transaction reference
     const result = await initiateTransfer(amount, accountNumber, accountName, bankCode, id, wallet.accountName, narration)
@@ -303,11 +308,66 @@ const initiateTransferController = async (req, res) => {
       });
     }
 
+    // Extract inner data from Nomba response (nested in result.data.data)
+    const nombaData = result?.data?.data || result?.data || {};
+
+    // Map Nomba status to internal transaction status
+    const nombaStatus = nombaData?.status || 'PENDING';
+    const transactionStatus = nombaStatus === 'SUCCESS' ? 'SUCCESS' : 
+                            nombaStatus === 'FAILED' ? 'FAILED' : 'PENDING';
+
+    // Only debit wallet after successful transfer initiation
+    await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: { decrement: amount } },
+    });
+
+    const transact = await prisma.transaction.create({
+      data: {
+        reference: `${transactionReference}-MERCHANT`,
+        merchantTxRef: id,
+        event: 'nomba.payment.debit',
+        status: transactionStatus,
+        amount,
+        currency: 'NGN',
+        channel: 'wallet',
+        gatewayResponse: 'Wallet debited',
+        customerEmail: userEmail || null,
+        paymentId: null,
+        userId: id,
+        metadata: {
+          requestId: nombaData?.productId || null,
+          role: type,
+          transactionType: 'DEBIT',
+          creditedAmount: nombaData?.amount,
+          senderAccountNumber: wallet.accountNo || null,
+          senderBankName: wallet.bank?.name || null,
+          senderBankCode: wallet.bank?.code || null,
+          senderName: wallet.accountName || null,
+          aliasAccountNumber: nombaData?.customerBillerId || accountNumber || null,
+          aliasAccountName: accountName || null,
+          aliasAccountReference: null,
+          aliasAccountType: nombaData?.type || null,
+          sessionId: nombaData?.sourceUserId || null,
+          transactionId: nombaData?.id || null,
+          transactionTypeName: nombaData?.type || null,
+          narration: narration || null,
+          time: nombaData?.timeCreated || null,
+          originatingFrom: nombaData?.sourceUserId || null,
+          userId: nombaData?.userId || null,
+          meta: nombaData?.meta || null,
+          status: nombaStatus,
+        },
+        rawPayload: nombaData || null,
+      },
+    })
+
     return res.status(200).json({
       ok: true,
       message: "Transfer initiated successfully",
-      data: result?.data || null,
+      data: nombaData || null,
     });
+
   } catch (err) {
     console.log(err);
     return res

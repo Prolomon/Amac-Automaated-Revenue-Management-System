@@ -29,6 +29,7 @@ export default function EntitiesPage() {
     totalPages: 1,
   });
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(100);
   const [statusFilter, setStatusFilter] = useState("All");
   const centerId = role === "ADMIN" ? user?.uid : user?.center;
 
@@ -39,11 +40,11 @@ export default function EntitiesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const memberData = await getMembers(page, 100, centerId);
+      const memberData = await getMembers(page, limit, centerId);
 
       setMembers(memberData?.data || []);
       setMeta(
-        memberData?.meta || { page, limit: 100, total: 0, totalPages: 1 },
+        memberData?.meta || { page, limit, total: 0, totalPages: 1 },
       );
 
     } catch (error) {
@@ -51,7 +52,7 @@ export default function EntitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [centerId, page, addToast]);
+  }, [centerId, page, limit, addToast]);
 
   useEffect(() => {
     fetchData();
@@ -216,14 +217,14 @@ export default function EntitiesPage() {
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => fetchData()}
-              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4"
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4 cursor-pointer"
             >
               <RefreshCw size={18} className={`${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             {role === "ADMIN" || (role === "STAFF" && user?.permission?.canCreateEntity) ? (
               <>
-                <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4" onClick={() => {
+                <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4 cursor-pointer" onClick={() => {
                   router.push("/admin/entities/add");
                 }}>
                   <Plus size={18} />
@@ -231,7 +232,7 @@ export default function EntitiesPage() {
                 </button>
                 <button
                   onClick={() => handleDownload()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4 cursor-pointer"
                 >
                   <Download size={18} />
                   <span className="hidden sm:inline">Export</span>
@@ -264,22 +265,40 @@ export default function EntitiesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
             >
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Inactive</option>
+              <option hidden>All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
             </select>
 
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
-            >
-              <option>All Types</option>
-              <option>BUSINESS</option>
-              <option>INDIVIDUAL</option>
-            </select>
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
+              >
+                <option hidden>All Types</option>
+                <option value="BUSINESS">Business</option>
+                <option value="INDIVIDUAL">Individual</option>
+              </select>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
+              >
+                <option hidden>Limit</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={300}>300</option>
+                <option value={400}>400</option>
+                <option value={500}>500</option>
+                <option value={600}>600</option>
+                <option value={700}>700</option>
+                <option value={800}>800</option>
+                <option value={900}>900</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
-
           {loading ? (
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
@@ -293,22 +312,22 @@ export default function EntitiesPage() {
               <table className="min-w-max w-full text-left">
                 <thead className="border-b border-slate-200">
                   <tr>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Entity ID
                     </th>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Business Name
                     </th>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Category
                     </th>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Type
                     </th>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Zone
                     </th>
-                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
                       Email
                     </th>
                   </tr>
@@ -320,7 +339,7 @@ export default function EntitiesPage() {
                         key={entity.uid}
                         className="transition-colors hover:bg-slate-50"
                       >
-                        <td className="py-4 text-xs font-medium text-slate-900 md:text-sm truncate">
+                        <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate">
                           {role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewEntity) ? (
                             <Link
                               href={`/admin/entities/${entity.uid}`}
@@ -332,10 +351,10 @@ export default function EntitiesPage() {
                             entity.uid
                           )}
                         </td>
-                        <td className="py-4 text-xs font-medium text-slate-900 md:text-sm truncate capitalize">
+                        <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate capitalize">
                           {truncateString(entity.businessName || entity.fullname, 20)}
                         </td>
-                        <td className="py-4">
+                        <td className="py-4 px-2 md:px-4">
                           <span
                             className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${categoryBadgeClass(
                               entity.category || "",
@@ -344,7 +363,7 @@ export default function EntitiesPage() {
                             {entity.category || "—"}
                           </span>
                         </td>
-                        <td className="py-4">
+                        <td className="py-4 px-2 md:px-4">
                           <span
                             className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${typeBadgeClass(
                               entity.type || "",
@@ -353,10 +372,10 @@ export default function EntitiesPage() {
                             {entity.type || "—"}
                           </span>
                         </td>
-                        <td className="py-4 text-xs text-slate-600 md:text-sm">
+                        <td className="py-4 text-xs px-2 md:px-4 text-slate-600 md:text-sm">
                           {entity.zone || "—"}
                         </td>
-                        <td className="py-4 text-xs text-slate-600 md:text-sm">
+                        <td className="py-4 text-xs px-2 md:px-4 text-slate-600 md:text-sm">
                           {entity.email || "—"}
                         </td>
                       </tr>
@@ -374,7 +393,6 @@ export default function EntitiesPage() {
               </table>
             </div>
           )}
-          
           <div className="border-t border-slate-100 pt-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <p className="text-xs md:text-sm text-slate-600">

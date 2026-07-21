@@ -301,9 +301,13 @@ export default function Agents() {
 
           <div className="space-y-3 md:space-y-4 max-h-96 overflow-y-auto pr-1">
             {loading ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                Loading agents...
+              <div className="w-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
               </div>
+            </div>
             ) : agents.length === 0 ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
                 <UserRound className="mx-auto h-9 w-9 text-slate-300" />

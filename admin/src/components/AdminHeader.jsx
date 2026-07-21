@@ -24,7 +24,7 @@ export default function AdminHeader({ sidebarOpen, onToggleSidebar }) {
     };
   }, []);
 
-  const { logout, user } = useAuth();
+  const { logout, user, role } = useAuth();
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
@@ -107,7 +107,7 @@ export default function AdminHeader({ sidebarOpen, onToggleSidebar }) {
                 <button
                   type="button"
                   className="w-full text-left px-3 py-2 rounded-md text-sm text-red-700 hover:bg-red-100 transition-colors"
-                  onClick={async () => await logout(user?.role?.toString().toLowerCase())}
+                  onClick={async () => await logout(role || user?.role?.toString().toLowerCase())}
                 >
                   Logout
                 </button>

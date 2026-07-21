@@ -1,5 +1,5 @@
 import { API_URL } from "@/config";
-import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE } from "@/lib/api"
+import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE, AUTH_MEMBER_UID, AUTH_MEMBER_PIN } from "@/lib/api"
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Member } from "@/lib/types";
@@ -205,7 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await AsyncStorage.setItem(AUTH_MEMBER, JSON.stringify(normalized));
       await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, response.token || "");
+      await AsyncStorage.setItem(AUTH_MEMBER_UID, response?.uid || normalized.uid || "");
       setToken(response.token || "");
+      setUid(response?.uid || normalized.uid || "");
 
       setCurrentUser(normalized);
 
@@ -221,6 +223,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
+    await AsyncStorage.removeItem(AUTH_MEMBER_UID);
+    await AsyncStorage.removeItem(AUTH_MEMBER_PIN);
+    setToken(undefined);
+    setUid(undefined);
+    setWallet(null);
     setCurrentUser(null);
   }; 
 
@@ -538,17 +545,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createCode = async (secureToken: string, confirmSecureToken: string,) => {
+  const createCode = async (secureToken: string, confirmSecureToken: string): Promise<{ok: boolean, message: string}> => {
 
     try {
 
-      const response = await createSecurityCode(currentUser?.uid || "", secureToken, confirmSecureToken, token as string);
-
-      if (!response.ok) {
-        return { ok: false, message: response.message || "Security code creation failed" };
+      if (secureToken !== confirmSecureToken) {
+        return { ok: false, message: "Security codes do not match" };
       }
 
-      return { ok: true, message: response.message || "Security code created successfully" };
+      await AsyncStorage.setItem(AUTH_MEMBER_PIN, secureToken);
+
+      return { ok: true, message: "Security code created successfully" };
 
     } catch (error: any) {
       return { ok: false, message: "An error occurred while creating the security code" };
@@ -556,17 +563,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   }
 
-  const verifyCode = async (secureToken: string) => {
+  const verifyCode = async (secureToken: string): Promise<{ok: boolean, message: string}> => {
 
     try {
 
-      const response = await verifySecurityCode(currentUser?.uid || "", secureToken, token as string);
+      const response = await AsyncStorage.getItem(AUTH_MEMBER_PIN);
 
-      if (!response.ok) {
-        return { ok: false, message: response.message || "Security code verification failed" };
+      if (!response) {
+        return { ok: false, message: "Security code not found" };
       }
 
-      return { ok: true, message: response.message || "Security code verified successfully" };
+      if (response !== secureToken) {
+        return { ok: false, message: "Security code does not match" };
+      }
+
+      return { ok: true, message:  "Security code verified successfully" };
 
     } catch (error: any) {
       return { ok: false, message: "An error occurred while verifying the security code" };

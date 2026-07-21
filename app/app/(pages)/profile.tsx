@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { LinearGradient } from "expo-linear-gradient";
 import { RelativePathString, useRouter } from "expo-router";
-import { Eye, EyeOff } from "lucide-react-native";
+import { Eye, EyeOff, Hash } from "lucide-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -19,22 +19,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Profile() {
   const router = useRouter();
-  const { currentUser, logout, forgotPassword } = useAuth();
+  const { currentUser, logout, forgotPassword, createCode } = useAuth();
   const { success, failed } = useToast();
   const name = currentUser?.fullname ?? "Johnson's Electronics";
-  const entityId = currentUser?.uid ?? "AMC-12345678";
-  const email = currentUser?.email ?? "you@domain.com";
-  const phone = currentUser?.phone ?? "";
   const locationObj = currentUser?.location;
   const location = locationObj
     ? typeof locationObj === "string"
       ? locationObj
       : [locationObj.address, locationObj.city, locationObj.state, locationObj.zipcode]
-          .filter(Boolean)
-          .join(", ")
+        .filter(Boolean)
+        .join(", ")
     : "";
-  const businessType = currentUser?.type;
-  const businessName = currentUser?.businessName ?? "AMAC Revenue";
   const initial = name ? name.charAt(0).toUpperCase() : "J";
 
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -42,6 +37,29 @@ export default function Profile() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinData, setPinData] = useState<{ pin: string, confirm: string }>({ pin: "", confirm: "" });
+
+  const handleCreateCode = async () => {
+    try {
+      if (!pinData.pin || pinData.pin.length < 6) {
+        failed("Please enter a valid 6-digit security code.");
+        return;
+      }
+      const res = await createCode(pinData.pin, pinData.confirm);
+
+      if (!res.ok) {
+        failed(res.message || "Failed to create security code.");
+        return;
+      }
+
+      success("Security code created successfully.");
+
+      setPinModalVisible(false);
+    } catch (error) {
+      failed("Failed to create security code.");
+    }
+  };
 
   const openPasswordModal = () => {
     setNewPassword("");
@@ -113,11 +131,14 @@ export default function Profile() {
             ))}
 
             <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.85} onPress={() => setPinModalVisible(true)}>
+                <Text style={styles.secondaryText}>Change PIN</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.85} onPress={openPasswordModal}>
                 <Text style={styles.secondaryText}>Change Password</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.primaryBtn, { marginLeft: 12 }]}
+                style={[styles.primaryBtn]}
                 activeOpacity={0.85}
                 onPress={async () => {
                   try {
@@ -191,6 +212,50 @@ export default function Profile() {
               </View>
             </View>
           </Modal>
+
+          {/* Pin Modal */}
+          <Modal visible={pinModalVisible} transparent={true} animationType="fade">
+            <View style={styles.pinModalOverlay}>
+              <TouchableOpacity
+                style={styles.pinModalBackdrop}
+                activeOpacity={1}
+                onPress={() => setPinModalVisible(false)}
+              />
+              <View style={styles.pinModalCard}>
+                <View style={styles.pinModalHeader}>
+                  <Text style={styles.pinModalTitle}>Change Security Code</Text>
+                  <TouchableOpacity
+                    onPress={() => setPinModalVisible(false)}
+                    style={styles.pinModalCloseBtn}
+                  >
+                    <Text style={styles.pinModalCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.pinInput}
+                  placeholder="Enter 6-digit code"
+                  value={pinData.pin}
+                  onChangeText={(text) => setPinData({ ...pinData, pin: text })}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry
+                />
+                <TextInput
+                  style={styles.pinInput}
+                  placeholder="Confirm code"
+                  value={pinData.confirm}
+                  onChangeText={(text) => setPinData({ ...pinData, confirm: text })}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry
+                />
+                <TouchableOpacity style={styles.pinButton} onPress={handleCreateCode}>
+                  <Text style={styles.pinButtonText}>Create Code</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -198,6 +263,81 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
+  pinModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pinModalBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+  pinModalCard: {
+    width: "88%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  pinModalHeader: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  pinModalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0f172a",
+    textAlign: "center",
+    flex: 1,
+  },
+  pinModalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pinModalCloseText: {
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  pinInput: {
+    width: "100%",
+    height: 52,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    color: "#0f172a",
+  },
+  pinButton: {
+    width: "100%",
+    height: 52,
+    backgroundColor: "#0ea360",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  pinButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
   safe: { flex: 1, backgroundColor: "#fff" },
   container: { paddingBottom: 40, paddingHorizontal: 10, paddingVertical: 40, paddingTop: 60 },
   bgGradient: {

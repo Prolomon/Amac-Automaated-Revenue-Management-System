@@ -115,6 +115,7 @@ export default function TransactionDetail() {
 
   const tx = transaction;
   const meta = tx.metadata || {};
+  const transactionMeta = meta.transaction || {};
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -156,32 +157,17 @@ export default function TransactionDetail() {
             {meta.transactionType === "CREDIT" ? "Received" : "Sent"}
           </Text>
           <Text style={styles.amountValue}>
-            {formatCurrency(Number(tx.amount || 0))}
+            {formatCurrency(Number(tx.amount || transactionMeta.transactionAmount || 0))}
           </Text>
-          <Text style={styles.currencyText}>{tx.currency || "NGN"}</Text>
-        </View>
-
-        {/* Transaction Type */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Transaction Information</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Type</Text>
-            <Text style={styles.detailValue}>
-              {meta.transactionType || meta.transactionTypeName || "Transfer"}
+          <View style={styles.feeRow}>
+            <Text style={styles.feeLabel}>Fee</Text>
+            <Text style={styles.feeValue}>
+              {formatCurrency(Number(transactionMeta.fee || 0))}
             </Text>
           </View>
-          <View style={[styles.detailRow, styles.borderBottom]}>
-            <Text style={styles.detailLabel}>Reference</Text>
-            <TouchableOpacity
-              onPress={() => handleCopyToClipboard(tx.reference)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.detailValueLink}>{tx.reference}</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
-        {/* Sender/Receiver Information */}
+        {/* Sender Information */}
         {meta.senderName && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
@@ -192,35 +178,41 @@ export default function TransactionDetail() {
               <Text style={styles.detailValue}>{meta.senderName}</Text>
             </View>
             {meta.senderBankName && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Bank</Text>
-                <Text style={styles.detailValue}>{meta.senderBankName}</Text>
-              </View>
-            )}
-            {meta.senderAccountNumber && (
-              <View style={[styles.detailRow, styles.borderBottom]}>
-                <Text style={styles.detailLabel}>Account</Text>
-                <TouchableOpacity
-                  onPress={() => handleCopyToClipboard(meta.senderAccountNumber)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.detailValueLink}>
-                    {meta.senderAccountNumber}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Bank</Text>
+                  <Text style={styles.detailValue}>{meta.senderBankName}</Text>
+                </View>
+                {meta.senderAccountNumber && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Account</Text>
+                    <TouchableOpacity
+                      onPress={() => handleCopyToClipboard(meta.senderAccountNumber)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.detailValueLink}>
+                        {meta.senderAccountNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}
 
         {/* Receiver Account Info */}
-        {meta.aliasAccountName && (
+        {(meta.aliasAccountName || meta.aliasAccountNumber) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>To Account</Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Account Name</Text>
-              <Text style={styles.detailValue}>{meta.aliasAccountName}</Text>
-            </View>
+            <Text style={styles.sectionTitle}>
+              {meta.transactionType === "CREDIT" ? "To" : "From"}
+            </Text>
+            {meta.aliasAccountName && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Account Name</Text>
+                <Text style={styles.detailValue}>{meta.aliasAccountName}</Text>
+              </View>
+            )}
             {meta.aliasAccountNumber && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Account Number</Text>
@@ -235,15 +227,15 @@ export default function TransactionDetail() {
               </View>
             )}
             {meta.aliasAccountType && (
-              <View style={[styles.detailRow, styles.borderBottom]}>
-                <Text style={styles.detailLabel}>Account Type</Text>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Type</Text>
                 <Text style={styles.detailValue}>{meta.aliasAccountType}</Text>
               </View>
             )}
           </View>
         )}
 
-        {/* Narration/Description */}
+        {/* Description */}
         {meta.narration && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Description</Text>
@@ -253,64 +245,43 @@ export default function TransactionDetail() {
           </View>
         )}
 
-        {/* Date & Time Information */}
+        {/* Date & Time */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Date & Time</Text>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Created</Text>
+            <Text style={styles.detailLabel}>Date</Text>
             <Text style={styles.detailValue}>
               {tx.createdAt
-                ? new Date(tx.createdAt).toLocaleString()
+                ? new Date(tx.createdAt).toLocaleDateString("en-NG", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
                 : "-"}
             </Text>
           </View>
-          {meta.time && (
-            <View style={[styles.detailRow, styles.borderBottom]}>
-              <Text style={styles.detailLabel}>Transaction Time</Text>
-              <Text style={styles.detailValue}>
-                {new Date(meta.time).toLocaleString()}
-              </Text>
-            </View>
-          )}
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Time</Text>
+            <Text style={styles.detailValue}>
+              {tx.createdAt
+                ? new Date(tx.createdAt).toLocaleTimeString("en-NG", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "-"}
+            </Text>
+          </View>
         </View>
 
-        {/* Additional Details */}
+        {/* Reference */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Details</Text>
-          {tx.gatewayResponse && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Response</Text>
-              <Text style={styles.detailValue}>{tx.gatewayResponse}</Text>
-            </View>
-          )}
-          {tx.channel && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Channel</Text>
-              <Text style={styles.detailValue}>{tx.channel}</Text>
-            </View>
-          )}
-          {meta.sessionId && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Session ID</Text>
-              <TouchableOpacity
-                onPress={() => handleCopyToClipboard(meta.sessionId)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.detailValueLink}>{meta.sessionId}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          {meta.requestId && (
-            <View style={[styles.detailRow, styles.borderBottom]}>
-              <Text style={styles.detailLabel}>Request ID</Text>
-              <TouchableOpacity
-                onPress={() => handleCopyToClipboard(meta.requestId)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.detailValueLink}>{meta.requestId}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <Text style={styles.sectionTitle}>Reference</Text>
+          <TouchableOpacity
+            onPress={() => handleCopyToClipboard(tx.reference)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.referenceText}>{tx.reference}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Copy Feedback */}
@@ -386,10 +357,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   amountLabel: {
     fontSize: 14,
@@ -464,6 +431,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#374151",
     lineHeight: 20,
+  },
+  feeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  feeLabel: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  feeValue: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+  referenceText: {
+    fontSize: 12,
+    color: "#0ea360",
+    fontWeight: "600",
+    fontFamily: "monospace",
+    lineHeight: 18,
   },
   copiedNotification: {
     marginTop: 12,

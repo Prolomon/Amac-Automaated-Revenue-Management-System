@@ -38,15 +38,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         setLocalUid(newUid);
     };
 
-    const createPin = async (pin: string) => {
-        try {
-            setPin(pin);
-            await AsyncStorage.setItem(AUTH_MEMBER_PIN, pin);
-        } catch (error) {
-            setError(error instanceof Error ? error : new Error("Unknown error"));
-        }
-    };
-
     useEffect(() => {
         (async () => {
             const code = await AsyncStorage.getItem(AUTH_MEMBER_PIN);
@@ -155,7 +146,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         getTransactions,
         getTransaction,
         createWallet,
-        createPin,
     };
 
     return (

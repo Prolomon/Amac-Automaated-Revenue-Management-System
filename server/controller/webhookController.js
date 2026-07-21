@@ -28,7 +28,6 @@ const nombaWebhook = async (req, res) => {
   
   try {
     const event = req.body;
-    console.log('Nomba webhook received:', JSON.stringify(event, null, 2));
 
     if (!event || typeof event !== 'object') {
       return res.status(400).json({ ok: false, message: 'Invalid payload' });
@@ -52,8 +51,6 @@ const nombaWebhook = async (req, res) => {
     const customerEmail = senderDetails?.email || null;
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    console.log('Extracted data - AliasRef:', aliasRef, 'Amount:', amount, 'MerchantUserId:', merchantUserId);
-
     if (!aliasRef) {
       return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
     }
@@ -69,8 +66,6 @@ const nombaWebhook = async (req, res) => {
       wallet = await prisma.wallet.findFirst({
         where: { userId: aliasRef },
       });
-
-      console.log('Strategy 3 (alias/reference fallback):', wallet);
     }
 
     if (!wallet) {
@@ -119,8 +114,6 @@ const nombaWebhook = async (req, res) => {
       return res.status(200).json({ ok: false, message: 'No matching wallet found', data: { aliasRef } });
     }
 
-    console.log('Wallet found:', wallet.id, 'Current balance:', wallet.balance);
-
     // Update wallet balance atomically
     const newBalance = Number(wallet.balance ?? 0) + Number(amount - fee);
 
@@ -128,8 +121,6 @@ const nombaWebhook = async (req, res) => {
       where: { id: wallet.id },
       data: { balance: newBalance },
     });
-
-    console.log('Wallet updated. New balance:', newBalance);
 
     // Record transaction
     const transact = await prisma.transaction.create({
@@ -172,11 +163,8 @@ const nombaWebhook = async (req, res) => {
       },
     })
 
-    console.log('Transaction recorded with ID:', transact);
-
     return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: updatedWallet.id, balance: updatedWallet.balance } });
   } catch (err) {
-    console.error('Nomba webhook error:', err?.message || err);
     return res.status(500).json({ ok: false, message: err?.message || 'Server error' });
   }
 };

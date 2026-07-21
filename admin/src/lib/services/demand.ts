@@ -31,6 +31,21 @@ export async function sendDemand(
   return data;
 }
 
+export async function sendDemandByPayment(
+  paymentId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const response = await fetch(`${API_URL}/demand/send-by-payment`, {
+    method: "POST",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ paymentId }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to send demand");
+  }
+  return data;
+}
+
 export async function sendMultipleDemand(
   userId: string[],
 ): Promise<{ ok: boolean; message?: string }> {

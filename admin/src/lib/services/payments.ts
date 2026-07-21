@@ -59,6 +59,22 @@ export async function getPayments(centerId: string): Promise<{ ok: boolean; paym
   return data;
 }
 
+export async function getAllPayments(page: number, limit: number): Promise<{ ok: boolean; payments?: Payment[]; message?: string, meta: {
+        page: number,
+        limit: number,
+        total: number,
+        totalPages: number,
+      }, }> {
+  const response = await fetch(`${API_URL}/payment?page=${page}&limit=${limit}`, {
+    headers: { ...buildHeaders() },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch payments");
+  }
+  return data;
+}
+
 export async function getPaymentsByUser(userId: string): Promise<{ ok: boolean; payments?: Payment[]; message?: string }> {
   const response = await fetch(`${API_URL}/payment/user/${userId}`, {
     headers: {...buildHeaders()},

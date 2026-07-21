@@ -313,6 +313,7 @@ export default function OrganizationsPage() {
               </table>
             </div>
           )}
+          
           <div className="border-t border-slate-100 pt-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <p className="text-xs md:text-sm text-slate-600">

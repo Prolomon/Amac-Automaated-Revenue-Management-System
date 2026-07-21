@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CompleteProfileScreen() {
     const router = useRouter();
     const { token, currentUser, createCode } = useAuth();
-    const { wallet, createWallet, refresh, setUid, createPin } = useWallet();
+    const { wallet, createWallet, refresh, pin } = useWallet();
     const { success, failed } = useToast();
 
     const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -28,16 +28,12 @@ export default function CompleteProfileScreen() {
     const [confirmSecurityCode, setConfirmSecurityCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [idType, setIdType] = useState<"BVN" | "NIN">("BVN");
-    
+
     useEffect(() => {
-        if (currentUser?.uid) {
-            setUid(currentUser.uid);
-            refresh();
-        }
         if (wallet) {
-            router.replace("/(pages)" as RelativePathString);
+            setStep(3);
         }
-    }, [currentUser?.uid, refresh, router, setUid, wallet]);
+    }, [wallet]);
 
     const validationState = useMemo(() => {
         const hasWallet = wallet ? true : false;
@@ -56,7 +52,6 @@ export default function CompleteProfileScreen() {
     }, [wallet]);
 
     const handleValidateWallet = () => {
-        success("Wallet validation successful");
         if (wallet) {
             setStep(3);
         } else {
@@ -99,8 +94,8 @@ export default function CompleteProfileScreen() {
             return;
         }
 
-        if (securityCode.length < 4) {
-            failed("Security code must be at least 4 digits");
+        if (securityCode.length < 6) {
+            failed("Security code must be at least 6 digits");
             return;
         }
 
@@ -117,7 +112,6 @@ export default function CompleteProfileScreen() {
                 return;
             }
 
-            await createPin(securityCode);
             await refresh();
             
             router.replace("/(pages)" as RelativePathString);
@@ -162,7 +156,7 @@ export default function CompleteProfileScreen() {
                 </View>
 
                 <View style={styles.card}>
-                    {step === 1 ? (
+                    {step == 1 ? (
                         <>
                             <View style={styles.cardHeadRow}>
                                 <View style={styles.iconWrap}>
@@ -185,7 +179,7 @@ export default function CompleteProfileScreen() {
                                 <Text style={styles.buttonText}>Validate Wallet</Text>
                             </TouchableOpacity>
                         </>
-                    ) : step === 2 ? (
+                    ) : step == 2 ? (
                         <>
                             <View style={styles.cardHeadRow}>
                                 <View style={styles.iconWrap}>
@@ -327,7 +321,6 @@ export default function CompleteProfileScreen() {
                                     <Text style={styles.buttonText}>Save Security Code</Text>
                                 )}
                             </TouchableOpacity>
-
                             <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.85} onPress={() => validationState.isVerified ? setStep(1) : setStep(2)}>
                                 <Text style={styles.secondaryText}>Back to Verification</Text>
                             </TouchableOpacity>

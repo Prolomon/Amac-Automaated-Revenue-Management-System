@@ -9,6 +9,7 @@ import {
   Wallet2,
   HelpCircle,
   Handshake,
+  HandCoins,
   Search,
   Flag,
 } from "lucide-react";
@@ -56,39 +57,44 @@ export default function Sidebar({ onClose }) {
         label: "Dashboard",
         icon: <LayoutDashboard size={18} />,
       },
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewEntity)) ? {
+      {
         href: "/admin/entities",
         label: "Entities",
         icon: <Building2 size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewPricing)) ? { href: "/admin/tiers", label: "Pricing", icon: <Tag size={18} /> } : null,
-      (role === "ADMIN" && { href: "/admin/staffs", label: "Staffs", icon: <Users size={18} /> }),
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewEntity)) ? {
+      },
+      { href: "/admin/tiers", label: "Pricing", icon: <Tag size={18} /> },
+      { href: "/admin/staffs", label: "Staffs", icon: <Users size={18} /> },
+      {
         href: "/admin/demands",
         label: "Demand Notice",
         icon: <Flag size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewPartner)) ? {
+      },
+      {
         href: "/admin/partners",
         label: "Partners",
         icon: <Handshake size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewSplit)) ? {
+      },
+      {
+        href: "/admin/payments",
+        label: "Payments",
+        icon: <HandCoins size={18} />,
+      },
+      {
         href: "/admin/payment-split",
         label: "Payment Split",
         icon: <GitMerge size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewAssurance)) ? {
+      },
+      {
         href: "/admin/revenue-assurance",
         label: "Assurance",
         icon: <ShieldCheck size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canSearch)) ? {
+      },
+      {
         href: "/admin/search",
         label: "Advanced Search", 
         icon: <Search size={18} />,
-      } : null,
-      (role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewWallet)) ? { href: "/admin/wallet", label: "Wallet", icon: <Wallet2 size={18} /> } : null,
+      },
+      { href: "/admin/wallet", label: "Wallet", icon: <Wallet2 size={18} /> },
       {
         href: "/admin/recruitment",
         label: "Recruitment",

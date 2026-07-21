@@ -26,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getBanks } from "@/lib/services/wallet";
 
 export default function TransferScreen() {
-  const { verifyCode, uid } = useAuth()
+  const { verifyCode, uid, currentUser } = useAuth()
   const router = useRouter();
   const { success, failed } = useToast();
   const {
@@ -142,16 +142,21 @@ export default function TransferScreen() {
       return;
     }
 
+    const res = await verifyCode(code.trim());
+    if (!res.ok) {
+      failed("Invalid security code");
+      return;
+    }
+
     try {
       setSending(true);
-      // Number(formData.amount), formData.accountNumber, formData.name, formData.bankCode, new Date().toISOString(), user?.name || "", formData.reason
 
       await initiateTransfer(
         amount,
         accountNumber.trim(),
         recipientName.trim(),
         bankCode.trim(),
-        uid,
+        currentUser?.uid || uid,
         reason.trim() || "Wallet transfer",
         code.trim(),
         "MEMBER",
@@ -166,8 +171,8 @@ export default function TransferScreen() {
       setRecipientName("");
       setAmount("");
       setReason("");
-      refresh?.();
-      router.push("index" as RelativePathString);
+      refresh();
+      router.push("(pages)" as RelativePathString);
     } catch (e: any) {
       failed(e?.message || "Transfer failed");
     } finally {
@@ -248,7 +253,7 @@ export default function TransferScreen() {
                 {resolving ? (
                   <ActivityIndicator color="#0ea360" />
                 ) : (
-                  <Text style={styles.secondaryText}>Resolve Account</Text>
+                  <Text style={styles.secondaryText}>Get Account Details</Text>
                 )}
               </TouchableOpacity>
             )}

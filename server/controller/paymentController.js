@@ -270,7 +270,6 @@ const getPaymentByReference = async (req, res) => {
     const payment = await prisma.payment.findUnique({
       where: { reference },
       include: { member: true, pricing: true },
-      orderBy: { createdAt: "desc" },
     });
 
     if (!payment) {
@@ -327,17 +326,7 @@ const getAllPayments = async (req, res) => {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          member: {
-            select: {
-              id: true,
-              fullname: true,
-              email: true,
-              uid: true,
-              businessName: true,
-              category: true,
-              type: true,
-            },
-          },
+          member: true,
           pricing: true,
         },
       }),
@@ -346,7 +335,7 @@ const getAllPayments = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      data: payments,
+      payments,
       meta: {
         page,
         limit,
@@ -360,6 +349,7 @@ const getAllPayments = async (req, res) => {
       .json({ ok: false, message: err?.message || "Server error" });
   }
 };
+
 
 const verifyPayment = async (req, res) => {
   try {

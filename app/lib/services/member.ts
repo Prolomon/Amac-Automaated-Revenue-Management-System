@@ -7,6 +7,7 @@ export async function login( email: string, password: string): Promise<{
   error?: string;
   token?: string;
   member?: User;
+  uid?: string;
 }> {
   const response = await fetch(`${API_URL}/member/login`, {
     method: "POST",

@@ -15,11 +15,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LockScreen() {
     const router = useRouter();
-    const { currentUser, logout, loading: authLoading } = useAuth();
+    const { currentUser, logout, loading: authLoading, verifyCode } = useAuth();
     const { refresh } = useWallet();
     const { failed, success } = useToast();
-    const [pin, setPin] = useState("");
     const [loading, setLoading] = useState(false);
+    const [pin, setPin] = useState<string>("")
 
     // Redirect to home if no user is logged in
     useEffect(() => {
@@ -37,33 +37,20 @@ export default function LockScreen() {
     const handleDelete = () => {
         setPin((prev) => prev.slice(0, -1));
     };
-
-    const handleVerify = async (currentPin: string) => {
-        setLoading(true);
-        try {
-            if (pin === currentPin) {
-                success("Access granted");
-                // Refresh wallet details so everything is fresh
-                await refresh();
-                router.replace("/(pages)" as RelativePathString);
-            } else {
-                failed("Invalid Security Code");
-                setPin("");
-            }
-        } catch (error) {
-            failed("An error occurred during verification");
-            setPin("");
-        } finally {
-            setLoading(false);
-        }
-    };
     
-    const handleProceed = () => {
-        if (pin.length < 4) {
-            failed("Security code must be at least 4 digits");
+    const handleProceed = async () => {
+        if (pin.length < 6) {
+            failed("Security code must be at least 6 digits");
             return;
         }
-        handleVerify(pin);
+        const res = await verifyCode(pin);
+        if (res.ok) {
+            success("Pin Verified successfully")
+            router.replace("(pages)" as RelativePathString);
+        } else {
+            failed(res.message || "An error occurred validating pin")
+            setPin("");
+        }
     };
 
     const handleSwitchAccount = async () => {

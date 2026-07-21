@@ -5,7 +5,7 @@ export const AUTH_MEMBER_WALLET = "amac_member_wallet";
 export const AUTH_MEMBER_WALLET_STATE = "amac_member_wallet_state";
 export const AUTH_MEMBER_TOKEN = "amac_member_token";
 export const AUTH_MEMBER_PIN = "amac_member_pin";
-
+export const AUTH_MEMBER_UID = "amac_member_uid";
 
 export function buildHeaders(
   hasJson: boolean = true,

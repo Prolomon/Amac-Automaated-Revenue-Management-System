@@ -27,7 +27,7 @@ export const createDemandNotice = async (req, res) => {
 
     let wallet;
 
-    wallet = await prisma.wallet.findUnique({
+    wallet = await prisma.wallet.findFirst({
       where: { userId },
     });
 
@@ -260,6 +260,93 @@ export const createMultipleDemandNotice = async (req, res) => {
     });
   } catch (err) {
     console.error("sendMultipleDemandNotice error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
+export const createDemandNoticeByPayment = async (req, res) => {
+  try {
+    const { paymentId } = req.body;
+
+    if (!paymentId) {
+      return res.status(400).json({
+        ok: false,
+        message: "paymentId is required",
+      });
+    }
+
+    // Fetch payment details
+    const payment = await prisma.payment.findFirst({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        ok: false,
+        message: "Payment not found",
+      });
+    }
+
+    // Fetch member details
+    const member = await prisma.member.findFirst({
+      where: { uid: payment.userId },
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        ok: false,
+        message: "Member not found",
+      });
+    }
+
+    let wallet;
+
+    wallet = await prisma.wallet.findFirst({
+      where: { userId: payment.userId },
+    });
+
+    if (!wallet) {
+      console.log(`Wallet not found for userId: ${payment.userId}. Creating a new wallet.`);
+    }
+
+    // Create Demand record with CREATED status - each with unique reference
+    const uniqueRef = `DN-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    const demandRecord = await prisma.demand.create({
+      data: {
+        reference: uniqueRef,
+        status: "CREATED",
+        paymentId: payment.id,
+        userId: member.uid,
+        walletId: wallet ? wallet.id : null,
+        paymentId: payment.id,
+        amount: Number(payment.debt || payment.amount),
+        isSent: false,
+        center: member.center,
+      },
+    });
+
+    // Trigger instant email processing in the background
+    processDemands().catch((err) =>
+      console.error("Error in background demand processing:", err)
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Demand notice created successfully. Email is being sent.",
+      data: {
+        demandId: demandRecord.id,
+        memberEmail: member.email,
+        memberName: member.businessName || member.fullname || "N/A",
+        amount: formatCurrency(Number(payment.amount)),
+        status: "CREATED",
+        note: "Email is being sent instantly in the background",
+      },
+    });
+  } catch (err) {
+    console.error("sendDemandNoticeByPayment error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
