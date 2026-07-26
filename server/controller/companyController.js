@@ -31,7 +31,7 @@ const generateAuthToken = async (payload) => {
 };
 
 const generateCompanyUidSuffix = customAlphabet(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "0123456789",
   10,
 );
 

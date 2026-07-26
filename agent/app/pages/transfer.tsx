@@ -348,7 +348,7 @@ export default function TransferScreen() {
                       }}
                     >
                       <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-                        <Image source={item.logo ? { uri: item.logo } : require("../assets/images/icon.png")} style={{ width: 32, height: 32, marginRight: 12 }} resizeMode="contain" />
+                        <Image source={item.logo ? { uri: item.logo } : require("../../assets/images/icon.png")} style={{ width: 32, height: 32, marginRight: 12 }} resizeMode="contain" />
                         <View>
                           <Text style={styles.bankName}>{item.name}</Text>
                         <Text style={styles.bankId}>

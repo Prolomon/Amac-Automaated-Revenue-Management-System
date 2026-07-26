@@ -18,7 +18,7 @@ const random6Digit = () => {
 };
 
 const generateAdminUidSuffix = customAlphabet(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "0123456789",
   10, 
 );
 

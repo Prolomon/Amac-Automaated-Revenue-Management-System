@@ -73,7 +73,7 @@ function DemandDetailPage() {
 
       element.style.transform = `print:scale(${scale})`;
       element.style.transformOrigin = 'print:top print:left';
-      
+
       const opt = {
         margin: 0,
         filename: `${demand?.member?.businessName || demand?.member?.fullname}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,
@@ -308,7 +308,7 @@ function DemandDetailPage() {
           ref={demandDocumentRef}
         >
           {/* <!-- Top Bar Branding --> */}
-          <div className="flex justify-between items-start mb-7.5">
+          <div className="flex justify-between items-start mb-4">
             <div className="flex flex-col">
               <div
                 className="flex items-center text-[24px] font-extrabold text-[#0f172a] tracking-tight"
@@ -339,11 +339,11 @@ function DemandDetailPage() {
             </div>
           </div>
 
-          <div className="border-t border-[#e2e8f0] my-6.25 mx-0 mb-8.75"></div>
+          <div className="border-t border-[#e2e8f0] my-4 mx-0"></div>
 
           {/* <!-- Document Context Header --> */}
           <div
-            className="mb-7.5 bg-[#f0fff9] py-4 px-6 rounded-lg border-l-4 border-emerald-600"
+            className="mb-4 bg-[#f0fff9] py-4 px-6 rounded-lg border-l-4 border-emerald-600"
           >
             <div className="text-[#0f172a] text-[18px] font-extrabold tracking-tight">
               DEMAND NOTICE
@@ -351,7 +351,7 @@ function DemandDetailPage() {
           </div>
 
           {/* <!-- Split Meta Information Dashboard --> */}
-          <div className="grid grid-cols-[1.2fr_0.8fr] gap-10 mb-8.75">
+          <div className="grid grid-cols-[1.2fr_0.8fr] gap-4 mb-4">
             <div className="bg-transparent">
               <div
                 className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
@@ -366,6 +366,7 @@ function DemandDetailPage() {
                 <strong className="font-bold">Taxpayer TIN:</strong> {demand?.member?.uid}
               </div>
             </div>
+
             <div>
               <div
                 className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
@@ -383,7 +384,7 @@ function DemandDetailPage() {
                     <td
                       className="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
-                      AMAC/DN/{new Date().getFullYear()}/{demand?.reference || "N/A"}
+                      AMAC/{demand?.reference || "N/A"}
                     </td>
                   </tr>
                   <tr>
@@ -410,26 +411,14 @@ function DemandDetailPage() {
                       {new Date(demand?.payment?.createdAt).toLocaleDateString() || "N/A"}
                     </td>
                   </tr>
-                  <tr>
-                    <td
-                      className="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b-0"
-                    >
-                      Audit Track Code:
-                    </td>
-                    <td
-                      className="font-semibold text-[#0f172a] text-right py-1 px-0 border-b-0"
-                    >
-                      {`AUD/${new Date().getFullYear()}/${Math.floor(Math.random() * 999)}`}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
           {/* <!-- Notice Context text block --> */}
-          <div
-            className="mb-8.75 text-[#1e293b] text-[13px] bg-white border border-[#e2e8f0] p-5 rounded-lg"
+          {/* <div
+            className="mb-4 text-[#1e293b] text-[13px] bg-white border border-[#e2e8f0] p-5 rounded-lg"
           >
             <p className="m-0 mb-2.5">
               <strong className="font-bold">OFFICIAL DEMAND NOTICE</strong>
@@ -446,287 +435,285 @@ function DemandDetailPage() {
               Administration Framework and carries the full weight of legal
               enforcement provisions.
             </p>
-          </div>
+          </div> */}
 
           {/* <!-- Core Transaction Layout Grid --> */}
-          <div className="grid grid-cols-[1.3fr_0.7fr] gap-7.5 mb-8.75">
-            <div>
-              <div
-                className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
-              >
-                Liability Breakdown
+          <div className="grid grid-cols-[1.3fr_0.7fr] gap-4 mb-4">
+            <div className="space-y-4">
+              {/* liability breakdown */}
+              <div>
+                <div
+                  className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+                >
+                  Liability Breakdown
+                </div>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th
+                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-left py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0]"
+                      >
+                        Revenue Component Description
+                      </th>
+                      <th
+                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-right py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0] w-32.5"
+                      >
+                        Amount (₦)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* <!-- Placeholder row mimicking loop dynamic outputs safely --> */}
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">{pricingName} - Principal Assessment</td>
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(principal)}</td>
+                    </tr>
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 4%</td>
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(vat)}</td>
+                    </tr>
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(charges)}</td>
+                    </tr>
+                    <tr className="font-semibold bg-[#f8fafc] text-[#0f172a]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                        Subtotal (Principal + VAT + Charges)
+                      </td>
+                      <td
+                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                      >
+                        {formatCurrency(subtotal)}
+                      </td>
+                    </tr>
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                        Penalty Accrued Over Time
+                      </td>
+                      <td
+                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                      >
+                        {formatCurrency(penalty)}
+                      </td>
+                    </tr>
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                        Interest Accrued
+                      </td>
+                      <td
+                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                      >
+                        {formatCurrency(interest)}
+                      </td>
+                    </tr>
+                    <tr
+                      className="bg-[#0f172a] text-white font-bold text-[15px] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] border-0"
+                    >
+                      <td className="p-4 rounded-l-md">
+                        TOTAL COMPLIANCE AMOUNT PAYABLE
+                      </td>
+                      <td
+                        className="p-4 rounded-r-md text-right w-32.5 text-[#38bdf8] font-extrabold text-[16px] tracking-wide"
+                      >
+                        {formatCurrency(totalAmount)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="italic text-[11px] text-[#64748b] mt-3">
+                  * Interest charges continue to accumulate iteratively daily until
+                  the exact financial settlement position registers as zero.
+                </div>
               </div>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th
-                      className="bg-[#f1f5f9] text-[#64748b] font-bold text-left py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0]"
-                    >
-                      Revenue Component Description
-                    </th>
-                    <th
-                      className="bg-[#f1f5f9] text-[#64748b] font-bold text-right py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0] w-32.5"
-                    >
-                      Amount (₦)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* <!-- Placeholder row mimicking loop dynamic outputs safely --> */}
-                  <tr className="font-medium text-[#1e293b]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">{pricingName} - Principal Assessment</td>
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(principal)}</td>
-                  </tr>
-                  <tr className="font-medium text-[#1e293b]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(vat)}</td>
-                  </tr>
-                  <tr className="font-medium text-[#1e293b]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(charges)}</td>
-                  </tr>
-                  <tr className="font-semibold bg-[#f8fafc] text-[#0f172a]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
-                      Subtotal (Principal + VAT + Charges)
-                    </td>
-                    <td
-                      className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
-                    >
-                      {formatCurrency(subtotal)}
-                    </td>
-                  </tr>
-                  <tr className="font-medium text-[#1e293b]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
-                      Penalty Accrued Over Time
-                    </td>
-                    <td
-                      className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
-                    >
-                      {formatCurrency(penalty)}
-                    </td>
-                  </tr>
-                  <tr className="font-medium text-[#1e293b]">
-                    <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
-                      Interest Accrued
-                    </td>
-                    <td
-                      className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
-                    >
-                      {formatCurrency(interest)}
-                    </td>
-                  </tr>
-                  <tr
-                    className="bg-[#0f172a] text-white font-bold text-[15px] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] border-0"
+
+              {/* <!-- Lower Layout Meta Channels --> */}
+              <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+                <div
+                  className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+                >
+                  OTHER PAYMENT OPTIONS
+                </div>
+
+                {/* settlement account */}
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4 mb-4 pb-4 border-b border-[#e2e8f0]">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                    <Landmark size={18} />
+                    <span><b>Settlement Account</b></span>
+                  </div>
+                  <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+                    <span><b>Account Number: </b>1310770007</span>
+                    <span><b>Bank Name: </b>Zenith Bank</span>
+                    <span><b>Account Name: </b>AMAC Revenue Account</span>
+                  </div>
+                </div>
+
+                {/* payment account */}
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4 mb-4 pb-4 border-b border-[#e2e8f0]">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                    <Landmark size={18} />
+                    <span><b>Payment Account</b></span>
+                  </div>
+                  <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+                    <span><b>Account Number: </b>1310770007</span>
+                    <span><b>Bank Name: </b>Zenith Bank</span>
+                    <span><b>Account Name: </b>AMAC Revenue Account</span>
+                  </div>
+                </div>
+
+                {/* pay on website */}
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                    <Globe size={18} />
+                    <span><b>Pay on Website</b></span>
+                  </div>
+                  <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
+                    <span><b>AMAC/{demand?.reference}</b></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* <!-- Sign-off System Block Layout --> */}
+              <div className="text-[13px]">
+                <div className="font-bold text-[#0f172a]">Regards,</div>
+                <div className="h-11.25"></div>
+                <div className="border-b border-[#e2e8f0] mb-6.25 w-50"></div>
+                <div className="font-bold text-[#0f172a]">Adekunle Adeyanju</div>
+                <div className="text-[#64748b] text-[12px]">
+                  Director of Audit & Compliance Division<br />Amac Revenue
+                  Management System
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* <!-- Visual Pay Now Sidebar Panel --> */}
+              <div
+                className="border border-[#e2e8f0] rounded-lg p-6 text-center bg-[#f8fafc] flex flex-col items-center"
+              >
+                <div
+                  className="text-[#0f172a] font-extrabold text-[14px] tracking-tight mb-1"
+                >
+                  SECURE WEB GATEWAY
+                </div>
+                <div className="text-[11px] text-[#64748b] mb-5">
+                  Scan via AMAC Mobile or Banking apps.
+                </div>
+
+                <div
+                  className="w-full border border-[#e2e8f0] rounded-md mb-5 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] aspect-square overflow-hidden object-cover"
+                >
+                  <img
+                    src={qrCodeUrl}
+                    alt="QR Code"
+                    className="w-60 h-60 object-cover"
+                  />
+                </div>
+
+                <div
+                  className="text-[11px] text-[#64748b] font-600 uppercase tracking-wider mb-1"
+                >
+                  System Payment Reference
+                </div>
+                <div
+                  className="font-mono font-bold text-[#009966] text-[14px] bg-white py-1.5 px-3 border border-[#e2e8f0] rounded mb-5 tracking-wide"
+                >
+                  {demand?.payment?.reference || "N/A"}
+                </div>
+              </div>
+
+              {/* amac address */}
+              <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+                <div
+                  className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+                >
+                  REVENUE ASSISTANCE HELP DESK
+                </div>
+
+                <div
+                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+                >
+                  <svg
+                    className="text-[#64748b] mr-3 shrink-0"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   >
-                    <td className="p-4 rounded-l-md">
-                      TOTAL COMPLIANCE AMOUNT PAYABLE
-                    </td>
-                    <td
-                      className="p-4 rounded-r-md text-right w-32.5 text-[#38bdf8] font-extrabold text-[16px] tracking-wide"
-                    >
-                      {formatCurrency(totalAmount)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="italic text-[11px] text-[#64748b] mt-3">
-                * Interest charges continue to accumulate iteratively daily until
-                the exact financial settlement position registers as zero.
-              </div>
-            </div>
-
-            {/* <!-- Visual Pay Now Sidebar Panel --> */}
-            <div
-              className="border border-[#e2e8f0] rounded-lg p-6 text-center bg-[#f8fafc] flex flex-col items-center"
-            >
-              <div
-                className="text-[#0f172a] font-extrabold text-[14px] tracking-tight mb-1"
-              >
-                SECURE WEB GATEWAY
-              </div>
-              <div className="text-[11px] text-[#64748b] mb-5">
-                Scan via AMAC Mobile or Banking apps.
-              </div>
-
-              <div
-                className="w-full border border-[#e2e8f0] rounded-md mb-5 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] aspect-square overflow-hidden object-cover"
-              >
-                <img
-                  src={qrCodeUrl}
-                  alt="QR Code"
-                  className="w-60 h-60 object-cover"
-                />
-              </div>
-
-              <div
-                className="text-[11px] text-[#64748b] font-600 uppercase tracking-wider mb-1"
-              >
-                System Payment Reference
-              </div>
-              <div
-                className="font-mono font-bold text-[#009966] text-[14px] bg-white py-1.5 px-3 border border-[#e2e8f0] rounded mb-5 tracking-wide"
-              >
-                {demand?.payment?.reference || "N/A"}
-              </div>
-
-              <div className="text-[10px] text-[#64748b] leading-normal">
-                This verification signature profile matches this demand note
-                instance specifically. Do not replicate.
-              </div>
-            </div>
-          </div>
-
-          {/* <!-- Lower Layout Meta Channels --> */}
-          <div className="grid grid-cols-[1.3fr_0.7fr] gap-7.5 mb-8.75">
-            <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
-              <div
-                className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
-              >
-                OTHER PAYMENT OPTIONS
-              </div>
-
-              {/* settlement account */}
-              <div className="grid grid-cols-[0.7fr_1.3fr] gap-7.5 mb-4 pb-4 border-b border-[#e2e8f0]">
-                <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
-                  <Landmark size={18} />
-                  <span><b>Settlement Account</b></span>
+                    <path
+                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+                    />
+                  </svg>
+                  <span>0700-REVENUE-AMAC</span>
                 </div>
-                <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                  <span><b>Account Number: </b>1310770007</span>
-                  <span><b>Bank Name: </b>Zenith Bank</span>
-                  <span><b>Account Name: </b>AMAC Revenue Account</span>
-                </div>
-              </div>
 
-              {/* payment account */}
-              <div className="grid grid-cols-[0.7fr_1.3fr] gap-7.5 mb-4 pb-4 border-b border-[#e2e8f0]">
-                <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
-                  <Landmark size={18} />
-                  <span><b>Payment Account</b></span>
-                </div>
-                <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                  <span><b>Account Number: </b>1310770007</span>
-                  <span><b>Bank Name: </b>Zenith Bank</span>
-                  <span><b>Account Name: </b>AMAC Revenue Account</span>
-                </div>
-              </div>
-
-              {/* pay on website */}
-              <div className="grid grid-cols-[0.7fr_1.3fr] gap-7.5">
-                <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
-                  <Globe size={18} />
-                  <span><b>Pay on Website</b></span>
-                </div>
-                <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                  <span><b>AMAC/DN/2026/{demand?.reference}</b></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
-              <div
-                className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
-              >
-                REVENUE ASSISTANCE HELP DESK
-              </div>
-
-              <div
-                className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
-              >
-                <svg
-                  className="text-[#64748b] mr-3 shrink-0"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                <div
+                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
                 >
-                  <path
-                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-                  />
-                </svg>
-                <span>0700-REVENUE-AMAC</span>
-              </div>
+                  <svg
+                    className="text-[#64748b] mr-3 shrink-0"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                    />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  <span>support@amac.ng</span>
+                </div>
 
-              <div
-                className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
-              >
-                <svg
-                  className="text-[#64748b] mr-3 shrink-0"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
+                <div
+                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
                 >
-                  <path
-                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                  />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-                <span>support@amac.ng</span>
+                  <svg
+                    className="text-[#64748b] mr-3 shrink-0"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span>Abuja Municipal Area Council Secretariat, Abuja</span>
+                </div>
               </div>
 
+              {/* notice section */}
               <div
-                className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+                className="border border-[#fde047] bg-[#fffbeb] rounded-lg p-5 flex items-start"
               >
-                <svg
-                  className="text-[#64748b] mr-3 shrink-0"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
+                <div
+                  className="bg-[#b45309] text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[11px] mr-3 shrink-0"
                 >
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <span>Abuja Municipal Area Council Secretariat, Abuja</span>
-              </div>
-            </div>
-          </div>
-
-          {/* <!-- Sign-off System Block Layout --> */}
-          <div className="grid grid-cols-2 gap-10 items-end mb-12.5">
-            <div className="text-[13px]">
-              <div className="font-bold text-[#0f172a]">Regards,</div>
-              <div className="h-11.25"></div>
-              <div className="border-b border-[#e2e8f0] mb-6.25 w-50"></div>
-              <div className="font-bold text-[#0f172a]">Adekunle Adeyanju</div>
-              <div className="text-[#64748b] text-[12px]">
-                Director of Audit & Compliance Division<br />Amac Revenue
-                Management System
-              </div>
-            </div>
-
-            <div
-              className="border border-[#fde047] bg-[#fffbeb] rounded-lg p-5 flex items-start"
-            >
-              <div
-                className="bg-[#b45309] text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[11px] mr-3 shrink-0"
-              >
-                !
-              </div>
-              <div className="text-[12px] text-[#b45309] leading-relaxed">
-                <strong
-                  className="block mb-1 uppercase text-[11px] tracking-wider font-bold"
-                >System Notice Note:</strong
-                >
-                This is an automated legal financial document statement. If matching
-                payment records have cleared recently, disregard and present
-                verification codes to the portal to update.
+                  !
+                </div>
+                <div className="text-[12px] text-[#b45309] leading-relaxed">
+                  <strong
+                    className="block mb-1 uppercase text-[11px] tracking-wider font-bold"
+                  >System Notice Note:</strong
+                  >
+                  This is an automated legal financial document statement. If matching
+                  payment records have cleared recently, disregard and present
+                  verification codes to the portal to update.
+                </div>
               </div>
             </div>
           </div>
 
           {/* <!-- Seamless Edge-to-Edge Footer Strip --> */}
           <div
-            className="bg-[#0f172a] text-white py-4 px-7.5 flex justify-between items-center text-[12px] mt-12.5 -mx-12.5 -mb-12.5 rounded-b-xb"
+            className="bg-[#0f172a] text-white py-4 px-4 flex justify-between items-center text-[12px] mt-12.5 -mx-12.5 -mb-12.5 rounded-b-xb"
           >
             <div className="flex items-center opacity-80">
               <svg

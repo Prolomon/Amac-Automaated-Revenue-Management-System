@@ -15,7 +15,7 @@ import { sendEmail } from "../service/mail.js";
 import { accountCreation, walletCreation, resetSuccessful, resetCode, loginAlert } from "../service/templates.js";
 
 const generateStaffUidSuffix = customAlphabet(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "0123456789",
   10,
 );
 

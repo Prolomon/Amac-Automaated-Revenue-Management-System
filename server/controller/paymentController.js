@@ -17,7 +17,7 @@ const paymentReferenceSuffix = customAlphabet(
 
 const generatePaymentReference = () => {
   const date = new Date();
-  return `PAY-REF|${date.getFullYear()}${date.getMonth() + 1}${date.getHours()}${date.getMinutes()}${date.getSeconds()}${paymentReferenceSuffix()}`;
+  return `PAY|${date.getFullYear()}${date.getMonth() + 1}${date.getHours()}${date.getMinutes()}${date.getSeconds()}${paymentReferenceSuffix()}`;
 };
 
 const getWalletBankDetails = (wallet) => {

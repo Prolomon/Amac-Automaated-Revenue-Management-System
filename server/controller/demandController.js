@@ -3,6 +3,7 @@ import { processDemands } from "../service/demandCron.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { customAlphabet } from "nanoid";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,11 @@ const formatCurrency = (amount) => {
     maximumFractionDigits: 2,
   });
 };
+
+const generateDemandUid = customAlphabet(
+  "0123456789",
+  10,
+);
 
 export const createDemandNotice = async (req, res) => {
   try {
@@ -49,7 +55,7 @@ export const createDemandNotice = async (req, res) => {
 
     // Fetch all payments for this user where status is not COMPLETED
     const payments = await prisma.payment.findMany({
-      where: { 
+      where: {
         userId: userId,
         status: {
           not: "COMPLETED",
@@ -67,7 +73,25 @@ export const createDemandNotice = async (req, res) => {
     // Create Demand records with CREATED status - each with unique reference
     const demandRecords = await prisma.$transaction(
       payments.map(async (payment) => {
-        const uniqueRef = `DN-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+
+        // Generate unique UID with collision detection
+        let uniqueRef;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        while (!uniqueRef && attempts < maxAttempts) {
+          const genUid = generateDemandUid();
+          const existingMemberWithUid = await prisma.demand.findFirst({
+            where: { reference: genUid },
+            select: { id: true },
+          });
+
+          if (!existingMemberWithUid) {
+            uniqueRef = genUid;
+          }
+          attempts++;
+        }
+
         await prisma.payment.update({
           where: { id: payment.id },
           data: { isDemand: true }, // Update payment status to PENDING
@@ -210,8 +234,25 @@ export const createMultipleDemandNotice = async (req, res) => {
 
         // Create Demand records with CREATED status for unpaid payments - each with unique reference
         const demandRecords = await prisma.$transaction(
-          unpaidPayments.map((payment) => {
-            const uniqueRef = `${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+          unpaidPayments.map(async (payment) => {
+            // Generate unique UID with collision detection
+            let uniqueRef;
+            let attempts = 0;
+            const maxAttempts = 5;
+
+            while (!uniqueRef && attempts < maxAttempts) {
+              const genUid = generateDemandUid();
+              const existingMemberWithUid = await prisma.demand.findFirst({
+                where: { reference: genUid },
+                select: { id: true },
+              });
+
+              if (!existingMemberWithUid) {
+                uniqueRef = genUid;
+              }
+              attempts++;
+            }
+
             return prisma.demand.create({
               data: {
                 reference: uniqueRef,
@@ -312,8 +353,30 @@ export const createDemandNoticeByPayment = async (req, res) => {
       console.log(`Wallet not found for userId: ${payment.userId}. Creating a new wallet.`);
     }
 
-    // Create Demand record with CREATED status - each with unique reference
-    const uniqueRef = `DN-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    // Generate unique UID with collision detection
+    let uniqueRef;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (!uniqueRef && attempts < maxAttempts) {
+      const genUid = generateDemandUid();
+      const existingMemberWithUid = await prisma.demand.findFirst({
+        where: { reference: genUid },
+        select: { id: true },
+      });
+
+      if (!existingMemberWithUid) {
+        uniqueRef = genUid;
+      }
+      attempts++;
+    }
+
+    if (!uniqueRef) {
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to generate unique ID, please try again",
+      });
+    }
     const demandRecord = await prisma.demand.create({
       data: {
         reference: uniqueRef,

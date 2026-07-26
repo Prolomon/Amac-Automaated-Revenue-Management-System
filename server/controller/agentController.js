@@ -18,7 +18,7 @@ import {
 } from "../service/templates.js";
 
 const generateAgentUidSuffix = customAlphabet(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "0123456789",
   10,
 );
 

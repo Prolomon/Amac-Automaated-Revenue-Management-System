@@ -129,17 +129,17 @@ export const processDemands = async () => {
         };
 
         const liabilityRows = `
-          <tr>
-            <td>${pricingName} - Principal Assessment</td>
-            <td class="amount-col">${formatCurrency(principal)}</td>
+          <tr class="font-medium text-[#1e293b]">
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
           </tr>
-          <tr>
-            <td>Value Added Tax (VAT) @ 7.5%</td>
-            <td class="amount-col">${formatCurrency(vat)}</td>
+          <tr class="font-medium text-[#1e293b]">
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
           </tr>
-          <tr>
-            <td>Payment Processing Charges @ 1.5%</td>
-            <td class="amount-col">${formatCurrency(charges)}</td>
+          <tr class="font-medium text-[#1e293b]">
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
+            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
           </tr>
         `;
 
@@ -193,7 +193,7 @@ export const processDemands = async () => {
           '{{MEMBER_NAME}}': member.businessName || member.fullname || 'N/A',
           '{{MEMBER_LOCATION}}': locationStr,
           '{{MEMBER_TIN}}': member.uid,
-          '{{REFERENCE_NO}}': 'AMAC/DN/' + year + '/' + referenceNo,
+          '{{REFERENCE_NO}}': 'AMAC' + '/' + referenceNo,
           '{{DATE_OF_ISSUE}}': formatDate(now),
           '{{ASSESSMENT_PERIOD}}': getAssessmentPeriod(payment.frequency || 'MONTHLY'),
           '{{AUDIT_TRACK}}': auditTrack,
@@ -222,7 +222,7 @@ export const processDemands = async () => {
           Please find attached your demand notice for the assessment period ${getAssessmentPeriod(payment.frequency || 'MONTHLY')}. The total amount due is ${formatCurrency(totalAmount)}.`
 
         // Send email
-        const emailResult = await sendDemandNoticeEmail(member.email, subject, body, htmlTemplate, `${demand?.member?.businessName || demand?.member?.fullname}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,);
+        const emailResult = await sendDemandNoticeEmail(member.email, subject, body, htmlTemplate, `${(memberName)}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,);
 
         if (emailResult.ok) {
           // Update this specific demand record to PENDING

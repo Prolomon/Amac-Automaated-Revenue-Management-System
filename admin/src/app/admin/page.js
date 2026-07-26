@@ -42,7 +42,7 @@ function Home() {
         // fetch payments for dashboard calculations
         const paymentsData = await getAllPayments();
         if (isCancelled) return;
-        const allPayments = paymentsData?.data || paymentsData || [];
+        const allPayments = paymentsData?.payments || paymentsData?.data || [];
 
         // fetch companies
         const companiesData = await getCompanies(userId);

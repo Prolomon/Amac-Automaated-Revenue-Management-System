@@ -158,7 +158,7 @@ function DemandsListPage() {
 
   const getDemandIdentifier = (demand: any, index: number) => {
     const ref = demand.reference || `#${index + 1}`;
-    return `D-${ref}`;
+    return `${ref}`;
   };
 
   return (

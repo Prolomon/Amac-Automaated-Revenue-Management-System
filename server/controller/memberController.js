@@ -5,7 +5,7 @@ import {
   createMemberSchema,
   updateMemberSchema,
   loginSchema,
-  billingFrequencySchema,
+  billingFrequencySchema, 
   pricingActionSchema,
   changeMemberAgentSchema,
   changeMemberCompanySchema,
@@ -75,7 +75,7 @@ const resolveTargetMemberUid = (req) => {
 };
 
 const generateMemberUidSuffix = customAlphabet(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "0123456789",
   10,
 );
 

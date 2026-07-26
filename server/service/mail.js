@@ -95,13 +95,33 @@ async function getBrowser() {
 export async function generatePdfFromHtml(htmlContent, publicDir) {
   let page;
   try {
+    console.log("Generating PDF from HTML content...");
+    console.log("Public directory for resolving images:", publicDir);
+    console.log("HTML content length:", htmlContent.length);
+    console.log("Start Browser at: ", new Date().toISOString());
     const browser = await getBrowser();
     page = await browser.newPage();
 
     // Inject viewport meta tag for proper scaling
     let htmlWithViewport = htmlContent.replace(
       /<head>/i,
-      `<head><meta name="viewport" content="width=device-width, initial-scale=1.0">`
+      `<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html,
+      body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  `
     );
 
     // Resolve relative image URLs to absolute file:// URLs so Playwright can load them
@@ -119,20 +139,34 @@ export async function generatePdfFromHtml(htmlContent, publicDir) {
       );
     }
 
+    console.log("Setting page content for PDF generation...");
     await page.setContent(htmlWithViewport, {
-      waitUntil: 'domcontentloaded',
-      timeout: 120000
+      waitUntil: 'networkidle',
+      timeout: 120000,
     });
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
-      scale: 0.8,
-      preferCSSPageSize: false
-    });
+    console.log("Waiting for network to be idle before generating PDF...");
+    await page.waitForLoadState('networkidle');
 
-    return pdfBuffer;
+    try {
+      console.log("Generating PDF buffer...");
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: {
+          top: '0',
+          right: '0',
+          bottom: '0',
+          left: '0'
+        }
+      });
+
+      console.log("PDF buffer generated successfully.");
+      return pdfBuffer;
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      throw err;
+    }
   } finally {
     if (page) {
       await page.close().catch(err => console.error("Error closing page:", err));
@@ -158,7 +192,7 @@ export const sendEmail = async (to, subject, text, attachments = []) => {
         content: att.content,
       }));
 
-    const { data, error } = await resendClient.emails.send({
+      const { data, error } = await resendClient.emails.send({
         from: resendFrom,
         to: Array.isArray(to) ? to : [to],
         subject,
@@ -166,11 +200,11 @@ export const sendEmail = async (to, subject, text, attachments = []) => {
         text: String(text || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
         attachments: resendAttachments.length > 0 ? resendAttachments.map(att => ({
           ...att,
-          content: Buffer.isBuffer(att.content) 
+          content: Buffer.isBuffer(att.content)
             ? att.content.toString('base64')
             : typeof att.content === 'string'
-            ? att.content
-            : Buffer.from(att.content).toString('base64')
+              ? att.content
+              : Buffer.from(att.content).toString('base64')
         })) : undefined,
       });
 
@@ -237,7 +271,7 @@ export const sendEmail = async (to, subject, text, attachments = []) => {
   } catch (error) {
     console.error("Error sending email:", error);
 
-  if (shouldRetryWithFallback(error) && smtpPort !== 465 && smtpHost && smtpUser && smtpPass) {
+    if (shouldRetryWithFallback(error) && smtpPort !== 465 && smtpHost && smtpUser && smtpPass) {
       try {
         const fallbackTransporter = createSmtpTransport(465, true);
         const info = await fallbackTransporter.sendMail(mailOptions);
