@@ -16,10 +16,11 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { forgetPassword } from "@/lib/services/member";
 
 export default function Profile() {
   const router = useRouter();
-  const { currentUser, logout, forgotPassword, createCode } = useAuth();
+  const { currentUser, logout, createCode, token } = useAuth();
   const { success, failed } = useToast();
   const name = currentUser?.fullname ?? "Johnson's Electronics";
   const locationObj = currentUser?.location;
@@ -69,10 +70,12 @@ export default function Profile() {
 
   const handleForgotPassword = async () => {
     if (!currentUser?.uid) return failed("User not found");
-    const res = await forgotPassword(
-      currentUser.uid,
+    const res = await forgetPassword(
+      newPassword.trim(),
       newPassword.trim(),
       confirmPassword.trim(),
+      currentUser.uid,
+      token as string
     );
     if (!res.ok) return failed(res.message ?? "Could not send password reset");
     success(res.message ?? "Password reset email sent");

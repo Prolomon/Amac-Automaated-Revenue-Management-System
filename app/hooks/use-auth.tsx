@@ -3,7 +3,7 @@ import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Member } from "@/lib/types";
-import { createSecurityCode, verifySecurityCode, login as MemberLogin, getMember } from "@/lib/services/member";
+import { login as MemberLogin, getMember, forgetPassword, resetPassword } from "@/lib/services/member";
 
 type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "QUARTERLY";
 
@@ -65,11 +65,6 @@ type AuthContextValue = {
     password: string,
   ) => Promise<{ ok: boolean; message?: string }>;
   logout: () => Promise<void>;
-  forgotPassword: (
-    uid: string,
-    password: string,
-    confirm: string,
-  ) => Promise<{ ok: boolean; message?: string }>;
   billing: (
     frequency: Frequency,
     due: Date,
@@ -230,46 +225,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setWallet(null);
     setCurrentUser(null);
   }; 
-
-  const forgotPassword = async (
-    uid: string,
-    password: string,
-    confirm: string,
-  ) => {
-    try {
-      if (!uid) return { ok: false, message: "User ID is required" };
-
-      const response = await fetch(
-        `${API_URL}/api/member/forgot-password/${uid}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ password, confirm }),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        return {
-          ok: false,
-          message: error.message || "Failed to reset password",
-        };
-      }
-
-      const data = await response.json();
-      return {
-        ok: true,
-        message: data.message || "Password reset email sent successfully",
-      };
-    } catch (e: any) {
-      return {
-        ok: false,
-        message: e?.message || "Failed to process password reset",
-      };
-    }
-  };
 
   const billing = async (frequency: Frequency, due: Date) => {
     try {
@@ -590,7 +545,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     login,
     logout,
-    forgotPassword,
     billing,
     notifications,
     receipt,
