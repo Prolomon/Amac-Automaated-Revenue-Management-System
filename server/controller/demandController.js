@@ -43,6 +43,13 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
+    if (!member.agentId) {
+      return res.status(404).json({
+        ok: false,
+        message: "Member must be assigned to an agent to create a demand notice",
+      });
+    }
+
     let wallet;
 
     wallet = await prisma.wallet.findFirst({
@@ -54,7 +61,7 @@ export const createDemandNotice = async (req, res) => {
 
       const agentId = member?.agentId;
 
-      wallet = await prisma.findFirst({
+      wallet = await prisma.wallet.findFirst({
         where: { userId: agentId },
       });
 
@@ -355,6 +362,13 @@ export const createDemandNoticeByPayment = async (req, res) => {
       });
     }
 
+    if (!member.agentId) {
+      return res.status(404).json({
+        ok: false,
+        message: "Member must be assigned to an agent to create a demand notice",
+      });
+    }
+
     let wallet;
 
     wallet = await prisma.wallet.findFirst({
@@ -363,6 +377,16 @@ export const createDemandNoticeByPayment = async (req, res) => {
 
     if (!wallet) {
       console.log(`Wallet not found for userId: ${payment.userId}. Creating a new wallet.`);
+
+      const agentId = member?.agentId;
+
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: agentId },
+      });
+
+      if (!wallet) {
+        console.log(`Wallet not found for agentId: ${agentId}. Creating a new wallet.`);
+      }
     }
 
     // Generate unique UID with collision detection
