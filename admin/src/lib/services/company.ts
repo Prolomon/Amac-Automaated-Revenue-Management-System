@@ -122,9 +122,9 @@ export async function deleteCompany(id: string): Promise<{ ok: boolean; message?
     throw new Error(data.message || "Failed to delete company");
     }
     return data;
-}
+} 
 
-export async function login( email: string, password: string ): Promise<{ ok: boolean; company?: Company; message?: string, token: string }> {
+export async function login( email: string, password: string ): Promise<{ ok: boolean; company?: Company; message?: string, token: string, role: string }> {
   const response = await fetch(`${API_URL}/company/login`, {
     method: "POST",
     headers: {

@@ -31,16 +31,6 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    let wallet;
-
-    wallet = await prisma.wallet.findFirst({
-      where: { userId },
-    });
-
-    if (!wallet) {
-      console.log(`Wallet not found for userId: ${userId}. Creating a new wallet.`);
-    }
-
     // Fetch member details
     const member = await prisma.member.findUnique({
       where: { uid: userId },
@@ -51,6 +41,27 @@ export const createDemandNotice = async (req, res) => {
         ok: false,
         message: "Member not found",
       });
+    }
+
+    let wallet;
+
+    wallet = await prisma.wallet.findFirst({
+      where: { userId },
+    });
+
+    if (!wallet) {
+      console.log(`Wallet not found for userId: ${userId}. Creating a new wallet.`);
+
+      const agentId = member?.agentId;
+
+      wallet = await prisma.findFirst({
+        where: { userId: agentId },
+      });
+
+      if (!wallet) {
+        console.log(`Wallet not found for agentId: ${agentId}. Creating a new wallet.`);
+      }
+
     }
 
     // Fetch all payments for this user where status is not COMPLETED
@@ -96,6 +107,7 @@ export const createDemandNotice = async (req, res) => {
           where: { id: payment.id },
           data: { isDemand: true }, // Update payment status to PENDING
         });
+
         return await prisma.demand.create({
           data: {
             reference: uniqueRef,

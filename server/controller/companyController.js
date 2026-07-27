@@ -522,6 +522,7 @@ const loginCompany = async (req, res) => {
       message: "Login successful",
       company: companyWithoutPassword,
       token,
+      role: company.role,
     });
   } catch (err) {
     console.error(err);

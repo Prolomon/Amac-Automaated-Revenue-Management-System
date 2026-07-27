@@ -1,5 +1,6 @@
 "use client";
 
+import Cookies from 'js-cookie'
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Company, getCompany, login as CompanyLogin } from "@/lib/services/company";
@@ -22,6 +23,7 @@ export const PartnerProvider = ({ children }) => {
   const [error, setError] = useState<Error | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -32,8 +34,11 @@ export const PartnerProvider = ({ children }) => {
       if (res.ok) {
         setUser(res.company);
         setIsAuthenticated(true);
-        sessionStorage.setItem("amac_company", JSON.stringify(res.company));
+        Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
         setUid(res.company.uid);
+        setRole(res.company.role);
+        
+        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 }); // 3 days
       } else {
         throw new Error(res.message || "Failed to refresh user data");
       }
@@ -52,16 +57,20 @@ export const PartnerProvider = ({ children }) => {
       setError(null);
       const res = await CompanyLogin(email, password);
 
-      if (res.ok) {
+      if (!res.ok) {
+        throw new Error(res.message || "Login failed");
+      }
+
         setUser(res.company);
         setIsAuthenticated(true);
-        sessionStorage.setItem("amac_company", JSON.stringify(res.company));
+        Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
         setUid(res.company.uid);
         setToken(res.token);
-        document.cookie = `arums_token=${res.token}; path=/; max-age=259200`; // 3 days
+        setRole(res.role || res.company.role);
+        Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
+        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 }); // 3 days
 
         router.replace("/partner");
-      }
     } catch (err) {
       setError(err.message);
       throw err;
@@ -72,23 +81,23 @@ export const PartnerProvider = ({ children }) => {
 
   // Logout function
   const logout = () => {
-    document.cookie = "arums_token=; path=/; max-age=0";
-    localStorage.removeItem("loggedIn");
-    sessionStorage.removeItem("amac_company");
+    Cookies.remove("amac_token");
+    Cookies.remove("amac_role");
+    Cookies.remove("amac_session");
     setUser(null);
     setIsAuthenticated(false);
     setToken(null);
     setUid(null);
-    router.push("/partner/login");
+    setRole(null);
+    router.push("/auth/partner");
   };
 
   // Get company data function
   useEffect(() => {
     try {
-      const companyData = sessionStorage.getItem("amac_company");
-      const cookieData = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("arums_token="));
+      const companyData = Cookies.get("amac_session");
+      const cookieData = Cookies.get("amac_token");
+      const companyRole = Cookies.get("amac_role");
 
       if (companyData) {
         const parsedCompany = JSON.parse(companyData);
@@ -96,18 +105,21 @@ export const PartnerProvider = ({ children }) => {
         setToken(cookieData ? cookieData.split("=")[1] : null);
         setUser(parsedCompany);
         setUid(parsedCompany?.uid || null);
+        setRole(companyRole || parsedCompany?.role || null);
       } else {
         setIsAuthenticated(false);
         setToken(null);
         setUser(null);
-        setUid(null);
-      }
+          setUid(null);
+          setRole(null);
+        }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to restore session"));
       setIsAuthenticated(false);
       setToken(null);
       setUser(null);
       setUid(null);
+      setRole(null);
     } finally {
       setLoading(false);
     }
@@ -124,6 +136,7 @@ export const PartnerProvider = ({ children }) => {
     login,
     logout,
     refresh,
+    role,
   };
 
   return (

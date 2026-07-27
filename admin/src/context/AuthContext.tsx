@@ -1,6 +1,6 @@
 "use client";
 
-import Cookies from 'js-cookie'
+import Cookies from 'js-cookie' 
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { login as userLogin, getAdmin } from "@/lib/services/admin";
@@ -41,10 +41,8 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
           Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
           setUid(res.admin.uid);
-          setToken(res.token);
           setRole(res.admin.role);
 
-          Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
           Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
         } else {
           throw new Error(res.message || "Failed to refresh user data");
@@ -114,7 +112,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUid(null);
     setRole(null);
-    router.push(`/auth/${route}`);
+    router.push(`/auth/admin`);
   };
 
   // Get admin data function

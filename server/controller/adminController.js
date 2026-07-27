@@ -20,7 +20,7 @@ const random6Digit = () => {
 const generateAdminUidSuffix = customAlphabet(
   "0123456789",
   10, 
-);
+); 
 
 const generateAuthToken = async (payload) => {
   if (!jwtSecret) {

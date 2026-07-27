@@ -1,5 +1,5 @@
 "use client";
-import  { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   Plus,
@@ -7,6 +7,7 @@ import {
   FileUp,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { getMembersByCompanyId, Member } from "@/lib/services/member";
@@ -33,21 +34,21 @@ export default function EntitiesPage() {
   const { addToast } = useToast();
 
   const fetchData = useCallback(async () => {
-      setLoading(true);
-      try {
-        const companyId = centerId || uid;
-        const memberData = await getMembersByCompanyId(page, 100, companyId);
+    setLoading(true);
+    try {
+      const companyId = centerId || uid;
+      const memberData = await getMembersByCompanyId(page, 100, companyId);
 
-        setMembers(memberData?.data || []);
-        setMeta(
-          memberData?.meta || { page, limit: 100, total: 0, totalPages: 1 },
-        );
+      setMembers(memberData?.data || []);
+      setMeta(
+        memberData?.meta || { page, limit: 100, total: 0, totalPages: 1 },
+      );
 
-      } catch (error) {
-        addToast("error", "Failed to fetch entity data");
-      } finally {
-        setLoading(false);
-      }
+    } catch (error) {
+      addToast("error", "Failed to fetch entity data");
+    } finally {
+      setLoading(false);
+    }
   }, [page, centerId, uid, addToast]);
 
   useEffect(() => {
@@ -204,21 +205,21 @@ export default function EntitiesPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <button
+              onClick={() => fetchData()}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4 cursor-pointer"
+            >
+              <RefreshCw size={18} className={`${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
             <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4" onClick={() => {
               router.push("/partner/entities/add");
             }}>
               <Plus size={18} />
               <span className="hidden sm:inline">Add Entity</span>
             </button>
-            <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 md:px-4">
+            <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 md:px-4" onClick={handleDownload}>
               <FileUp size={18} />
-              <span className="hidden sm:inline">Import</span>
-            </button>
-            <button
-              onClick={() => handleDownload()}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4"
-            >
-              <Download size={18} />
               <span className="hidden sm:inline">Export</span>
             </button>
           </div>
@@ -262,82 +263,96 @@ export default function EntitiesPage() {
               <option>INDIVIDUAL</option>
             </select>
           </div>
-
-          <div className="overflow-x-auto block">
-            <table className="min-w-max w-full text-left">
-              <thead className="border-b border-slate-200">
-                <tr>
-                  <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                    Entity ID
-                  </th>
-                  <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                    Business Name
-                  </th>
-                  <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                    Category
-                  </th>
-                  <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                    Type
-                  </th>
-                  <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                    Email
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredMembers.length > 0 ? (
-                  filteredMembers.map((entity) => (
-                    <tr
-                      key={entity.uid}
-                      className="transition-colors hover:bg-slate-50"
-                    >
-                      <td className="py-4 font-mono text-xs md:text-sm">
-                        <Link
-                          href={`/partner/entities/${entity.uid}`}
-                          className="rounded-lg text-xs font-medium text-slate-600 transition-colors hover:text-emerald-600 md:text-sm"
-                        >
-                          {entity.uid}
-                        </Link>
-                      </td>
-                      <td className="py-4 text-xs font-medium text-slate-900 md:text-sm truncate capitalize">
-                        {entity.businessName || entity.fullname}
-                      </td>
-                      <td className="py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${categoryBadgeClass(
-                            entity.category || "",
-                          )}`}
-                        >
-                          {entity.category || "—"}
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${typeBadgeClass(
-                            entity.type || "",
-                          )}`}
-                        >
-                          {entity.type || "—"}
-                        </span>
-                      </td>
-                      <td className="py-4 text-xs text-slate-600 md:text-sm">
-                        {entity.email || "—"}
+          {loading ? (
+            <div className="col-span-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto block">
+              <table className="min-w-max w-full text-left">
+                <thead className="border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Entity ID
+                    </th>
+                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Business Name
+                    </th>
+                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Category
+                    </th>
+                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Type
+                    </th>
+                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Zone
+                    </th>
+                    <th className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
+                      Email
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map((entity) => (
+                      <tr
+                        key={entity.uid}
+                        className="transition-colors hover:bg-slate-50"
+                      >
+                        <td className="py-4 font-mono text-xs md:text-sm">
+                          <Link
+                            href={`/partner/entities/${entity.uid}`}
+                            className="rounded-lg text-xs font-medium text-slate-600 transition-colors hover:text-emerald-600 md:text-sm"
+                          >
+                            {entity.uid}
+                          </Link>
+                        </td>
+                        <td className="py-4 text-xs font-medium text-slate-900 md:text-sm truncate capitalize">
+                          {entity.businessName || entity.fullname}
+                        </td>
+                        <td className="py-4">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${categoryBadgeClass(
+                              entity.category || "",
+                            )}`}
+                          >
+                            {entity.category || "—"}
+                          </span>
+                        </td>
+                        <td className="py-4">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${typeBadgeClass(
+                              entity.type || "",
+                            )}`}
+                          >
+                            {entity.type || "—"}
+                          </span>
+                        </td>
+                        <td className="py-4 text-xs text-slate-600 md:text-sm text-center">
+                          {entity.zone || "—"}
+                        </td>
+                        <td className="py-4 text-xs text-slate-600 md:text-sm">
+                          {entity.email || "—"}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center">
+                        <p className="text-slate-500 text-sm">
+                          No entities found
+                        </p>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center">
-                      <p className="text-slate-500 text-sm">
-                        No entities found
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
           <div className="border-t border-slate-100 pt-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <p className="text-xs md:text-sm text-slate-600">
@@ -392,5 +407,5 @@ export default function EntitiesPage() {
         </div>
       </div>
     </div>
-  );  
+  );
 }

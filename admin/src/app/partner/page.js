@@ -46,7 +46,7 @@ function Home() {
         // fetch payments for dashboard calculations
         const paymentsData = await getAllPayments();
         if (isCancelled) return;
-        const allPayments = paymentsData?.data || paymentsData || [];
+        const allPayments = paymentsData?.payments || paymentsData?.data || [];
 
         // fetch agents
         const agentsData = await getAgents(user.uid);
@@ -165,28 +165,6 @@ function Home() {
       arr.push({ name: "Individual", value: counts.INDIVIDUAL });
     return arr.length ? arr : [{ name: "No Data", value: 1 }];
   }, [members]);
-
-  // derive bar chart data (revenue by pricing tier)
-  const barDataFromPricing = React.useMemo(() => {
-    const tierRevenue = {};
-    payments.forEach((p) => {
-      const tierTitle = p.pricingTier || p.tier || "Unassigned";
-      const amt =
-        typeof p.amount === "number" ? p.amount : parseFloat(p.amount) || 0;
-      tierRevenue[tierTitle] = (tierRevenue[tierTitle] || 0) + amt;
-    });
-    // If no payments by tier, use pricing tier names from schema
-    if (Object.keys(tierRevenue).length === 0 && pricing.length > 0) {
-      return pricing.map((p) => ({
-        name: p.title || "Unknown",
-        value: 0,
-      }));
-    }
-    return Object.entries(tierRevenue).map(([name, value]) => ({
-      name,
-      value: Math.round(value / 1000),
-    }));
-  }, [payments, pricing]);
 
   return (
     <div className="mx-auto max-w-7xl p-4 space-y-4">

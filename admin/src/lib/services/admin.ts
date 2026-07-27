@@ -187,7 +187,7 @@ export async function forgetSecureCode(id: string): Promise<{ ok: boolean; messa
   return data;
 }
 
-export async function getAdmin(id) {
+export async function getAdmin(id: string): Promise<{ ok: boolean; admin?: Admin; message?: string }> {
   if (!id) {
     throw new Error("No user ID found");
   }

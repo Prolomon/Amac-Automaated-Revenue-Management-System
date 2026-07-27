@@ -441,3 +441,54 @@ export const getTransactions = async (accountNumber, fromDate, toDate) => {
         };
     }
 };
+
+export const checkBalance = async () => {
+    if (!process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_API_BASE_URL is not configured',
+            data: null,
+        };
+    }
+
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/virtual/balance`;
+
+    try {   
+
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers,
+            body: JSON.stringify({ accountId: process.env.NOMBA_ACCOUNT_ID }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.status) {
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
+};
+
+export const checkout = async () => {
+
+}

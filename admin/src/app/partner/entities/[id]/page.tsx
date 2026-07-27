@@ -1,14 +1,11 @@
 "use client";
-import React, { useEffect, useState, use, useCallback } from "react";
+import { useEffect, useState, use, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Edit2,
-  Trash2,
   AlertCircle,
   ArrowLeft,
   RefreshCw,
   Download,
-  CheckCircle2,
   ShieldCheck,
   Wallet,
   UserRound,
@@ -19,32 +16,29 @@ import {
 } from "lucide-react";
 import {
   getMember,
-  deleteMember,
-  updateMember,
   Member,
-  paymentAction,
   changeAgent,
-  changeCompany,
 } from "@/lib/services/member";
-import { getPayments } from "@/lib/api";
-import { getPricing, Pricing } from "@/lib/services/pricing";
+import { getPaymentsByUser } from "@/lib/services/payments";
+import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
+import { usePartner } from "@/context/PartnerContext";
 import { getWallet, Wallet as WalletType } from "@/lib/services/wallet";
 import { Agent, getAgents } from "@/lib/services/agent";
-import { usePartner } from "@/context/PartnerContext";
-
+import { useToast } from "@/context/ToastContext";
 import Link from "next/link";
 
 export default function EntityDetailsPage({ params }) {
   const parameter: any = use(params);
   const id = parameter?.id;
   const { user } = usePartner();
+  const { addToast } = useToast();
+  const centerId = user?.center || null;
 
   const router = useRouter();
   const [member, setMember] = useState<Member | null>(null);
   const [payments, setPayments] = useState([]);
   const [pricing, setPricing] = useState<Pricing[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     fullname: "",
     businessName: "",
@@ -60,9 +54,8 @@ export default function EntityDetailsPage({ params }) {
       zipcode: "",
       nearestBusStop: "",
     },
+    zone: "",
   });
-  const [saving, setSaving] = useState(false);
-  const [toasts, setToasts] = useState([]);
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [isExist, setIsExist] = useState<boolean>(false);
   const [memberPricing, setMemberPricing] = useState<Pricing[] | null>(null);
@@ -73,26 +66,66 @@ export default function EntityDetailsPage({ params }) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
+  const isFetchingRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
+
+  const normalizePricingIds = (value: unknown): string[] => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    if (!Array.isArray(value)) return [];
+
+    return Array.from(
+      new Set(
+        value
+          .map((item) => {
+            if (typeof item === "string") return item;
+            if (!item || typeof item !== "object") return "";
+
+            const pricingItem = item as Record<string, unknown>;
+            return String(
+              pricingItem.id ||
+              pricingItem._id ||
+              pricingItem.uid ||
+              pricingItem.pricingId ||
+              "",
+            ).trim();
+          })
+          .filter(Boolean),
+      ),
+    );
+  };
 
   const memberType = (member?.type || form.type || "BUSINESS").toUpperCase();
+  const memberCategory = (member?.category || form.category || "").toUpperCase();
   const isIndividual = memberType === "INDIVIDUAL";
   const pricingOptions = Array.isArray(pricing) ? Array.from(new Set(pricing.map((item) => item.category).filter(Boolean))) : [];
+  const [availablePricing, setAvailablePricing] = useState<Pricing[]>([]);
 
-  const addToast = (type: "success" | "error", message: string, ttl = 4000) => {
-    const id = Date.now() + Math.random();
-    setToasts((s) => [...s, { id, type, message }]);
-    setTimeout(() => setToasts((s) => s.filter((t) => t.id !== id)), ttl);
+  const isRateLimitError = (error: unknown) => {
+    if (!(error instanceof Error)) return false;
+    return /too many requests|429/i.test(error.message || "");
   };
 
   const fetchData = useCallback(() => {
     let mounted = true;
     const load = async () => {
+      if (isFetchingRef.current) return;
+      const now = Date.now();
+      if (now - lastFetchAtRef.current < 1200) return;
+
+      isFetchingRef.current = true;
+      lastFetchAtRef.current = now;
       setLoading(true);
       try {
         const [m, p, pr] = await Promise.all([
           getMember(id),
-          getPayments(id),
-          getPricing(user?.uid, 1, 100),
+          getPaymentsByUser(id),
+          centerId ? getPricingByCenter(centerId) : Promise.resolve({ data: [] }),
         ]);
         if (!mounted) return;
 
@@ -100,7 +133,14 @@ export default function EntityDetailsPage({ params }) {
         const paymentsData = p?.payments || [];
         const pricingData = pr?.data || [];
         setMember(data);
-        setMemberPrices(Array.isArray(data?.pricing) ? data.pricing : []);
+        const resolvedMemberPricing = normalizePricingIds(
+          data?.pricing ||
+          (data as any)?.pricings ||
+          (data as any)?.memberPricing ||
+          (data as any)?.memberPrices ||
+          [],
+        );
+        setMemberPrices(resolvedMemberPricing);
 
         setPayments(paymentsData);
         setPricing(pricingData);
@@ -116,19 +156,28 @@ export default function EntityDetailsPage({ params }) {
           phone: data?.phone || "",
           location: data?.location || null,
           billingFrequency: data?.billingFrequency || "",
+          zone: data?.zone || "",
         });
 
         addToast("success", "Member loaded");
       } catch (e) {
-        console.error(e);
-        addToast("error", "Failed to fetch member");
+        if (!isRateLimitError(e)) {
+          console.error(e);
+        }
+        addToast(
+          "error",
+          isRateLimitError(e)
+            ? "Too many requests, please wait a moment and retry."
+            : "Failed to fetch member",
+        );
       } finally {
         if (mounted) setLoading(false);
+        isFetchingRef.current = false;
       }
     };
     load();
     return () => (mounted = false);
-  }, [id, user?.uid]);
+  }, [addToast, centerId, id]);
 
   useEffect(() => {
     fetchData()
@@ -154,14 +203,14 @@ export default function EntityDetailsPage({ params }) {
       console.log(error)
       addToast("error", error?.message || error?.error || "Failed to fetch wallet data");
     }
-  }, [customerCode])
+  }, [addToast, customerCode])
 
   useEffect(() => {
     fetchWalletData();
   }, [fetchWalletData])
 
   const fetchAgentData = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.uid || !member) {
       setAgents([]);
       setCurrentAgent(null);
       return;
@@ -169,8 +218,8 @@ export default function EntityDetailsPage({ params }) {
 
     try {
       setAgentLoading(true);
-      const res = await getAgents(user?.uid);
-      console.log(res)
+      const centerId = member?.company || user?.uid;
+      const res = await getAgents(centerId);
       const allAgents = res?.data || [];
       setAgents(allAgents);
 
@@ -183,11 +232,14 @@ export default function EntityDetailsPage({ params }) {
         setCurrentAgent(null);
       }
     } catch (error) {
-      console.error("Failed to fetch agents", error);
+      if (!isRateLimitError(error)) {
+        console.error("Failed to fetch agents", error);
+      }
     } finally {
       setAgentLoading(false);
     }
-  }, [member.agent, user?.uid]);
+  }, [member, user?.uid]);
+
 
   useEffect(() => {
     fetchAgentData();
@@ -217,7 +269,7 @@ export default function EntityDetailsPage({ params }) {
         addToast("error", res.message || "Failed to update agent");
         return;
       }
-      addToast("success", "Agent updated");
+      addToast("success", "Agent updated successfully");
 
       fetchData();
     } catch (error) {
@@ -226,81 +278,33 @@ export default function EntityDetailsPage({ params }) {
 
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      // billingFrequency is rejected by the API validation schema
-      // so omit it from the payload. Keep it in local form state.
-      const payload = {
-        fullname: form.fullname,
-        businessName: isIndividual ? form.fullname : form.businessName,
-        type: form.type,
-        category: form.category,
-        email: form.email,
-        phone: form.phone,
-        location: form.location,
-      };
-      const res = await updateMember(id, payload as Member);
-      const updated = res?.member;
-      setMember(updated);
-      setForm({
-        fullname: updated?.fullname || form.fullname || "",
-        businessName:
-          updated?.type === "INDIVIDUAL"
-            ? updated?.fullname || form.fullname || ""
-            : updated?.businessName || form.businessName || "",
-        type: updated?.type || form.type || "BUSINESS",
-        category: updated?.category || form.category || "",
-        email: updated?.email || form.email || "",
-        phone: updated?.phone || form.phone || "",
-        // keep local billingFrequency since API doesn't accept it
-        billingFrequency:
-          form.billingFrequency || updated?.billingFrequency || "",
-        location: updated?.location || null,
-      });
-      setEditing(false);
-      addToast("success", "Member updated");
-    } catch (e) {
-      console.error(e);
-      addToast("error", "Update failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm("Delete this entity? This action cannot be undone.")) return;
-    try {
-      await deleteMember(id);
-      addToast("success", "Member deleted");
-      router.push("/entities");
-    } catch (e) {
-      console.error(e);
-      addToast("error", "Delete failed");
-    }
-  };
-
   const handleRetry = async () => {
     setLoading(true);
     try {
       const m = await getMember(id);
-      const p = await getPayments(id);
+      const p = await getPaymentsByUser(id);
       const data = m?.data;
-      const paymentsData = p?.data || p?.payment || p || [];
+      const paymentsData = p?.payments || [];
       setMember(data);
+      const resolvedMemberPricing = normalizePricingIds(
+        data?.pricing ||
+        (data as any)?.pricings ||
+        (data as any)?.memberPricing ||
+        (data as any)?.memberPrices ||
+        [],
+      );
+      setMemberPrices(resolvedMemberPricing);
       setPayments(paymentsData);
       setForm({
         fullname: data?.fullname || "",
-        businessName:
-          data?.type === "INDIVIDUAL"
-            ? data?.fullname || ""
-            : data?.businessName || "",
+        businessName: data?.businessName,
         type: data?.type || "BUSINESS",
+        billingFrequency: data?.billingFrequency,
+        location: data?.location,
+        zone: data?.zone || "",
         category: data?.category || "",
         email: data?.email || "",
         phone: data?.phone || "",
-        billingFrequency: data?.billingFrequency,
-        location: data?.location,
       });
       addToast("success", "Member loaded");
     } catch (e) {
@@ -311,24 +315,7 @@ export default function EntityDetailsPage({ params }) {
     }
   };
 
-  const handleBack = () => router.push("/entities");
-
-  const handleCancel = () => {
-    setForm({
-      fullname: member?.fullname || "",
-      businessName:
-        member?.type === "INDIVIDUAL"
-          ? member?.fullname || ""
-          : member?.businessName || "",
-      type: member?.type || "BUSINESS",
-      category: member?.category || "",
-      email: member?.email || "",
-      phone: member?.phone || "",
-      billingFrequency: member?.billingFrequency || "",
-      location: member?.location || null,
-    });
-    setEditing(false);
-  };
+  const handleBack = () => router.push("/admin/entities");
 
   const escapeCSV = (val: string | number | null | undefined) => {
     if (val === null || val === undefined) return "";
@@ -390,6 +377,28 @@ export default function EntityDetailsPage({ params }) {
       addToast("error", "Failed to download payments");
     }
   };
+
+  const getExpectedPricing = useCallback(() => {
+    if (memberPrices.length > 0 && pricing) {
+      const matchedPricing = pricing.filter((p) => memberPrices.includes(p.id || ""));
+      setMemberPricing(matchedPricing);
+    } else {
+      setMemberPricing([]);
+    }
+
+    if (pricing) {
+      const filteredPricing = pricing.filter((p) => p.category?.toUpperCase() === memberCategory?.toUpperCase() && p?.type?.toUpperCase() == memberType?.toUpperCase());
+  
+      setAvailablePricing(filteredPricing);
+    } else {
+      setAvailablePricing([]);
+    }
+
+  }, [memberCategory, memberPrices, memberType, pricing])
+
+  useEffect(() => {
+    getExpectedPricing()
+  }, [getExpectedPricing])
 
   if (loading) {
     return (
@@ -461,65 +470,13 @@ export default function EntityDetailsPage({ params }) {
     );
   }
 
-  const parseAmount = (value: unknown) => {
-    if (typeof value === "number") return value;
-    if (typeof value === "string") {
-      const cleaned = value.replace(/[^0-9.-]/g, "");
-      const parsed = Number(cleaned);
-      return Number.isFinite(parsed) ? parsed : 0;
-    }
-    return 0;
+  const formatSubCategory = (value: Pricing["subCategory"]) => {
+    if (Array.isArray(value)) return value.join(", ");
+    return value || "";
   };
-
-  const paymentSummaryByCategory = payments.reduce((acc, payment) => {
-    const category =
-      payment?.frequency ||
-      payment?.billingFrequency ||
-      payment?.payment ||
-      payment?.method ||
-      "Other";
-
-    if (!acc[category]) {
-      acc[category] = {
-        label: category,
-        totalPaid: 0,
-        pending: 0,
-        owing: 0,
-        total: 0,
-      };
-    }
-
-    const amount = parseAmount(payment?.amount);
-    const status = String(payment?.status || "").toUpperCase();
-    acc[category].total += amount;
-
-    if (status === "COMPLETED" || status === "SUCCESS") {
-      acc[category].totalPaid += amount;
-    } else if (status === "PENDING") {
-      acc[category].pending += amount;
-    } else {
-      acc[category].owing += amount;
-    }
-
-    return acc;
-  }, {} as Record<string, { label: string; totalPaid: number; pending: number; owing: number; total: number }>);
-
-  const paymentSummaryCards = Object.values(paymentSummaryByCategory);
 
   return (
     <div className="mx-auto w-full space-y-4 p-4 md:p-6">
-      {/* Toast Notifications */}
-      <div className="fixed top-6 right-6 z-50 flex flex-col gap-2">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`min-w-64 px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center justify-between ${t.type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}
-          >
-            <div>{t.message}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Header Card */}
       <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -551,43 +508,6 @@ export default function EntityDetailsPage({ params }) {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!editing ? (
-              <>
-                <button
-                  onClick={() => setEditing(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                >
-                  <Edit2 size={18} />
-                  <span className="hidden sm:inline">Edit</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                >
-                  <CheckCircle2 size={18} />
-                  {saving ? "Updating..." : "Update"}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-            <button
-              onClick={handleDelete}
-              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
-            >
-              <Trash2 size={18} />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -611,10 +531,10 @@ export default function EntityDetailsPage({ params }) {
               <div className="relative">
                 <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  readOnly={!editing}
+                  readOnly={true}
                   value={form.fullname}
                   onChange={(e) => handleChange("fullname", e.target.value)}
-                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                 />
               </div>
             </div>
@@ -624,10 +544,10 @@ export default function EntityDetailsPage({ params }) {
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  readOnly={!editing}
+                  readOnly={true}
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
+                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                 />
               </div>
             </div>
@@ -637,10 +557,10 @@ export default function EntityDetailsPage({ params }) {
               <div className="relative">
                 <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  readOnly={!editing}
+                  readOnly={true}
                   value={form.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
+                  className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                 />
               </div>
             </div>
@@ -655,51 +575,67 @@ export default function EntityDetailsPage({ params }) {
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">State</label>
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form?.location?.state || ""}
                     onChange={(e) => handleChange("location", e.target.value, "state")}
-                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                   />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">City</label>
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form?.location?.city || ""}
                     onChange={(e) => handleChange("location", e.target.value, "city")}
-                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Address</label>
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form?.location?.address || ""}
                     onChange={(e) => handleChange("location", e.target.value, "address")}
-                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                   />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Nearest Bus Stop</label>
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form?.location?.nearestBusStop || ""}
                     onChange={(e) => handleChange("location", e.target.value, "nearestBusStop")}
-                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                   />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Zip Code</label>
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form?.location?.zipcode || ""}
                     onChange={(e) => handleChange("location", e.target.value, "zipcode")}
-                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 border-slate-200 bg-slate-50 text-slate-700`}
                   />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Zone</label>
+                  <select
+                    disabled={true}
+                    value={form.zone}
+                    onChange={(e) => handleChange("zone", e.target.value)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none border-slate-200 bg-slate-50 text-slate-700`}
+                  >
+                    {['A', 'B', 'C', 'D'].map((zone) => (
+                      <option key={zone} value={zone}>
+                        Zone {zone}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -714,10 +650,10 @@ export default function EntityDetailsPage({ params }) {
                 <div className="relative">
                   <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
-                    readOnly={!editing}
+                    readOnly={true}
                     value={form.businessName}
                     onChange={(e) => handleChange("businessName", e.target.value)}
-                    className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
+                    className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none border-slate-200 bg-slate-50 text-slate-700`}
                   />
                 </div>
               </div>
@@ -736,10 +672,10 @@ export default function EntityDetailsPage({ params }) {
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Member Type</label>
               <select
-                disabled={!editing}
+                disabled={true}
                 value={form.type}
                 onChange={(e) => handleChange("type", e.target.value)}
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
+                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none`}
               >
                 <option value="BUSINESS">BUSINESS</option>
                 <option value="INDIVIDUAL">INDIVIDUAL</option>
@@ -749,10 +685,10 @@ export default function EntityDetailsPage({ params }) {
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Category</label>
               <select
-                disabled={!editing}
+                disabled={true}
                 value={form.category}
                 onChange={(e) => handleChange("category", e.target.value)}
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none `}
+                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none `}
               >
                 <option value="">Select category</option>
                 {pricingOptions.map((option) => (
@@ -860,7 +796,7 @@ export default function EntityDetailsPage({ params }) {
                 <button
                   key={item.id}
                   type="button"
-                  className={`text-left rounded-2xl border p-5 transition-all ${isSelected ? "border-emerald-300 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"}`}
+                  className={`text-left rounded-2xl border p-5 transition-all border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -877,13 +813,36 @@ export default function EntityDetailsPage({ params }) {
                   <div className="mt-4 space-y-3 text-sm text-slate-600">
                     <div className="flex items-center justify-between gap-3">
                       <span>Category</span>
-                      <span className="font-semibold text-slate-800">{item.category || "—"}</span>
+                      <span className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">{item.category || "—"}</span>
                     </div>
+                    {item.subCategory && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className={`inline-flex items-center rounded-xl px-2.5 py-1 text-[11px] border border-slate-200 font-semibold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+                          {formatSubCategory(item.subCategory)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-3">
                       <span>Price</span>
-                      <span className="font-semibold text-slate-800">
+                      <p className="font-semibold text-slate-800">
                         {item.price ? `₦${Number(item.price).toLocaleString()}` : "—"}
-                      </span>
+                        <span className="font-medium text-slate-500">
+                          {
+                            (() => {
+                              const f = String(item.frequency || "").toUpperCase();
+                              const map: Record<string, string> = {
+                                DAILY: "/day",
+                                WEEKLY: "/week",
+                                MONTHLY: "/month",
+                                YEARLY: "/year",
+                                QUARTERLY: "/quarter",
+                                BIWEEKLY: "/2-weeks"
+                              };
+                              return map[f] || (item.frequency ? item.frequency : "/month");
+                            })()
+                          }
+                        </span>
+                      </p>
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span>Status</span>
@@ -894,9 +853,9 @@ export default function EntityDetailsPage({ params }) {
                   </div>
 
                   <div className="mt-4 border-t border-slate-100 pt-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Benefit</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Code</p>
                     <p className="mt-1 text-sm text-slate-700">
-                      {item.code || "No benefit description available."}
+                      {item.code || "No code available."}
                     </p>
                   </div>
                 </button>
@@ -931,8 +890,12 @@ export default function EntityDetailsPage({ params }) {
 
         <div className="p-4 md:p-6">
           {agentLoading ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              Loading agent information...
+            <div className="col-span-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              </div>
             </div>
           ) : currentAgent ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
@@ -957,130 +920,6 @@ export default function EntityDetailsPage({ params }) {
             </div>
           )}
         </div>
-      </div>
-
-      {isAgentModalOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 p-4 h-screen">
-          <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-start md:justify-between md:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Change Agent</p>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">Select an agent</h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Click an agent card to show the set button.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAgentModalOpen(false);
-                  setSelectedAgentId("");
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="max-h-[65vh] overflow-y-auto p-4 md:p-6">
-              {agents.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  No agents found for this center.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {agents.map((agent) => {
-                    const agentId = agent.uid || agent.id || "";
-                    const isSelected = selectedAgentId === agentId;
-
-                    return (
-                      <div
-                        key={agentId || agent.email}
-                        className={`rounded-2xl border p-5 transition-all ${isSelected ? "border-emerald-300 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAgentId(agentId)}
-                          className="w-full text-left"
-                        >
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Agent</p>
-                          <h4 className="mt-1 text-base font-semibold text-slate-900">
-                            {agent.fullname || agent.name || "Unnamed Agent"}
-                          </h4>
-                          <p className="mt-1 text-xs text-slate-600">{agentId || "No agent id"}</p>
-
-                          <div className="mt-4 space-y-2 text-sm text-slate-700">
-                            <p>{agent.email || "No email"}</p>
-                            <p>{agent.phone || "No phone"}</p>
-                            <p>{agent.location || "No location"}</p>
-                          </div>
-                        </button>
-
-                        {isSelected && agentId && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleAgentChange(agentId);
-                              setIsAgentModalOpen(false);
-                              setSelectedAgentId("");
-                            }}
-                            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                          >
-                            Set as Agent
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* payment cards by payment category */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {paymentSummaryCards.length === 0 ? (
-          <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:col-span-2 xl:col-span-3">
-            <p className="text-sm font-medium text-slate-600">No payments available yet.</p>
-          </div>
-        ) : (
-          // paymentSummaryCards.map((summary) => (
-          //   <div key={summary.label} className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm">
-          //     <p className="text-xs uppercase tracking-wide text-slate-500">Payment Group</p>
-          //     <h4 className="mt-1 text-base font-semibold text-slate-900">{summary.label}</h4>
-
-          //     <div className="mt-4 grid grid-cols-2 gap-3">
-          //       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-emerald-700">Total Paid</p>
-          //         <p className="mt-1 text-sm font-bold text-emerald-800">₦{summary.totalPaid.toLocaleString()}</p>
-          //       </div>
-
-          //       <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-amber-700">Pending</p>
-          //         <p className="mt-1 text-sm font-bold text-amber-800">₦{summary.pending.toLocaleString()}</p>
-          //       </div>
-
-          //       <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-rose-700">Owing</p>
-          //         <p className="mt-1 text-sm font-bold text-rose-800">₦{summary.owing.toLocaleString()}</p>
-          //       </div>
-
-          //       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-slate-700">Total</p>
-          //         <p className="mt-1 text-sm font-bold text-slate-900">₦{summary.total.toLocaleString()}</p>
-          //       </div>
-          //     </div>
-          //   </div>
-          // ))
-          null
-        )}
-      </div>
-
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Summary cards are grouped by payment frequency or method.</p>
       </div>
 
       {/* payment records section */}
@@ -1183,6 +1022,87 @@ export default function EntityDetailsPage({ params }) {
           </div>
         )}
       </div>
+
+      {isAgentModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 p-4 h-screen">
+          <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-start md:justify-between md:p-6">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Change Agent</p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">Select an agent</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Click an agent card to show the set button.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAgentModalOpen(false);
+                  setSelectedAgentId("");
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[65vh] overflow-y-auto p-4 md:p-6">
+              {agents.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  No agents found for this center.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {agents.map((agent) => {
+                    const agentId = agent.uid || agent.id || "";
+                    const isSelected = selectedAgentId === agentId;
+
+                    return (
+                      <div
+                        key={agentId || agent.email}
+                        className={`rounded-2xl border p-5 transition-all ${isSelected ? "border-emerald-300 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAgentId(agentId)}
+                          className="w-full text-left"
+                        >
+                          <p className="text-xs uppercase tracking-wide text-slate-500">Agent</p>
+                          <h4 className="mt-1 text-base font-semibold text-slate-900">
+                            {agent.fullname || agent.name || "Unnamed Agent"}
+                          </h4>
+                          <p className="mt-1 text-xs text-slate-600">{agentId || "No agent id"}</p>
+
+                          <div className="mt-4 space-y-2 text-sm text-slate-700">
+                            <p>{agent.email || "No email"}</p>
+                            <p>{agent.phone || "No phone"}</p>
+                            <p>{agent.location || "No location"}</p>
+                          </div>
+                        </button>
+
+                        {isSelected && agentId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAgentChange(agentId);
+                              setIsAgentModalOpen(false);
+                              setSelectedAgentId("");
+                            }}
+                            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                          >
+                            Set as Agent
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
