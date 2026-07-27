@@ -39,8 +39,8 @@ export default function LockScreen() {
     };
     
     const handleProceed = async () => {
-        if (pin.length < 6) {
-            failed("Security code must be at least 6 digits");
+        if (pin.length < 4) {
+            failed("Security code must be at least 4 digits");
             return;
         }
         const res = await verifyCode(pin);

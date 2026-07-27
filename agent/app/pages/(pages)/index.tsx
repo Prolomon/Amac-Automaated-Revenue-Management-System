@@ -39,17 +39,6 @@ export default function Dashboard() {
   const walletAccountNo = wallet?.accountNo || 0;
   const walletBank = wallet?.bank?.name || "-";
 
-  const loadVerifyWallet = useCallback(async () => {
-    if (!wallet) {
-      router.push("/pages/complete" as RelativePathString);
-      return;
-    }
-  }, [router, wallet]);
-
-  useEffect(() => {
-    loadVerifyWallet();
-  }, [loadVerifyWallet]);
-
   const handleCopyAccountNumber = async () => {
     if (!wallet?.accountNo) return;
     await Clipboard.setStringAsync(wallet.accountNo);
@@ -127,48 +116,64 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <View style={styles.walletCard}>
-          <View style={styles.walletTopRow}>
-            <Text style={styles.walletTitle}>Wallet Balance</Text>
-            <TouchableOpacity
-              style={styles.walletIconButton}
-              activeOpacity={0.8}
-              onPress={() => toggleHide(!hide)}
-            >
-              {hide ? (
-                <EyeOff size={20} color="#0ea360" />
-              ) : (
-                <Eye size={20} color="#0ea360" />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.walletAmount}>
-            {hide ? "₦ ••••••" : formatCurrency(walletBalance)}
-          </Text>
-
-          <View style={styles.walletBottomRow}>
-            <View>
-              <Text style={styles.walletAccountLabel}>Account Number</Text>
-              <Text style={styles.walletAccountValue}>{walletAccountNo}</Text>
-              <View style={styles.walletBorder}></View>
-              <Text style={styles.walletAccountValue}>{walletBank}</Text>
+        {wallet ? (
+          <View style={styles.walletCard}>
+            <View style={styles.walletTopRow}>
+              <Text style={styles.walletTitle}>Wallet Balance</Text>
+              <TouchableOpacity
+                style={styles.walletIconButton}
+                activeOpacity={0.8}
+                onPress={() => toggleHide(!hide)}
+              >
+                {hide ? (
+                  <EyeOff size={20} color="#0ea360" />
+                ) : (
+                  <Eye size={20} color="#0ea360" />
+                )}
+              </TouchableOpacity>
             </View>
 
+            <Text style={styles.walletAmount}>
+              {hide ? "₦ ••••••" : formatCurrency(walletBalance)}
+            </Text>
+
+            <View style={styles.walletBottomRow}>
+              <View>
+                <Text style={styles.walletAccountLabel}>Account Number</Text>
+                <Text style={styles.walletAccountValue}>{walletAccountNo}</Text>
+                <View style={styles.walletBorder}></View>
+                <Text style={styles.walletAccountValue}>{walletBank}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.walletIconButton}
+                activeOpacity={0.8}
+                onPress={handleCopyAccountNumber}
+              >
+                <Copy size={18} color="#0ea360" />
+              </TouchableOpacity>
+            </View>
+
+            {accountCopied ? (
+              <Text style={styles.walletCopiedText}>Account number copied</Text>
+            ) : null}
+
+          </View>
+        ) : (
+          <View style={styles.completeProfileCard}>
+            <Text style={styles.completeProfileTitle}>Setup Your Wallet</Text>
+            <Text style={styles.completeProfileDesc}>
+              You do not have an active wallet. Complete your profile details to activate your account.
+            </Text>
             <TouchableOpacity
-              style={styles.walletIconButton}
+              style={styles.completeProfileBtn}
               activeOpacity={0.8}
-              onPress={handleCopyAccountNumber}
+              onPress={() => router.push("/pages/complete" as RelativePathString)}
             >
-              <Copy size={18} color="#0ea360" />
+              <Text style={styles.completeProfileBtnText}>Complete Profile</Text>
             </TouchableOpacity>
           </View>
-
-          {accountCopied ? (
-            <Text style={styles.walletCopiedText}>Account number copied</Text>
-          ) : null}
-
-        </View>
+        )}
 
         <View style={{ padding: 18 }}>
 
@@ -178,12 +183,12 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.quickActionItem}
               activeOpacity={0.8}
-              onPress={() => router.push("/pages/(pages)/add" as RelativePathString)}
+              onPress={() => router.push("/pages/(pages)/scan" as RelativePathString)}
             >
               <View style={styles.quickActionIconWrap}>
                 <ScanBarcode size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Scan Now</Text>
+              <Text style={styles.quickActionText}>Make Payment</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -211,12 +216,12 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.quickActionItem}
               activeOpacity={0.8}
-              onPress={() => router.push("/pages/transfer" as RelativePathString)}
+              onPress={() => router.push("/pages/payment" as RelativePathString)}
             >
               <View style={styles.quickActionIconWrap}>
                 <ArrowLeftRight size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Transfer</Text>
+              <Text style={styles.quickActionText}>Payment Page</Text>
             </TouchableOpacity>
           </View>
 
@@ -482,5 +487,46 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
     letterSpacing: 1,
+  },
+  completeProfileCard: {
+    marginHorizontal: 18,
+    marginTop: 18,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    alignItems: "center",
+  },
+  completeProfileTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+  completeProfileDesc: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: "center",
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  completeProfileBtn: {
+    backgroundColor: "#0ea360",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    width: "100%",
+    alignItems: "center",
+  },
+  completeProfileBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "bold",
   },
 });

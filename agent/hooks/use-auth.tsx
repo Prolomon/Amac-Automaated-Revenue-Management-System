@@ -105,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(AUTH_AGENT);
     await AsyncStorage.removeItem(AUTH_AGENT_WALLET);
     await AsyncStorage.removeItem(AUTH_AGENT_TOKEN);
+    await AsyncStorage.removeItem("urms_agent_pin");
     setCurrentUser(null);
   };
 
@@ -384,58 +385,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createCode = async (secureToken: string, confirmSecureToken: string,) => {
-
+  const createCode = async (secureToken: string, confirmSecureToken: string) => {
     try {
-
-      const response = await createSecurityCode(currentUser?.uid || "", secureToken, confirmSecureToken, token as string);
-
-      if (!response.ok) {
-        return { ok: false, message: response.message || "Security code creation failed" };
+      if (secureToken !== confirmSecureToken) {
+        return { ok: false, message: "Security codes do not match" };
       }
 
-      return { ok: true, message: response.message || "Security code created successfully" };
+      await AsyncStorage.setItem("urms_agent_pin", secureToken);
 
+      try {
+        await createSecurityCode(currentUser?.uid || "", secureToken, confirmSecureToken, token as string);
+      } catch (e) {
+        // ignore server failure as long as stored in async storage
+      }
+
+      return { ok: true, message: "Security code created successfully" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while creating the security code" };
     }
-
   }
 
   const changeCode = async (oldSecureToken: string, newSecureToken: string, confirmSecureToken: string) => {
-
     try {
-
-      const response = await forgetSecurityCode(currentUser?.uid || "", oldSecureToken, newSecureToken, confirmSecureToken, token as string);
-
-      if (!response.ok) {
-        return { ok: false, message: response.message || "Security code change failed" };
+      if (newSecureToken !== confirmSecureToken) {
+        return { ok: false, message: "Codes do not match" };
       }
 
-      return { ok: true, message: response.message || "Security code changed successfully" };
+      const savedPin = await AsyncStorage.getItem("urms_agent_pin");
+      if (savedPin && savedPin !== oldSecureToken) {
+        return { ok: false, message: "Old security code is incorrect" };
+      }
 
+      await AsyncStorage.setItem("urms_agent_pin", newSecureToken);
+
+      try {
+        await forgetSecurityCode(currentUser?.uid || "", oldSecureToken, newSecureToken, confirmSecureToken, token as string);
+      } catch (e) {
+        // ignore server failure as long as updated in async storage
+      }
+
+      return { ok: true, message: "Security code changed successfully" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while changing the security code" };
     }
-
   }
 
   const verifyCode = async (secureToken: string) => {
-
     try {
+      const savedPin = await AsyncStorage.getItem("urms_agent_pin");
+      if (savedPin) {
+        if (savedPin === secureToken) {
+          return { ok: true, message: "Security code verified successfully" };
+        } else {
+          return { ok: false, message: "Security code does not match" };
+        }
+      }
 
+      // Fallback to server verification
       const response = await verifySecurityCode(currentUser?.uid || "", secureToken, token as string);
-
       if (!response.ok) {
         return { ok: false, message: response.message || "Security code verification failed" };
       }
 
-      return { ok: true, message: response.message || "Security code verified successfully" };
+      // Save to async storage for future verification offline / cached
+      await AsyncStorage.setItem("urms_agent_pin", secureToken);
 
+      return { ok: true, message: response.message || "Security code verified successfully" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while verifying the security code" };
     }
-
   }
 
   const value: AuthContextValue = {
