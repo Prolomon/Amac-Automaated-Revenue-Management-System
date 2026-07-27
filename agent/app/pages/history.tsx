@@ -5,6 +5,7 @@ import { Transaction } from "@/lib/types";
 import { RelativePathString, useRouter } from "expo-router";
 import { ArrowLeft, ReceiptText } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useWallet } from "@/hooks/use-wallet";
 import {
 	ActivityIndicator,
 	RefreshControl,
@@ -32,36 +33,39 @@ export default function HistoryScreen() {
 
 	const [toDate, setToDate] = useState(new Date().toISOString().split("T")[0]);
 
-	// const loadPayments = useCallback(async () => {
-	// 	try {
-	// 		const userId = currentUser?.id || currentUser?.uid;
-	// 		if (!userId) {
-	// 			setItems([]);
-	// 			return;
-	// 		}
+	const loadPayments = useCallback(async (start?: string, end?: string) => {
+		try {
+			const userId = currentUser?.id || currentUser?.uid;
+			if (!userId || !wallet) {
+				setItems([]);
+				return;
+			}
 
-	// 		const data = await getTransactions(userId);
-	// 		const sorted = [...(data?.transactions || [])].sort(
-	// 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-	// 		);
-	// 		setItems(sorted);
-	// 	} catch {
-	// 		setItems([]);
-	// 	}
-	// }, [currentUser?.id, currentUser?.uid]);
+			setLoading(true);
+			const activeStart = start || fromDate;
+			const activeEnd = end || toDate;
+			const data = await getTransactions(wallet?.accountNo || "", activeStart, activeEnd, wallet?.token || "");
+			const sorted = [...(data?.transactions || [])].sort((a, b) => {
+				const dateA = new Date(a.createdAt || a.timeCreated || 0).getTime();
+				const dateB = new Date(b.createdAt || b.timeCreated || 0).getTime();
+				return dateB - dateA;
+			});
+			setItems(sorted);
+		} catch {
+			setItems([]);
+		} finally {
+			setLoading(false);
+		}
+	}, [currentUser?.id, currentUser?.uid, getTransactions, wallet, fromDate, toDate]);
 
-	// useEffect(() => {
-	// 	(async () => {
-	// 		setLoading(true);
-	// 		await loadPayments();
-	// 		setLoading(false);
-	// 	})();
-	// }, [loadPayments]);
+	useEffect(() => {
+		loadPayments();
+	}, [loadPayments]);
 
 	const onRefresh = async () => {
 		setRefreshing(true);
-		// await loadPayments();
-		// setRefreshing(false);
+		await loadPayments();
+		setRefreshing(false);
 	};
 
 	const getStatusColor = (status?: string) => {

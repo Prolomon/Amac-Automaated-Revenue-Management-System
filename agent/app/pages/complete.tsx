@@ -34,10 +34,7 @@ export default function CompleteProfileScreen() {
             setUid(currentUser.uid);
             refresh();
         }
-        if (wallet) {
-            router.replace("/pages/(pages)" as RelativePathString);
-        }
-    }, [currentUser?.uid, refresh, router, setUid, wallet]);
+    }, [currentUser?.uid, refresh, router, setUid]);
 
     const validationState = useMemo(() => {
         const hasWallet = wallet ? true : false;
