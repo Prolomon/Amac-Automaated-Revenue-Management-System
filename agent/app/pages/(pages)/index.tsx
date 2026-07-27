@@ -188,7 +188,7 @@ export default function Dashboard() {
               <View style={styles.quickActionIconWrap}>
                 <ScanBarcode size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Make Payment</Text>
+              <Text style={styles.quickActionText}>Scan</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -199,7 +199,7 @@ export default function Dashboard() {
               <View style={styles.quickActionIconWrap}>
                 <UserPlus size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Add Members</Text>
+              <Text style={styles.quickActionText}>Add</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -221,7 +221,7 @@ export default function Dashboard() {
               <View style={styles.quickActionIconWrap}>
                 <ArrowLeftRight size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Payment Page</Text>
+              <Text style={styles.quickActionText}>Payments</Text>
             </TouchableOpacity>
           </View>
 
