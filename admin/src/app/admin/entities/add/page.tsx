@@ -28,10 +28,6 @@ export default function AddEntityPage() {
     const adminLga = user?.lga || "";
     const [metaData, setMetaData] = useState<{ page: number; limit: number }>({ page: 1, limit: 100 });
 
-    if (role !== "ADMIN" && user?.permission?.canCreateEntity !== true) {
-        router.push("/admin/entities");
-    }
-
     const [formData, setFormData] = useState({
         fullname: "",
         email: "",
@@ -407,17 +403,27 @@ export default function AddEntityPage() {
     };
 
     const getFilteredPricing = () => {
+        const normalizedType = (formData.type || "").toUpperCase();
         const normalizedCategory = (formData.category || "").toLowerCase();
-        const filteredPricing = pricingOptions.filter(p => p?.type?.toUpperCase() === formData.type?.toUpperCase()).filter((p) => {
-            const cats = Array.isArray(p.category) ? p.category : [p.category || ""];
-            return cats.some((cat) => String(cat || "").toLowerCase() === normalizedCategory);
-        });
+      
+        const filteredPricing = pricingOptions
+          .filter((p) => {
+            const type = (p?.type || "").toUpperCase();
+            return type === normalizedType;
+          })
+          .filter((p) => {
+            const cats = Array.isArray(p?.category)
+              ? p.category.map((c) => String(c || "").toLowerCase())
+              : [String(p?.category || "").toLowerCase()];
+            return cats.some((cat) => cat === normalizedCategory);
+          });
+      
         const uniquePricing = new Map(
-            filteredPricing
-                .filter((pricing) => pricing?.id)
-                .map((pricing) => [pricing.id as string, pricing]),
+          filteredPricing
+            .filter((pricing) => pricing?.id)
+            .map((pricing) => [String(pricing.id), pricing])
         );
-
+      
         return Array.from(uniquePricing.values());
     };
 

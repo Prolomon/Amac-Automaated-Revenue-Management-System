@@ -33,10 +33,6 @@ export default function EntitiesPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const centerId = role === "ADMIN" ? user?.uid : user?.center;
 
-  if (role !== "ADMIN" && user?.permission?.canViewEntity === false) {
-    router.push("/admin");
-  }
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {

@@ -87,10 +87,6 @@ export default function EntityDetailsPage({ params }) {
   const lastFetchAtRef = useRef(0);
   const centerId = role === "ADMIN" ? user?.uid : user?.center;
 
-  if (role !== "ADMIN" && user?.permission?.canViewEntity !== true) {
-    router.push("/admin/entities");
-  }
-
   const normalizePricingIds = (value: unknown): string[] => {
     if (typeof value === "string") {
       return value
