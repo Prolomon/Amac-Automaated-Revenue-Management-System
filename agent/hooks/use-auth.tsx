@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(`${API_URL}/api/agent/${currentUser.uid}`, {
+      const response = await fetch(`${API_URL}/agent/${currentUser.uid}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser.uid) return [];
 
       const response = await fetch(
-        `${API_URL}/api/notification/${currentUser.uid}`,
+        `${API_URL}/notification/${currentUser.uid}`,
         {
           method: "GET",
           headers: {
@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser.uid) return {};
 
       const response = await fetch(
-        `${API_URL}/api/payment/reference/${reference}`,
+        `${API_URL}/payment/reference/${reference}`,
         {
           method: "GET",
           headers: {
@@ -234,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser.uid) return [];
 
       const response = await fetch(
-        `${API_URL}/api/payment/user/${currentUser.uid}`,
+        `${API_URL}/payment/user/${currentUser.uid}`,
         {
           method: "GET",
           headers: {
@@ -301,7 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       const response = await fetch(
-        `${API_URL}/api/payment/verify/${reference}`,
+        `${API_URL}/payment/verify/${reference}`,
         {
           method: "PUT",
           headers: {
@@ -347,7 +347,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const agentList = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/agent/list`, {
+      const response = await fetch(`${API_URL}/agent/list`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -367,7 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getBusiness = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/pricing`, {
+      const response = await fetch(`${API_URL}/pricing`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
