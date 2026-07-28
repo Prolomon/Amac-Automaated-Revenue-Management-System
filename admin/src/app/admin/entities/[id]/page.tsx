@@ -74,12 +74,10 @@ export default function EntityDetailsPage({ params }) {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [selectedPricingIds, setSelectedPricingIds] = useState<string[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
@@ -232,7 +230,6 @@ export default function EntityDetailsPage({ params }) {
   const fetchAgentData = useCallback(async () => {
     if (!user?.uid || !member) {
       setAgents([]);
-      setCurrentAgent(null);
       return;
     }
 
@@ -242,15 +239,6 @@ export default function EntityDetailsPage({ params }) {
       const res = await getAgents(centerId);
       const allAgents = res?.data || [];
       setAgents(allAgents);
-
-      if (member?.agent) {
-        const assignedAgent = allAgents.find(
-          (a) => a.uid === member.agent || a.id === member.agent,
-        );
-        setCurrentAgent(assignedAgent || null);
-      } else {
-        setCurrentAgent(null);
-      }
     } catch (error) {
       if (!isRateLimitError(error)) {
         console.error("Failed to fetch agents", error);
@@ -263,7 +251,6 @@ export default function EntityDetailsPage({ params }) {
   const fetchCompanyData = useCallback(async () => {
     if (!centerId || !member) {
       setCompanies([]);
-      setCurrentCompany(null);
       return;
     }
 
@@ -272,16 +259,6 @@ export default function EntityDetailsPage({ params }) {
       const res = await getCompanies(centerId, 1, 100);
       const allCompanies = res?.data || [];
       setCompanies(allCompanies);
-
-      const assignedCompanyId = (member as any)?.company || (member as any)?.companyId || "";
-      if (assignedCompanyId) {
-        const assignedCompany = allCompanies.find(
-          (company) => company.uid === assignedCompanyId || company.id === assignedCompanyId,
-        );
-        setCurrentCompany(assignedCompany || null);
-      } else {
-        setCurrentCompany(null);
-      }
     } catch (error) {
       if (!isRateLimitError(error)) {
         console.error("Failed to fetch companies", error);
@@ -291,13 +268,13 @@ export default function EntityDetailsPage({ params }) {
     }
   }, [centerId, member]);
 
-  useEffect(() => {
-    fetchAgentData();
-  }, [fetchAgentData]);
+  // useEffect(() => {
+  //   fetchAgentData();
+  // }, [fetchAgentData]);
 
-  useEffect(() => {
-    fetchCompanyData();
-  }, [fetchCompanyData]);
+  // useEffect(() => {
+  //   fetchCompanyData();
+  // }, [fetchCompanyData]);
 
   const handleChange = (k: string, v: string, p?: string) => {
     return setForm((s) => {
@@ -1213,6 +1190,7 @@ export default function EntityDetailsPage({ params }) {
             onClick={() => {
               setSelectedCompanyId("");
               setIsCompanyModalOpen(true);
+              fetchCompanyData()
             }}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
           >
@@ -1222,23 +1200,27 @@ export default function EntityDetailsPage({ params }) {
 
         <div className="p-4 md:p-6">
           {companyLoading ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              Loading company information...
+            <div className="col-span-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              </div>
             </div>
-          ) : currentCompany ? (
+          ) : member.company ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-emerald-700">Current Company</p>
                   <h4 className="mt-1 text-base font-semibold text-slate-900">
-                    {currentCompany.name || "Unnamed Company"}
+                    {member.companyData.name || "Unnamed Company"}
                   </h4>
-                  <p className="mt-1 text-sm text-slate-600">{currentCompany.uid || currentCompany.id || "No company id"}</p>
+                  <p className="mt-1 text-sm text-slate-600">{member.companyData.uid || member.companyData.id || "No company id"}</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
-                  <p>{currentCompany.email || "No email"}</p>
-                  <p>{currentCompany.phone || "No phone"}</p>
+                  <p>{member.companyData.email || "No email"}</p>
+                  <p>{member.companyData.phone || "No phone"}</p>
                 </div>
               </div>
             </div>
@@ -1266,6 +1248,7 @@ export default function EntityDetailsPage({ params }) {
             onClick={() => {
               setSelectedAgentId("");
               setIsAgentModalOpen(true);
+              fetchAgentData()
             }}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
           >
@@ -1275,23 +1258,27 @@ export default function EntityDetailsPage({ params }) {
 
         <div className="p-4 md:p-6">
           {agentLoading ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              Loading agent information...
+            <div className="col-span-full py-16 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-4 animate-spin">
+                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                </div>
+              </div>
             </div>
-          ) : currentAgent ? (
+          ) : member.agent ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-emerald-700">Current Agent</p>
                   <h4 className="mt-1 text-base font-semibold text-slate-900">
-                    {currentAgent.fullname || currentAgent.name || "Unnamed Agent"}
+                    {member.agentData.fullname || member.agentData.name || "Unnamed Agent"}
                   </h4>
-                  <p className="mt-1 text-sm text-slate-600">{currentAgent.uid || currentAgent.id || "No agent id"}</p>
+                  <p className="mt-1 text-sm text-slate-600">{member.agentData.uid || member.agentData.id || "No agent id"}</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
-                  <p>{currentAgent.email || "No email"}</p>
-                  <p>{currentAgent.phone || "No phone"}</p>
+                  <p>{member.agentData.email || "No email"}</p>
+                  <p>{member.agentData.phone || "No phone"}</p>
                 </div>
               </div>
             </div>
@@ -1622,10 +1609,6 @@ export default function EntityDetailsPage({ params }) {
           // ))
           null
         )}
-      </div>
-
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Summary cards are grouped by payment frequency or method.</p>
       </div>
 
       {/* payment records section */}

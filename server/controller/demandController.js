@@ -43,7 +43,7 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    if (!member.agentId) {
+    if (!member.agent) {
       return res.status(404).json({
         ok: false,
         message: "Member must be assigned to an agent to create a demand notice",
@@ -362,7 +362,7 @@ export const createDemandNoticeByPayment = async (req, res) => {
       });
     }
 
-    if (!member.agentId) {
+    if (!member.agent) {
       return res.status(404).json({
         ok: false,
         message: "Member must be assigned to an agent to create a demand notice",

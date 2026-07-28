@@ -1,4 +1,6 @@
 import { API_URL, buildHeaders } from "../api";
+import { Company } from "./company";
+import { Agent } from "./agent";
 
 async function parseResponseBody(response: Response) {
   const contentType = response.headers.get("content-type") || "";
@@ -25,6 +27,7 @@ export type Member = {
   type: "BUSINESS" | "INDIVIDUAL";
   category: "";
   company?: string;
+  companyData: Company;
   billingFrequency?: Frequency;
   password?: string;
   location?: {
@@ -42,6 +45,7 @@ export type Member = {
   createdAt?: string;
   updatedAt?: string;
   agent?: string;
+  agentData: Agent;
 };
 
 export async function getMembers( page: number, limit: number, id: string, ): Promise<{ data: Member[]; ok: boolean; message?: string; meta: { total: number; page: number; limit: number; totalPages: number };

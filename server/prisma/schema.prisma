@@ -29,11 +29,13 @@ model Member {
   pricing          String[]
   role             Role             @default(USER)
   company          String?
+  companyData      Company?         @relation(fields: [company], references: [uid], onDelete: Cascade)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   notifications    Notification[]
   payments         Payment[]
   agent            String?
+  agentData        Agent?          @relation(fields: [agent], references: [uid], onDelete: Cascade)
 
   demandNotices     Demand[]
 
@@ -56,6 +58,8 @@ model Company {
   location  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  members   Member[]
 
   @@index([uid, email, center, zone, status, category])
 }
@@ -179,6 +183,8 @@ model Agent {
   role        Role     @default(ADMIN)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  members    Member[]
 
   @@index([uid, email, center, id, status])
 }

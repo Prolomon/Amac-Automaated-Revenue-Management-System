@@ -212,7 +212,6 @@ export default function EntityDetailsPage({ params }) {
   const fetchAgentData = useCallback(async () => {
     if (!user?.uid || !member) {
       setAgents([]);
-      setCurrentAgent(null);
       return;
     }
 
@@ -222,15 +221,6 @@ export default function EntityDetailsPage({ params }) {
       const res = await getAgents(centerId);
       const allAgents = res?.data || [];
       setAgents(allAgents);
-
-      if (member?.agent) {
-        const assignedAgent = allAgents.find(
-          (a) => a.uid === member.agent || a.id === member.agent,
-        );
-        setCurrentAgent(assignedAgent || null);
-      } else {
-        setCurrentAgent(null);
-      }
     } catch (error) {
       if (!isRateLimitError(error)) {
         console.error("Failed to fetch agents", error);
@@ -239,7 +229,6 @@ export default function EntityDetailsPage({ params }) {
       setAgentLoading(false);
     }
   }, [member, user?.uid]);
-
 
   useEffect(() => {
     fetchAgentData();
@@ -897,20 +886,20 @@ export default function EntityDetailsPage({ params }) {
                 </div>
               </div>
             </div>
-          ) : currentAgent ? (
+          ) : member?.agent ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-emerald-700">Current Agent</p>
                   <h4 className="mt-1 text-base font-semibold text-slate-900">
-                    {currentAgent.fullname || currentAgent.name || "Unnamed Agent"}
+                    {member.agentData.fullname || member.agentData.name || "Unnamed Agent"}
                   </h4>
-                  <p className="mt-1 text-sm text-slate-600">{currentAgent.uid || currentAgent.id || "No agent id"}</p>
+                  <p className="mt-1 text-sm text-slate-600">{member.agentData.uid || member.agentData.id || "No agent id"}</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
-                  <p>{currentAgent.email || "No email"}</p>
-                  <p>{currentAgent.phone || "No phone"}</p>
+                  <p>{member.agentData.email || "No email"}</p>
+                  <p>{member.agentData.phone || "No phone"}</p>
                 </div>
               </div>
             </div>
