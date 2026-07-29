@@ -70,13 +70,6 @@ export default function ScanPage() {
       } else if (type === "pay") {
         setScannedType("pay");
         setScannedData(id || data);
-
-        // ==========================================
-        // [USER EDIT HERE FOR PAY TYPE]
-        // The type is 'pay' so we leave it empty as requested.
-        // You can add your custom payment execution flow here.
-        // ==========================================
-
         setModalVisible(true);
       } else {
         // Fallback for missing type
@@ -127,11 +120,9 @@ export default function ScanPage() {
     setVerifying(true);
     setVerifyResult(null);
     try {
-      // Replace with your actual API endpoint
       const result = await verifyPayment({ reference: scannedData, session: "agent_terminal" });
 
       if (!result.ok) throw new Error("Verification failed");
-      // result should be { reference, memberName, userId }
       setVerifyResult({
         fullname: (result.businessName || "").toUpperCase(),
         userId: (result.userId || "").toUpperCase(),
@@ -140,7 +131,6 @@ export default function ScanPage() {
       setModalVisible(false);
     } catch (e) {
       setVerifyResult(null);
-      // Optionally show error feedback
     } finally {
       setVerifying(false);
     }
@@ -149,7 +139,7 @@ export default function ScanPage() {
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text>Requesting camera permission...</Text>
+        <Text style={{ color: "#0f172a" }}>Requesting camera permission...</Text>
       </View>
     );
   }
@@ -157,7 +147,7 @@ export default function ScanPage() {
   if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <Text>No access to camera</Text>
+        <Text style={{ color: "#0f172a" }}>No access to camera</Text>
       </View>
     );
   }
@@ -207,7 +197,7 @@ export default function ScanPage() {
               <Ionicons
                 name={flash ? "flash" : "flash-off"}
                 size={28}
-                color="#fff"
+                color="#0ea360"
               />
               <Text style={styles.flashText}>
                 {flash ? "Flash On" : "Flash Off"}
@@ -220,7 +210,7 @@ export default function ScanPage() {
             <TextInput
               style={styles.manualInput}
               placeholder="e.g. PMT-10293847"
-              placeholderTextColor="#64748b"
+              placeholderTextColor="#94a3b8"
               value={manualId}
               onChangeText={setManualId}
               autoCapitalize="characters"
@@ -262,7 +252,6 @@ export default function ScanPage() {
               </TouchableOpacity>
             </View>
 
-            {/* If verify, show verify. If pay, show Pay Now. If null/both, show both. */}
             {(scannedType === null || scannedType === "verify") && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: '#0ea360', marginTop: 18 }]}
@@ -317,15 +306,17 @@ export default function ScanPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#101010" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "ghostwhite" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "ghostwhite" },
   scrollContent: { flexGrow: 1 },
 
   tabContainer: {
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
     gap: 12,
   },
   tabButton: {
@@ -333,13 +324,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: "center",
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   tabButtonActive: {
     backgroundColor: "#0ea360",
+    borderColor: "#0ea360",
   },
   tabText: {
-    color: "#a0aec0",
+    color: "#64748b",
     fontSize: 14,
     fontWeight: "700",
   },
@@ -354,18 +348,18 @@ const styles = StyleSheet.create({
   manualLabel: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#ffffff",
+    color: "#0f172a",
     marginBottom: 12,
   },
   manualInput: {
-    backgroundColor: "#2a2a2a",
-    color: "#ffffff",
+    backgroundColor: "#ffffff",
+    color: "#0f172a",
     borderRadius: 10,
     height: 52,
     paddingHorizontal: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: "#3a3a3a",
+    borderColor: "#e2e8f0",
     marginBottom: 20,
   },
   manualSubmitBtn: {
@@ -376,8 +370,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   manualSubmitBtnDisabled: {
-    backgroundColor: "#2a5a3a",
-    opacity: 0.6,
+    backgroundColor: "#0ea360",
+    opacity: 0.5,
   },
   manualSubmitBtnText: {
     color: "#ffffff",
@@ -385,25 +379,26 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  qrBoxWrap: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 40 },
+  qrBoxWrap: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 40, backgroundColor: "ghostwhite" },
   qrBox: {
     width: 260,
     height: 260,
     borderRadius: 18,
     overflow: "hidden",
-    borderWidth: 3,
-    borderColor: "#fff",
-    backgroundColor: "#222",
+    borderWidth: 2,
+    borderColor: "#0ea360",
+    backgroundColor: "#000000",
   },
 
-  modalLabel: { fontSize: 13, color: '#888', marginTop: 10 },
-  modalValue: { fontSize: 16, color: '#222', fontWeight: 'bold', letterSpacing: 1 },
+  modalLabel: { fontSize: 13, color: '#64748b', marginTop: 10, fontWeight: "500" },
+  modalValue: { fontSize: 16, color: '#0f172a', fontWeight: 'bold', letterSpacing: 1 },
   closeBtn: {
     marginTop: 18,
     backgroundColor: '#0ea360',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
+    width: "100%",
   },
   closeBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 
@@ -411,28 +406,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 24,
-    backgroundColor: "#333",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  flashText: { color: "#fff", marginLeft: 10, fontSize: 16 },
+  flashText: { color: "#0ea360", marginLeft: 10, fontSize: 16, fontWeight: "600" },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
     width: 320,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 24,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#1a1a1a" },
-  modalData: { fontSize: 16, color: "#4a5568", marginBottom: 12, fontWeight: "600" },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#0f172a" },
+  modalData: { fontSize: 16, color: "#475569", marginBottom: 12, fontWeight: "600" },
   scannedTypeHint: { fontSize: 13, color: "#3b82f6", fontWeight: "bold", marginBottom: 20 },
   scannedTypeHint2: { fontSize: 13, color: "#0ea360", fontWeight: "bold", marginBottom: 20 },
   modalActions: { flexDirection: "row", gap: 18, width: "100%", justifyContent: "center" },
@@ -446,22 +445,22 @@ const styles = StyleSheet.create({
   },
 
   aoBtn: {
-    backgroundColor: "#e53935",
+    backgroundColor: "#ef4444",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     flex: 1,
     alignItems: "center",
   },
-  aoBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  aoBtnText: { color: "#ffffff", fontWeight: "bold", fontSize: 16 },
 
   cancelBtn: {
-    backgroundColor: "#a0aec0",
+    backgroundColor: "#64748b",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     flex: 1,
     alignItems: "center",
   },
-  cancelBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  cancelBtnText: { color: "#ffffff", fontWeight: "bold", fontSize: 16 },
 });

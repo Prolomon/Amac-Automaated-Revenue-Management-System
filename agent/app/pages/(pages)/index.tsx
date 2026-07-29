@@ -12,7 +12,7 @@ import {
   EyeOff,
   History,
   ScanBarcode,
-  UserPlus
+  CreditCard
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -194,12 +194,12 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.quickActionItem}
               activeOpacity={0.8}
-              onPress={() => router.push("/pages/(pages)/members" as RelativePathString)}
+              onPress={() => router.push("/pages/(pages)/pay" as RelativePathString)}
             >
               <View style={styles.quickActionIconWrap}>
-                <UserPlus size={20} color="#0ea360" />
+                <CreditCard size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Add</Text>
+              <Text style={styles.quickActionText}>Pay</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -371,10 +371,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#0ea360",
     padding: 18,
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
     borderWidth: 1,
     borderColor: "#e6f9f0",
   },
@@ -438,10 +434,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1.5,
     borderColor: "#0ea360",
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
   },
   uidCard: {
     backgroundColor: "#fff",
@@ -451,10 +443,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 18,
     flexDirection: "column",
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e6f9f0",
     alignSelf: "stretch",
   },
   uidLabel: {
@@ -496,11 +486,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
     alignItems: "center",
   },
   completeProfileTitle: {

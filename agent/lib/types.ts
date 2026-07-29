@@ -45,17 +45,25 @@ export type Notification = {
 };
 
 export type Payment = {
+  id?: string;
   reference: string;
   userId: string;
-  businessName: string;
-  businessType: BusinessType;
   frequency: Frequency;
   date: string;
   amount: number;
   payment: string;
-  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED";
+  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED" | "COMPLETED";
   due: Date | null;
+  member?: Member;
   isVerified: boolean;
+  pricing: Pricing;
+  paid: number;
+  sessions: string[];
+  debt: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  center?: string;
+  company?: string;
 };
 
 export type Member = {

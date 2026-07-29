@@ -290,10 +290,6 @@ const styles = StyleSheet.create({
     borderColor: "#e6eaeb",
     marginBottom: 12,
     padding: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
   },
   memberItemContent: {
     flexDirection: "row",
