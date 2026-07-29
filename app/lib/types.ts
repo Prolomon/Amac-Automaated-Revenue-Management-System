@@ -73,8 +73,9 @@ export type Payment = {
   date: string;
   amount: number;
   payment: string;
-  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED";
+  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED" | "COMPLETED";
   due: Date | null;
+  paid: number;
   isVerified: boolean;
   sessions: string[];
   debt: number;
@@ -110,6 +111,7 @@ export type Member = {
   createdAt?: string;
   updatedAt?: string;
   agent?: string;
+  agentData?: Agent;
 };
 
 export type AuthContextValue = {

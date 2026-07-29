@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, RefreshCcw, CheckCircle, XCircle, Clock, Ban, RotateCcw, User, Hash, Calendar, CreditCard, Receipt, Bell } from "lucide-react";
+import { AlertCircle, RefreshCcw, CheckCircle, XCircle, Clock, Ban, RotateCcw, User, Hash, Calendar, CreditCard, Receipt, Bell, Search } from "lucide-react";
 import { sendDemandByPayment } from "@/lib/services/demand";
 import { getAllPayments, Payment } from "@/lib/services/payments";
 import { useToast } from "@/context/ToastContext";
@@ -33,11 +33,12 @@ export default function Payments() {
   const limit = 12;
   const { addToast } = useToast();
   const [paymentLoad, setPaymentLoad] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
 
   const fetchPayments = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const data = await getAllPayments(pageNum, limit);
+      const data = await getAllPayments(pageNum, limit, search);
       const paymentsData = Array.isArray(data?.payments) ? data.payments : [];
       setPayments(paymentsData);
       if (data?.meta) {
@@ -50,7 +51,7 @@ export default function Payments() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, search]);
 
   useEffect(() => {
     fetchPayments(1);
@@ -149,13 +150,17 @@ export default function Payments() {
             <p className="text-xs uppercase tracking-wide text-slate-500">Transaction Log</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">All payment transactions</h2>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            <Receipt className="h-3.5 w-3.5" />
-            {stats.total} records
-          </span>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 xl:grid-cols-2">
           {loading ? (
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
@@ -173,15 +178,14 @@ export default function Payments() {
               return (
                 <div
                   key={payment.id || index}
-                  className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${
-                    payment.status === "SUCCESS"
+                  className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${payment.status === "SUCCESS"
                       ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
                       : payment.status === "FAILED"
-                      ? "border-red-200 shadow-sm"
-                      : payment.status === "PENDING"
-                      ? "border-amber-200 shadow-sm"
-                      : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
-                  }`}
+                        ? "border-red-200 shadow-sm"
+                        : payment.status === "PENDING"
+                          ? "border-amber-200 shadow-sm"
+                          : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
+                    }`}
                 >
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -239,18 +243,18 @@ export default function Payments() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Debt
+                            Paid
                           </p>
-                          <p className={`mt-1 text-2xl font-bold ${Number(payment.debt || 0) > 0 ? "text-amber-600" : "text-slate-900"}`}>
-                            ₦{Number(payment.debt || 0).toLocaleString()}
+                          <p className={`mt-1 text-2xl font-bold ${Number(payment.paid || 0) > 0 ? "text-emerald-600" : "text-slate-900"}`}>
+                            ₦{Number(payment.paid || 0).toLocaleString()}
                           </p>
                         </div>
                         <div>
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Verified
+                            Debt
                           </p>
-                          <p className={`mt-1 text-2xl font-bold ${payment.isVerified ? "text-emerald-600" : "text-slate-400"}`}>
-                            {payment.isVerified ? "Yes" : "No"}
+                          <p className={`mt-1 text-2xl font-bold ${Number(payment.debt || 0) > 0 ? "text-amber-600" : "text-slate-900"}`}>
+                            ₦{Number(payment.debt || 0).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -329,11 +333,10 @@ export default function Payments() {
                       key={p}
                       onClick={() => fetchPayments(p)}
                       disabled={loading}
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${
-                        p === page
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${p === page
                           ? "bg-emerald-600 text-white"
                           : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       {p}
                     </button>

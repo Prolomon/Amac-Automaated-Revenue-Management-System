@@ -269,7 +269,7 @@ const getPaymentByReference = async (req, res) => {
 
     const payment = await prisma.payment.findUnique({
       where: { reference },
-      include: { member: true, pricing: true },
+      include: { member: { include: { companyData: true, agentData: true } }, pricing: true },
     });
 
     if (!payment) {
@@ -320,8 +320,13 @@ const getAllPayments = async (req, res) => {
     );
     const skip = (page - 1) * limit;
 
+    const search = req.query.search ? String(req.query.search).trim() : null;
+
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
+        where: {
+          reference: search ? { contains: search, mode: "insensitive" } : undefined,
+        },
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -349,7 +354,6 @@ const getAllPayments = async (req, res) => {
       .json({ ok: false, message: err?.message || "Server error" });
   }
 };
-
 
 const verifyPayment = async (req, res) => {
   try {
@@ -729,6 +733,7 @@ const makePayment = async (req, res) => {
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
         data: {
+          paid: (paymentRecord.paid || 0) + grossAmount,
           debt: updatedDebt,
           status: isFullyPaid ? "COMPLETED" : "PENDING",
         },

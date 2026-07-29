@@ -31,10 +31,9 @@ export const processDemands = async () => {
             member: true,
           },
         },
+        wallet: true,
       },
     });
-
-    console.log(`Found ${createdDemands.length} demand records with CREATED status`);
 
     if (createdDemands.length === 0) {
       console.log('No CREATED demand notices found to process');
@@ -150,6 +149,9 @@ export const processDemands = async () => {
         const auditTrack = `AUD/${year}/${Math.floor(Math.random() * 999)}`;
         const paymentRef = payment.reference || payment.id.substring(0, 12).toUpperCase();
         const wallet = demand.wallet;
+
+        console.log(`Processing demand ${demand.id} for member ${member.email} with reference ${referenceNo}`);
+        console.log(wallet, demand.wallet, payment.walletId, member.uid, member.agent);
         
         // Build location string
         let locationStr = 'N/A';

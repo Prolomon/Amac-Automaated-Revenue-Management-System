@@ -134,6 +134,7 @@ model Payment {
   member       Member           @relation(fields: [userId], references: [uid], onDelete: Cascade)
   isVerify     Boolean          @default(false)
   companyId    String?
+  paid         Float            @default(0)
   centerId     String?
   transactions Transaction[]
   idDemand     Boolean?
@@ -357,6 +358,7 @@ enum PaymentStatus {
   FAILED
   CANCELLED
   REFUNDED
+  COMPLETED
 }
 
 enum TransactionStatus {

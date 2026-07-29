@@ -59,7 +59,7 @@ export const createDemandNotice = async (req, res) => {
     if (!wallet) {
       console.log(`Wallet not found for userId: ${userId}. Creating a new wallet.`);
 
-      const agentId = member?.agentId;
+      const agentId = member?.agent;
 
       wallet = await prisma.wallet.findFirst({
         where: { userId: agentId },
@@ -372,21 +372,11 @@ export const createDemandNoticeByPayment = async (req, res) => {
     let wallet;
 
     wallet = await prisma.wallet.findFirst({
-      where: { userId: payment.userId },
+      where: { userId: member.uid || member.agent },
     });
 
     if (!wallet) {
       console.log(`Wallet not found for userId: ${payment.userId}. Creating a new wallet.`);
-
-      const agentId = member?.agentId;
-
-      wallet = await prisma.wallet.findFirst({
-        where: { userId: agentId },
-      });
-
-      if (!wallet) {
-        console.log(`Wallet not found for agentId: ${agentId}. Creating a new wallet.`);
-      }
     }
 
     // Generate unique UID with collision detection

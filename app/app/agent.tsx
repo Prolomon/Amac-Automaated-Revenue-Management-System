@@ -26,7 +26,7 @@ export default function AgentScreen() {
 			setLoading(true);
 			const data = await getAgent(id, token as string);
 			const a = data?.data || data?.agent || data;
-			setAgent(a || null);
+			setAgent(currentUser?.agentData || null);
 		} catch (e: any) {
 			failed(e?.message || "Failed to load agent");
 		} finally {

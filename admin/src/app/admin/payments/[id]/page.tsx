@@ -1,18 +1,17 @@
 "use client";
 import React, { useEffect, useState, use, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Download, RefreshCw, AlertCircle, CheckCircle, XCircle, Clock, Ban } from "lucide-react";
-import { getPayment } from "@/lib/api";
+import { getPayment, Payment as PaymentType } from "@/lib/services/payments";
 import { useToast } from "@/context/ToastContext";
 
-export default function PaymentDetailsPage({ params }) {
-  const resolvedParams = use(params);
-  const { id } = resolvedParams;
+export default function PaymentDetailsPage() {
+  const { id } = useParams<{ id: string }>();
   const receiptRef = useRef(null);
   const { addToast } = useToast();
 
   const router = useRouter();
-  const [payment, setPayment] = useState(null);
+  const [payment, setPayment] = useState<PaymentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
@@ -32,8 +31,10 @@ export default function PaymentDetailsPage({ params }) {
       }
     };
     load();
-    return () => (mounted = false);
-  }, [addToast, id]);
+    return () => {
+      mounted = false;
+    };
+  }, [addToast, id, setPayment]);
 
   const handleRetry = async () => {
     setLoading(true);
@@ -83,7 +84,7 @@ export default function PaymentDetailsPage({ params }) {
     }
   };
 
-  const formatDate = (iso) => {
+  const formatDate = (iso: string | Date | null | undefined): string => {
     if (!iso) return '—';
     try {
       return new Date(iso).toLocaleDateString('en-US', {
@@ -92,16 +93,16 @@ export default function PaymentDetailsPage({ params }) {
         day: 'numeric',
       });
     } catch {
-      return iso;
+      return '—';
     }
   };
 
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number) => {
     if (typeof amount !== 'number') return '—';
-    return `₦${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getStatusConfig = (status) => {
+  const getStatusConfig = (status: string) => {
     const statusUpper = status?.toUpperCase();
     switch (statusUpper) {
       case 'SUCCESS':
@@ -243,11 +244,11 @@ export default function PaymentDetailsPage({ params }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Reference Number</p>
-              <p className="text-lg font-mono font-semibold text-slate-900">{payment.reference}</p>
+              <p className="text-lg font-mono font-semibold text-slate-900">{payment?.reference || '—'}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Payment Date</p>
-              <p className="text-lg font-semibold text-slate-900">{formatDate(payment.date)}</p>
+              <p className="text-lg font-semibold text-slate-900">{formatDate(payment?.date ? payment?.date : new Date())}</p>
             </div>
           </div>
 
@@ -259,19 +260,19 @@ export default function PaymentDetailsPage({ params }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Business Name</p>
-                <p className="text-base font-medium text-slate-900">{payment.businessName || '—'}</p>
+                <p className="text-base font-medium text-slate-900">{payment?.member?.businessName || payment?.member?.fullname || '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Business Type</p>
-                <p className="text-base font-medium text-slate-900">{payment.businessType || '—'}</p>
+                <p className="text-base font-medium text-slate-900">{payment?.member?.type || '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">User ID</p>
-                <p className="text-base font-mono text-slate-900">{payment.userId || '—'}</p>
+                <p className="text-base font-mono text-slate-900">{payment?.userId || '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Billing Frequency</p>
-                <p className="text-base font-medium text-slate-900">{payment.frequency || '—'}</p>
+                <p className="text-base font-medium text-slate-900">{payment?.frequency || '—'}</p>
               </div>
             </div>
           </div>
@@ -283,12 +284,45 @@ export default function PaymentDetailsPage({ params }) {
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Payment Method</p>
-                <p className="text-base font-medium text-slate-900">{payment.payment || '—'}</p>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Payment code</p>
+                <p className="text-base font-medium text-slate-900">{payment?.payment || '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Due Date</p>
-                <p className="text-base font-medium text-slate-900">{formatDate(payment.due)}</p>
+                <p className="text-base font-medium text-slate-900">{formatDate(payment?.due || new Date())}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Partner Name</p>
+                <p className="text-base font-medium text-slate-900">{payment?.member?.companyData?.name || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Agent Name</p>
+                <p className="text-base font-medium text-slate-900">{payment?.member?.agentData?.fullname || '—'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200" />
+
+          {/* Pricing Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Pricing Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Pricing Title</p>
+                <p className="text-base font-medium text-slate-900">{payment?.pricing?.title || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Pricing Code</p>
+                <p className="text-base font-medium text-slate-900">{payment?.pricing?.code || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Pricing Type</p>
+                <p className="text-base font-medium text-slate-900">{payment?.pricing?.type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Billing Frequency</p>
+                <p className="text-base font-medium text-slate-900">{payment?.pricing?.frequency || '—'}</p>
               </div>
             </div>
           </div>
@@ -300,18 +334,40 @@ export default function PaymentDetailsPage({ params }) {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Total Amount</p>
-                <p className="text-3xl md:text-4xl font-bold text-slate-900">{formatCurrency(payment.amount)}</p>
+                <p className="text-3xl md:text-4xl font-bold text-slate-900">{formatCurrency(payment?.amount || 0)}</p>
+              </div>
+            </div> 
+          </div>
+
+          {/* Payment split */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Amount Paid */}
+          <div className="bg-emerald-50 rounded-xl p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-emerald-600 mb-1">Amount Paid</p>
+                <p className="text-3xl md:text-4xl font-bold text-emerald-900">{formatCurrency(payment?.paid || 0)}</p>
               </div>
             </div>
+          </div>
+          {/* Amount Pending */}
+          <div className="bg-amber-50 rounded-xl p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-amber-600 mb-1">Debt</p>
+                <p className="text-3xl md:text-4xl font-bold text-amber-900">{formatCurrency(payment?.debt || 0)}</p>
+              </div>
+            </div>
+          </div>
           </div>
 
           {/* Timestamps */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
             <div>
-              <span className="font-medium">Created:</span> {formatDate(payment.createdAt)}
+              <span className="font-medium">Created:</span> {formatDate(payment?.createdAt)}
             </div>
             <div>
-              <span className="font-medium">Last Updated:</span> {formatDate(payment.updatedAt)}
+              <span className="font-medium">Last Updated:</span> {formatDate(payment?.updatedAt)}
             </div>
           </div>
         </div>

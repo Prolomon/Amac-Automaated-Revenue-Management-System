@@ -384,7 +384,7 @@ export default function AddEntityPage() {
             const res = await createMember(payload as Member);
 
             if (!res?.ok) {
-                throw new Error(res?.message || "Failed to create entity");
+                throw new Error(res?.message || res?.error || "Failed to create entity");
             }
 
             addToast("success", "Entity created successfully");

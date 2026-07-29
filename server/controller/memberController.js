@@ -60,6 +60,8 @@ const memberSafeSelect = {
   pricing: true,
   company: true,
   notifications: true,
+  companyData: true,
+  agentData: true,
   payments: true,
   zone: true,
 };
@@ -104,6 +106,7 @@ const createMember = async (req, res) => {
     const { error, value } = createMemberSchema.validate(req.body, {
       abortEarly: false,
     });
+
     if (error) {
       const errors = error.details.map((detail) => detail.message);
       return res.status(400).json({
@@ -172,7 +175,7 @@ const createMember = async (req, res) => {
       });
 
       const selectedPricingIds = Array.isArray(value.pricing) ? value.pricing : [];
-      const availablePricing = selectedPricingIds.length
+      const availablePricing = selectedPricingIds.length > 0
         ? await tx.pricing.findMany({
           where: {
             id: { in: selectedPricingIds },
@@ -186,13 +189,9 @@ const createMember = async (req, res) => {
         })
         : [];
 
-      const pricingById = new Map(
-        availablePricing.map((pricing) => [pricing.id, pricing]),
-      );
-
       const createdPayments = [];
 
-      const generateUniquePaymentId = async (client = prisma) => {
+      const generateUniquePaymentId = async () => {
         const generateId = customAlphabet("0123456789", 12);
 
         let id;
@@ -200,7 +199,7 @@ const createMember = async (req, res) => {
 
         while (exists) {
           id = generateId();
-          const existingPayment = await client.payment.findUnique({
+          const existingPayment = await tx.payment.findFirst({
             where: { id },
           });
           exists = !!existingPayment;
@@ -209,26 +208,25 @@ const createMember = async (req, res) => {
         return id;
       };
 
-      for (const pricingId of selectedPricingIds) {
-        const matchedPricing = pricingById.get(pricingId);
+      for (const pricing of availablePricing) {
 
-        if (!matchedPricing) {
-          console.warn("Skipping unavailable pricing for new member:", pricingId);
+        if (!pricing) {
+          console.warn("Skipping unavailable pricing for new member:", pricing);
           continue;
         }
 
-        const uniqueId = await generateUniquePaymentId(tx);
+        const uniqueId = await generateUniquePaymentId();
 
         const createdPayment = await createPaymentRecord(
           {
             id: uniqueId,
             userId: createdMember.uid,
-            frequency: matchedPricing.frequency || "MONTHLY",
+            frequency: pricing.frequency || "MONTHLY",
             sessions: [],
             debt: 0,
             due: new Date(),
-            amount: Number(matchedPricing.price),
-            payment: pricingId,
+            amount: Number(pricing.price),
+            payment: pricing.id,
             status: "PENDING",
             centerId: value.center || null,
             companyId: value.company || null,
@@ -428,7 +426,7 @@ const updateMember = async (req, res) => {
 const deleteMember = async (req, res) => {
   try {
     // Get member before deletion
-    const memberToDelete = await prisma.member.findUnique({
+    const memberToDelete = await prisma.member.findFirst({
       where: { uid: req.params.id },
       select: {
         id: true,
@@ -451,11 +449,10 @@ const deleteMember = async (req, res) => {
 
     if (isWallet) {
       await deleteAccount(isWallet?.accountHolderId);
+      await prisma.wallet.delete({
+        where: { id: isWallet.id }
+      })
     }
-
-    await prisma.wallet.delete({
-      where: {userId: req.params.id }
-    })
 
     // Then delete the member
     const member = await prisma.member.delete({

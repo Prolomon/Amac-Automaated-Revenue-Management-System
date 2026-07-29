@@ -61,7 +61,7 @@ export async function getMembers( page: number, limit: number, id: string, ): Pr
 
 export async function createMember(
   payload: Member,
-): Promise<{ data?: Member; member?: Member; ok: boolean; message?: string }> {
+): Promise<{ data?: Member; member?: Member; ok: boolean; message?: string; error?: string }> {
   const response = await fetch(`${API_URL}/member`, {
     method: "POST",
     headers: { ...buildHeaders(true) },
@@ -69,7 +69,7 @@ export async function createMember(
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || "Failed to create member");
+    throw new Error(data.message || data.error || "Failed to create member");
   }
   return data;
 }

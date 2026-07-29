@@ -388,10 +388,14 @@ export default function EntityDetailsPage({ params }) {
   const handleRetry = async () => {
     setLoading(true);
     try {
-      const m = await getMember(id);
-      const p = await getPaymentsByUser(id);
+      const [m, p, pr] = await Promise.all([
+        getMember(id),
+        getPaymentsByUser(id),
+        centerId ? getPricingByCenter(centerId) : Promise.resolve({ data: [] }),
+      ]);
       const data = m?.data;
       const paymentsData = p?.payments || [];
+      const pricingData = pr?.data || [];
       setMember(data);
       const resolvedMemberPricing = normalizePricingIds(
         data?.pricing ||
@@ -402,6 +406,7 @@ export default function EntityDetailsPage({ params }) {
       );
       setMemberPrices(resolvedMemberPricing);
       setPayments(paymentsData);
+      setPricing(pricingData);
       setForm({
         fullname: data?.fullname || "",
         businessName: data?.businessName,
@@ -527,7 +532,7 @@ export default function EntityDetailsPage({ params }) {
 
     if (pricing) {
       const filteredPricing = pricing.filter((p) => p.category?.toUpperCase() === memberCategory?.toUpperCase() && p?.type?.toUpperCase() == memberType?.toUpperCase());
-  
+
       setAvailablePricing(filteredPricing);
     } else {
       setAvailablePricing([]);
@@ -1066,28 +1071,28 @@ export default function EntityDetailsPage({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPricingIds([]);
-                      setIsPricingModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                  >
-                    Upgrade
-                  </button>
-                  {selectedPricing && selectedPricing.id && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await handlePricingSubmit("downgrade");
-                        setSelectedPricing(null);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
-                    >
-                      Downgrade
-                    </button>
-                  )}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPricingIds([]);
+                setIsPricingModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              Upgrade
+            </button>
+            {selectedPricing && selectedPricing.id && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await handlePricingSubmit("downgrade");
+                  setSelectedPricing(null);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+              >
+                Downgrade
+              </button>
+            )}
           </div>
         </div>
 
@@ -1174,119 +1179,121 @@ export default function EntityDetailsPage({ params }) {
         )}
       </div>
 
-      {/* company information */}
-      <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Company Information</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Company</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage this member&apos;s assigned company
-            </p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-2">
+        {/* company information */}
+        <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Company Information</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Company</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Manage this member&apos;s assigned company
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCompanyId("");
+                setIsCompanyModalOpen(true);
+                fetchCompanyData()
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              Change Company
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCompanyId("");
-              setIsCompanyModalOpen(true);
-              fetchCompanyData()
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-          >
-            Change Company
-          </button>
-        </div>
-
-        <div className="p-4 md:p-6">
-          {companyLoading ? (
-            <div className="col-span-full py-16 text-center">
-              <div className="flex flex-col items-center justify-center">
-                <div className="mb-4 animate-spin">
-                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+          <div className="p-4 md:p-6">
+            {companyLoading ? (
+              <div className="col-span-full py-16 text-center">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="mb-4 animate-spin">
+                    <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : member.company ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-emerald-700">Current Company</p>
-                  <h4 className="mt-1 text-base font-semibold text-slate-900">
-                    {member.companyData.name || "Unnamed Company"}
-                  </h4>
-                  <p className="mt-1 text-sm text-slate-600">{member.companyData.uid || member.companyData.id || "No company id"}</p>
-                </div>
+            ) : member.company ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-emerald-700">Current Company</p>
+                    <h4 className="mt-1 text-base font-semibold text-slate-900">
+                      {member.companyData?.name || "Unnamed Company"}
+                    </h4>
+                    <p className="mt-1 text-sm text-slate-600">{member.companyData?.uid || member.companyData?.id || "No company id"}</p>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
-                  <p>{member.companyData.email || "No email"}</p>
-                  <p>{member.companyData.phone || "No phone"}</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+                    <p>{member.companyData?.email || "No email"}</p>
+                    <p>{member.companyData?.phone || "No phone"}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              No company is currently assigned to this member.
-            </div>
-          )}
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                No company is currently assigned to this member.
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* agent information */}
-      <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Agent Information</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Agent</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage this member&apos;s assigned collection agent
-            </p>
+        {/* agent information */}
+        <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Agent Information</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Agent</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Manage agent assigned
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAgentId("");
+                setIsAgentModalOpen(true);
+                fetchAgentData()
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              Change Agent
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedAgentId("");
-              setIsAgentModalOpen(true);
-              fetchAgentData()
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-          >
-            Change Agent
-          </button>
-        </div>
-
-        <div className="p-4 md:p-6">
-          {agentLoading ? (
-            <div className="col-span-full py-16 text-center">
-              <div className="flex flex-col items-center justify-center">
-                <div className="mb-4 animate-spin">
-                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+          <div className="p-4 md:p-6">
+            {agentLoading ? (
+              <div className="col-span-full py-16 text-center">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="mb-4 animate-spin">
+                    <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : member.agent ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-emerald-700">Current Agent</p>
-                  <h4 className="mt-1 text-base font-semibold text-slate-900">
-                    {member.agentData.fullname || member.agentData.name || "Unnamed Agent"}
-                  </h4>
-                  <p className="mt-1 text-sm text-slate-600">{member.agentData.uid || member.agentData.id || "No agent id"}</p>
-                </div>
+            ) : member.agent ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-emerald-700">Current Agent</p>
+                    <h4 className="mt-1 text-base font-semibold text-slate-900">
+                      {member.agentData?.fullname || "Unnamed Agent"}
+                    </h4>
+                    <p className="mt-1 text-sm text-slate-600">{member.agentData?.uid || member.agentData?.id || "No agent id"}</p>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
-                  <p>{member.agentData.email || "No email"}</p>
-                  <p>{member.agentData.phone || "No phone"}</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+                    <p>{member.agentData?.email || "No email"}</p>
+                    <p>{member.agentData?.phone || "No phone"}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              No agent is currently assigned to this member.
-            </div>
-          )}
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                No agent is currently assigned to this member.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1543,31 +1550,31 @@ export default function EntityDetailsPage({ params }) {
               )}
             </div>
 
-              <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 md:p-6">
-                <p className="text-sm text-slate-600">
-                  {selectedPricingIds.length} plan(s) selected
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPricingIds([]);
-                      setIsPricingModalOpen(false);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePricingSubmit("upgrade")}
-                    disabled={selectedPricingIds.length === 0}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Submit Selected
-                  </button>
-                </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 md:p-6">
+              <p className="text-sm text-slate-600">
+                {selectedPricingIds.length} plan(s) selected
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPricingIds([]);
+                    setIsPricingModalOpen(false);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePricingSubmit("upgrade")}
+                  disabled={selectedPricingIds.length === 0}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Submit Selected
+                </button>
               </div>
+            </div>
           </div>
         </div>
       )}

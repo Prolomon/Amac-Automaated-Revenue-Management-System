@@ -214,7 +214,7 @@ export default function MakePayment() {
             </Text>
           </View>
         ) : (
-          <View style={{ marginHorizontal: 14, marginTop: 12 }}>
+          <View style={{ marginHorizontal: 14, marginTop: 8 }}>
             {sortedPayments.map((payment, index) => {
 
               const pricingInfo = pricing.find((item) => item.id === payment.payment)
@@ -347,6 +347,12 @@ export default function MakePayment() {
                   </Text>
                 </View>
                 <View style={[styles.summaryCard, styles.summaryCardWide]}>
+                  <Text style={styles.summaryLabel}>Paid balance</Text>
+                  <Text style={[styles.summaryValue, { color: "#166534" }]}>
+                    {selectedPayment ? formatAmount((Number(selectedPayment.amount) || 0) - (Number(selectedPayment.paid) || 0)) : "-"}
+                  </Text>
+                </View>
+                <View style={[styles.summaryCard, styles.summaryCardWide]}>
                   <Text style={styles.summaryLabel}>Outstanding balance</Text>
                   <Text style={[styles.summaryValue, { color: "#dc2626" }]}>
                     {selectedPayment ? formatAmount(Number(selectedPayment.debt) || 0) : "-"}
@@ -462,11 +468,6 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
     flexDirection: "column",
     gap: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
   },
   cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
   planLabel: { fontSize: 16, fontWeight: "800", color: "#0f172a", lineHeight: 20 },
