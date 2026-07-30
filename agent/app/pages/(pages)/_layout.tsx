@@ -3,7 +3,7 @@ import {
   Home,
   ScanBarcode,
   User,
-  UserPlus,
+  CreditCard,
   Users,
 } from "lucide-react-native";
 import "react-native-reanimated";
@@ -39,11 +39,11 @@ export default function PagesTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="add"
+        name="pay"
         options={{
-          title: "Add Member",
+          title: "Pay",
           tabBarIcon: ({ color, size }) => (
-            <UserPlus color={color as string} size={size as number} />
+            <CreditCard color={color as string} size={size as number} />
           ),
         }}
       />

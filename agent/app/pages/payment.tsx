@@ -7,6 +7,7 @@ import { ArrowLeft, CreditCard, CheckCircle2, AlertCircle, Sparkles, Building, U
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,10 @@ export default function PaymentPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [query, setQuery] = useState("");
+
+  // Modal states for listing view
+  const [selectedPaymentForModal, setSelectedPaymentForModal] = useState<any | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Scanned payment detail state
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -353,12 +358,105 @@ export default function PaymentPage() {
                       <Text style={styles.cardAmountValue}>{formatCurrency(Number(item.amount || 0))}</Text>
                     </View>
                   </View>
+
+                  {Number(item.paid || 0) !== Number(item.amount || 0) && (
+                    <TouchableOpacity
+                      style={styles.payNowBtnList}
+                      onPress={() => {
+                        setSelectedPaymentForModal(item);
+                        setModalVisible(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <CreditCard size={14} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.payNowBtnTextList}>Pay</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
           </View>
         )}
       </ScrollView>
+
+      {/* Pay Modal for Listing */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Bill Payment Details</Text>
+            {selectedPaymentForModal && (
+              <View style={styles.modalPaymentInfo}>
+                <Text style={styles.modalPaymentRef}>Reference: {selectedPaymentForModal.reference}</Text>
+                <Text style={styles.modalPaymentAmt}>Amount Due: {formatCurrency(Number(selectedPaymentForModal.amount || 0) - Number(selectedPaymentForModal.paid || 0))}</Text>
+              </View>
+            )}
+
+            {/* Agent Account Card */}
+            <View style={styles.agentCardModal}>
+              <View style={styles.agentCardHeaderModal}>
+                <Building size={18} color="#0ea360" />
+                <Text style={styles.agentCardTitleModal}>Agent Account Details</Text>
+              </View>
+              <Text style={styles.agentCardDescModal}>Make a direct bank transfer to the account number below:</Text>
+
+              <View style={styles.agentRowModal}>
+                <Text style={styles.agentRowLabelModal}>Bank Name</Text>
+                <Text style={styles.agentRowValueModal}>{wallet?.bank?.name || "AURMS Partner Bank"}</Text>
+              </View>
+
+              <View style={styles.agentRowModal}>
+                <Text style={styles.agentRowLabelModal}>Account Number</Text>
+                <Text style={styles.agentRowValueHighlightModal}>{wallet?.accountNo || "N/A"}</Text>
+              </View>
+
+              <View style={styles.agentRowLastModal}>
+                <Text style={styles.agentRowLabelModal}>Account Name</Text>
+                <Text style={styles.agentRowValueModal}>{wallet?.accountName || currentUser?.fullname || "AURMS Agent"}</Text>
+              </View>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.paymentMadeBtnModal}
+                activeOpacity={0.8}
+                onPress={() => {
+                  success("Payment verification submitted successfully. System is verifying!");
+                  setModalVisible(false);
+                  onRefresh();
+                }}
+              >
+                <CheckCircle2 size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.paymentMadeBtnTextModal}>Payment Completed</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.payWithCardBtnModal}
+                activeOpacity={0.8}
+                onPress={() => {
+                  // Left completely blank as requested
+                }}
+              >
+                <CreditCard size={18} color="#0ea360" style={{ marginRight: 6 }} />
+                <Text style={styles.payWithCardBtnTextModal}>Pay with Card</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.closeModalBtnModal}
+                activeOpacity={0.8}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.closeModalBtnTextModal}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -443,11 +541,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
   },
   cardTop: {
     flexDirection: "row",
@@ -637,11 +730,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#0ea360",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#0ea360",
   },
   payMadeBtnText: {
     color: "#ffffff",
@@ -684,5 +774,151 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 6,
     lineHeight: 20,
+  },
+  payNowBtnList: {
+    height: 38,
+    backgroundColor: "#0ea360",
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  payNowBtnTextList: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  agentCardModal: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 16,
+    marginBottom: 18,
+  },
+  agentCardHeaderModal: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  agentCardTitleModal: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#0f172a",
+  },
+  agentCardDescModal: {
+    fontSize: 12,
+    color: "#64748b",
+    marginBottom: 12,
+  },
+  agentRowModal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: "#f1f5f9",
+  },
+  agentRowLastModal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  agentRowLabelModal: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  agentRowValueModal: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  agentRowValueHighlightModal: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#0ea360",
+    letterSpacing: 0.5,
+  },
+  paymentMadeBtnModal: {
+    height: 48,
+    backgroundColor: "#0ea360",
+    borderRadius: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paymentMadeBtnTextModal: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  payWithCardBtnModal: {
+    height: 48,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#0ea360",
+    borderRadius: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  payWithCardBtnTextModal: {
+    color: "#0ea360",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  closeModalBtnModal: {
+    height: 48,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeModalBtnTextModal: {
+    color: "#64748b",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalPaymentInfo: {
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 16,
+  },
+  modalPaymentRef: {
+    fontSize: 13,
+    color: "#64748b",
+  },
+  modalPaymentAmt: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#ef4444",
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "90%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 12,
+  },
+  modalActions: {
+    gap: 10,
   },
 });
