@@ -30,7 +30,10 @@ const createPricingSchema = Joi.object({
   }),
   frequency: Joi.string().optional().messages({
     'any.only': 'frequency must not be empty',
-  })
+  }),
+  zone: Joi.string().optional().messages({
+    'string.base': 'Zone must be a string',
+  }),
 });
 
 const updatePricingSchema = Joi.object({
@@ -61,7 +64,10 @@ const updatePricingSchema = Joi.object({
   }),
   frequency: Joi.string().optional().messages({
     'any.only': 'frequency must not be empty',
-  })
+  }),
+  zone: Joi.string().optional().messages({
+    'string.base': 'Zone must be a string',
+  }),
 });
 
 export { createPricingSchema, updatePricingSchema };

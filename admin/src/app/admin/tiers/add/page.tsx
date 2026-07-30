@@ -123,7 +123,8 @@ export default function Pricing() {
     code: "",
     category: "",
     subCategory: [],
-    frequency: "MONTHLY",
+    frequency: "YEARLY",
+    zone: "",
   });
 
   const handleInputChange = (
@@ -191,6 +192,7 @@ export default function Pricing() {
         category: "",
         subCategory: [],
         frequency: "MONTHLY",
+        zone: "",
       });
 
       addToast("success", "Pricing tier created successfully");
@@ -336,6 +338,30 @@ export default function Pricing() {
               <option value="MONTHLY">Monthly</option>
               <option value="QUARTERLY">Quarterly</option>
               <option value="YEARLY">YEARLY</option>
+
+            </select>
+          </div>
+
+          {/* Zone */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Zone *
+            </label>
+            <select
+              name="zone"
+              value={formData.zone}
+              onChange={handleInputChange}
+              required
+              className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="" hidden>Select zone</option>
+              <option value="NONE">NONE</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
 
             </select>
           </div>

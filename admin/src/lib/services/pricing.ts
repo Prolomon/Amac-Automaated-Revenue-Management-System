@@ -23,6 +23,7 @@ export type Pricing = {
   frequency?: string;
   code: string;
   center?: string;
+  zone?: string;
   createdAt?: string;
   updatedAt?: string;
 };

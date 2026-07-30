@@ -263,7 +263,7 @@ function DemandsListPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2">
           {loading ? (
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
@@ -355,7 +355,7 @@ function DemandsListPage() {
                               Reference
                             </p>
                             <p className="mt-1 text-sm font-bold text-slate-900">
-                              {demand.reference || "N/A"}
+                              AMAC/DN/{demand.reference || "N/A"}
                             </p>
                           </div>
                           <div>

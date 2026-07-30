@@ -23,6 +23,8 @@ const createPricing = async (req, res) => {
         benefit: value.benefit,
         center: value.userId ?? null,
         frequency: value.frequency ?? null,
+        zone: value.zone ?? null,
+        code: value.code ?? null,
       },
     });
 

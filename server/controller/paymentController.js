@@ -110,10 +110,10 @@ const getNextDueDate = (dueDate, frequency) => {
 
 const generateUniquePaymentId = async (client = prisma) => {
   const generateId = customAlphabet("0123456789", 12);
-  
+
   let id;
   let exists = true;
-  
+
   while (exists) {
     id = generateId();
     const existingPayment = await client.payment.findUnique({
@@ -121,13 +121,13 @@ const generateUniquePaymentId = async (client = prisma) => {
     });
     exists = !!existingPayment;
   }
-  
+
   return id;
 };
 
 const createPaymentRecord = async (data, client = prisma) => {
   const uniqueId = await generateUniquePaymentId(client);
-  
+
   return client.payment.create({
     data: {
       id: uniqueId,
@@ -1060,6 +1060,119 @@ const getPaymentsByCenterId = async (req, res) => {
   }
 };
 
+const getPaymentForUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "User ID is required" });
+    }
+
+    let member = await prisma.member.findFirst({
+      where: {
+        OR: [
+          { uid: id },
+          { phone: id },
+        ],
+      },
+      select: { uid: true },
+    });
+
+    if (member) {
+      const payments = await prisma.payment.findMany({
+        where: { userId: member.uid },
+        include: { member: true, pricing: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const agentUid = member.agent;
+
+      if (!agentUid) {
+        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+      }
+
+      const agent = await prisma.agent.findFirst({
+        where: { uid: agentUid }
+      });
+
+      if (!agent) {
+        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+      }
+
+      let wallet;
+
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: member.uid, role: "MEMBER" },
+      });
+
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: agentUid, role: "AGENT" },
+        });
+
+        if (!wallet) {
+          return res.status(500).json({ ok: false, message: "Please contact support" });
+        }
+      }
+
+      return res.status(200).json({ ok: true, data: { payments, member, wallet, agent } });
+    }
+
+    if (!member) {
+      const payment = await prisma.payment.findFirst({
+        where: { reference: id },
+        include: { member: true, pricing: true },
+      });
+
+      if (!payment) {
+        return res.status(404).json({ ok: false, message: "Payment not found" });
+      }
+
+      const agentUid = payment?.member?.agent;
+
+      if (!agentUid) {
+        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+      }
+
+      const agent = await prisma.agent.findFirst({
+        where: { uid: agentUid }
+      });
+
+      if (!agent) {
+        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+      }
+
+      member = await prisma.member.findFirst({
+        where: { uid: payment?.userId },
+        select: { uid: true },
+      });
+
+      let wallet = await prisma.wallet.findFirst({
+        where: { userId: payment.userId, role: "MEMBER" },
+      });
+
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: agentUid, role: "AGENT" },
+        });
+
+        if (!wallet) {
+          return res.status(500).json({ ok: false, message: "Please contact support" });
+        }
+      }
+
+      return res.status(200).json({ ok: true, data: { payments: [payment], wallet, agent, member } });
+    }
+
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
+  }
+}
+
 export {
   createPayment,
   getPaymentsByUserId,
@@ -1075,4 +1188,5 @@ export {
   getNextDueDate,
   getPaymentsByPartnerId,
   getPaymentsByCenterId,
+  getPaymentForUser
 };

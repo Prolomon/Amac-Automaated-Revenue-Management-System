@@ -129,16 +129,16 @@ export const processDemands = async () => {
 
         const liabilityRows = `
           <tr class="font-medium text-[#1e293b]">
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
           </tr>
           <tr class="font-medium text-[#1e293b]">
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
           </tr>
           <tr class="font-medium text-[#1e293b]">
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
-            <td class="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
+            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
           </tr>
         `;
 
@@ -195,7 +195,7 @@ export const processDemands = async () => {
           '{{MEMBER_NAME}}': member.businessName || member.fullname || 'N/A',
           '{{MEMBER_LOCATION}}': locationStr,
           '{{MEMBER_TIN}}': member.uid,
-          '{{REFERENCE_NO}}': 'AMAC' + '/' + referenceNo,
+          '{{REFERENCE_NO}}': 'AMAC' + '/' + 'DN' + '/' + referenceNo,
           '{{DATE_OF_ISSUE}}': formatDate(now),
           '{{ASSESSMENT_PERIOD}}': getAssessmentPeriod(payment.frequency || 'MONTHLY'),
           '{{AUDIT_TRACK}}': auditTrack,

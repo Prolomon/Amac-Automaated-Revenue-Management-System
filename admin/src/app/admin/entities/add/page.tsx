@@ -223,10 +223,6 @@ export default function AddEntityPage() {
 
     }, [addToast, centerId, formData.category, metaData.limit, metaData.page, pricingOptions])
 
-    useEffect(() => {
-        fetchCompany()
-    }, [fetchCompany])
-
     const handleInputChange = (
         field: keyof Omit<Member, "location">,
         value: string
@@ -426,6 +422,19 @@ export default function AddEntityPage() {
       
         return Array.from(uniquePricing.values());
     };
+
+    useEffect(() => {
+        if (formData.type && formData.category) {
+            fetchCompany()
+            return
+        }
+    }, [fetchCompany, formData.category, formData.type])
+
+    useEffect(() => {
+        if (String(formData.type).toUpperCase() === "BUSINESS") {
+            setFormData((prev) => ({ ...prev, businessName: formData?.fullname || "" }));
+        }
+    }, [formData?.fullname, formData.type])
 
     if (loading) {
         return (

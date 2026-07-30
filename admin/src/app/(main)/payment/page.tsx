@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
-import { verifyPayment, Payment } from "@/lib/services/payments";
+import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
+import { useRouter } from "next/navigation";
 
 export default function PaymentPage() {
+    const router = useRouter();
     const [identifier, setIdentifier] = useState("");
     const [showPayButton, setShowPayButton] = useState(false);
     const [verifyInput, setVerifyInput] = useState("");
@@ -15,6 +17,7 @@ export default function PaymentPage() {
     const [paymentData, setPaymentData] = useState<Payment | null>(null);
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState<boolean>(false);
 
     const handleInputChange = (value: string) => {
         setIdentifier(value);
@@ -42,6 +45,57 @@ export default function PaymentPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const getPayNow = async () => {
+            if (!identifier.trim()) {
+                addToast("error", "Please enter a valid identifier");
+                return;
+            }
+
+            try {
+
+                const res = await payNow(identifier.trim());
+                if (res.ok) {
+                    setStatus(true);
+                    addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
+                } else {
+                    setStatus(false);
+                    addToast("error", res.message || "Failed to initiate payment");
+                }
+
+            } catch (error) {
+                addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
+            }
+        }
+
+        if (identifier.trim().length > 0) {
+            getPayNow();
+        }
+    }, [addToast, identifier]);
+
+    const handlePayNow = async () => {
+        if (!identifier.trim()) {
+            addToast("error", "Please enter a valid identifier");
+            return;
+        }
+
+        try {
+
+            const res = await payNow(identifier.trim());
+            if (res.ok) {
+                setStatus(true);
+                addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
+                router.push(`/payment/${identifier.trim()}/checkout`);
+            } else {
+                setStatus(false);
+                addToast("error", res.message || "Failed to initiate payment");
+            }
+
+        } catch (error) {
+            addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
+        }
+    }
 
     return (
         <main>
@@ -147,7 +201,7 @@ export default function PaymentPage() {
 
                             {showPayButton && (
                                 <div className="animate-fade-in">
-                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
+                                    {status ? (<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
                                         <div className="flex items-start gap-3">
                                             <CheckCircle className="h-5 w-5 text-emerald-700 mt-0.5" />
                                             <div>
@@ -157,11 +211,23 @@ export default function PaymentPage() {
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
-                                    <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
-                                        <CreditCard className="h-4 w-4" />
-                                        Pay Now
-                                    </button>
+                                    </div>) : (<div className="rounded-xl border border-red-200 bg-red-50 p-4 mb-4">
+                                        <div className="flex items-start gap-3">
+                                            <CheckCircle className="h-5 w-5 text-red-700 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900">Payment Not Found</p>
+                                                <p className="text-xs text-slate-600 mt-1">
+                                                    We could not find a pending payment with the provided details.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>)}
+                                    {status && (
+                                        <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700" onClick={handlePayNow}>
+                                            <CreditCard className="h-4 w-4" />
+                                            Pay Now
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -326,9 +392,9 @@ export default function PaymentPage() {
                                     <div>
                                         <p className="text-xs text-slate-500">Payment Status</p>
                                         <span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${paymentData.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
-                                                paymentData.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                    paymentData.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                                        'bg-slate-100 text-slate-800'
+                                            paymentData.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                paymentData.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                                    'bg-slate-100 text-slate-800'
                                             }`}>
                                             {paymentData.status}
                                         </span>

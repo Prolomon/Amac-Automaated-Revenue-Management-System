@@ -304,11 +304,11 @@ function DemandDetailPage() {
 
         {/* Main Document */}
         <div
-          className="w-full my-0 mx-auto bg-white p-12.5 rounded-xl shadow-[0_4px_20px_rgba(15,23,42,0.04),0_1px_3px_rgba(15,23,42,0.02)] box-border relative border border-[#e2e8f0]"
+          className="w-full my-0 mx-auto bg-white p-4 rounded-xl shadow-[0_4px_20px_rgba(15,23,42,0.04),0_1px_3px_rgba(15,23,42,0.02)] box-border relative border border-[#e2e8f0] text-[12px]"
           ref={demandDocumentRef}
         >
           {/* <!-- Top Bar Branding --> */}
-          <div className="flex justify-between items-start mb-4">
+          <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col">
               <div
                 className="flex items-center text-[24px] font-extrabold text-[#0f172a] tracking-tight"
@@ -324,12 +324,12 @@ function DemandDetailPage() {
               >
                 AMAC REVENUE MANAGEMENT SYSTEM
               </div>
-              <div className="text-[#64748b] text-[11px] mt-1.5 font-normal">
+              <div className="text-[#64748b] text-[11px] mt-1 font-normal">
                 Automated Revenue & Compliance Framework
               </div>
             </div>
 
-            <div className="text-right text-[12px] text-[#64748b] line-height-[1.5]">
+            <div className="text-right text-[12px] text-[#64748b] line-height-[1.4]">
               <strong className="text-[#0f172a] text-[14px] font-bold">FCT Revenue Administration</strong>
               <br />
               Revenue & Tax Solutions Division<br />
@@ -339,11 +339,11 @@ function DemandDetailPage() {
             </div>
           </div>
 
-          <div className="border-t border-[#e2e8f0] my-4 mx-0"></div>
+          <div className="border-t border-[#e2e8f0] my-3 mx-0"></div>
 
           {/* <!-- Document Context Header --> */}
           <div
-            className="mb-4 bg-[#f0fff9] py-4 px-6 rounded-lg border-l-4 border-emerald-600"
+            className="mb-3 bg-[#f0fff9] py-2.5 px-5 rounded-lg border-l-4 border-emerald-600"
           >
             <div className="text-[#0f172a] text-[18px] font-extrabold tracking-tight">
               DEMAND NOTICE
@@ -351,10 +351,10 @@ function DemandDetailPage() {
           </div>
 
           {/* <!-- Split Meta Information Dashboard --> */}
-          <div className="grid grid-cols-[1.2fr_0.8fr] gap-4 mb-4">
+          <div className="grid grid-cols-[1.2fr_0.8fr] gap-3 mb-3">
             <div className="bg-transparent">
               <div
-                className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+                className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-1.5"
               >
                 Taxpayer / Entity Details
               </div>
@@ -369,7 +369,7 @@ function DemandDetailPage() {
 
             <div>
               <div
-                className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+                className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-1.5"
               >
                 Notice System Metadata
               </div>
@@ -377,36 +377,36 @@ function DemandDetailPage() {
                 <tbody>
                   <tr>
                     <td
-                      className="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="text-[#64748b] font-medium w-32.5 py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
                       Reference No:
                     </td>
                     <td
-                      className="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="font-semibold text-[#0f172a] text-right py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
-                      AMAC/{demand?.reference || "N/A"}
+                      AMAC/DN/{demand?.reference || "N/A"}
                     </td>
                   </tr>
                   <tr>
                     <td
-                      className="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="text-[#64748b] font-medium w-32.5 py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
                       Date of Issue:
                     </td>
                     <td
-                      className="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="font-semibold text-[#0f172a] text-right py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
                       {new Date(demand?.createdAt).toLocaleDateString() || "N/A"}
                     </td>
                   </tr>
                   <tr>
                     <td
-                      className="text-[#64748b] font-medium w-32.5 py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="text-[#64748b] font-medium w-32.5 py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
                       Assessment Period:
                     </td>
                     <td
-                      className="font-semibold text-[#0f172a] text-right py-1 px-0 border-b border-dashed border-[#e2e8f0]"
+                      className="font-semibold text-[#0f172a] text-right py-0.5 px-0 border-b border-dashed border-[#e2e8f0]"
                     >
                       {new Date(demand?.payment?.createdAt).toLocaleDateString() || "N/A"}
                     </td>
@@ -416,34 +416,13 @@ function DemandDetailPage() {
             </div>
           </div>
 
-          {/* <!-- Notice Context text block --> */}
-          {/* <div
-            className="mb-4 text-[#1e293b] text-[13px] bg-white border border-[#e2e8f0] p-5 rounded-lg"
-          >
-            <p className="m-0 mb-2.5">
-              <strong className="font-bold">OFFICIAL DEMAND NOTICE</strong>
-            </p>
-            <p className="m-0 mb-2.5">
-              This document serves as a formal Demand Notice issued by the Abuja
-              Municipal Area Council (AMAC) Revenue Administration. It constitutes
-              an official assessment of outstanding tax liabilities, penalties, and
-              accrued interest against your entity as itemized in the liability
-              breakdown below.
-            </p>
-            <p className="m-0 mb-0">
-              This notice is generated under the authority of the Federal Revenue
-              Administration Framework and carries the full weight of legal
-              enforcement provisions.
-            </p>
-          </div> */}
-
           {/* <!-- Core Transaction Layout Grid --> */}
-          <div className="grid grid-cols-[1.3fr_0.7fr] gap-4 mb-4">
-            <div className="space-y-4">
+          <div className="grid grid-cols-[1.3fr_0.7fr] gap-3 mb-4">
+            <div className="space-y-3">
               {/* liability breakdown */}
               <div>
                 <div
-                  className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-2"
+                  className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold mb-1.5"
                 >
                   Liability Breakdown
                 </div>
@@ -451,12 +430,12 @@ function DemandDetailPage() {
                   <thead>
                     <tr>
                       <th
-                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-left py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0]"
+                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-left py-2 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0]"
                       >
                         Revenue Component Description
                       </th>
                       <th
-                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-right py-3 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0] w-32.5"
+                        className="bg-[#f1f5f9] text-[#64748b] font-bold text-right py-2 px-4 text-[11px] uppercase tracking-wider border-b-2 border-[#e2e8f0] w-32.5"
                       >
                         Amount (₦)
                       </th>
@@ -465,43 +444,43 @@ function DemandDetailPage() {
                   <tbody>
                     {/* <!-- Placeholder row mimicking loop dynamic outputs safely --> */}
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">{pricingName} - Principal Assessment</td>
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(principal)}</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">{pricingName} - Principal Assessment</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(principal)}</td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 4%</td>
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(vat)}</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 4%</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(vat)}</td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(charges)}</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(charges)}</td>
                     </tr>
                     <tr className="font-semibold bg-[#f8fafc] text-[#0f172a]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">
                         Subtotal (Principal + VAT + Charges)
                       </td>
                       <td
-                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                        className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5"
                       >
                         {formatCurrency(subtotal)}
                       </td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">
                         Penalty Accrued Over Time
                       </td>
                       <td
-                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                        className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5"
                       >
                         {formatCurrency(penalty)}
                       </td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-3.5 px-4 border-b border-[#e2e8f0]">
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">
                         Interest Accrued
                       </td>
                       <td
-                        className="py-3.5 px-4 border-b border-[#e2e8f0] text-right w-32.5"
+                        className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5"
                       >
                         {formatCurrency(interest)}
                       </td>
@@ -509,34 +488,34 @@ function DemandDetailPage() {
                     <tr
                       className="bg-[#0f172a] text-white font-bold text-[15px] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] border-0"
                     >
-                      <td className="p-4 rounded-l-md">
+                      <td className="p-3 rounded-l-md">
                         TOTAL COMPLIANCE AMOUNT PAYABLE
                       </td>
                       <td
-                        className="p-4 rounded-r-md text-right w-32.5 text-[#38bdf8] font-extrabold text-[16px] tracking-wide"
+                        className="p-3 rounded-r-md text-right w-32.5 text-[#38bdf8] font-extrabold text-[16px] tracking-wide"
                       >
                         {formatCurrency(totalAmount)}
                       </td>
                     </tr>
                   </tbody>
                 </table>
-                <div className="italic text-[11px] text-[#64748b] mt-3">
+                <div className="italic text-[11px] text-[#64748b] mt-2">
                   * Interest charges continue to accumulate iteratively daily until
                   the exact financial settlement position registers as zero.
                 </div>
               </div>
 
               {/* <!-- Lower Layout Meta Channels --> */}
-              <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+              <div className="border border-[#e2e8f0] rounded-lg p-4 bg-white">
                 <div
-                  className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+                  className="text-[#0f172a] font-bold text-[12px] mb-2.5 tracking-wider"
                 >
                   OTHER PAYMENT OPTIONS
                 </div>
 
                 {/* settlement account */}
-                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4 mb-4 pb-4 border-b border-[#e2e8f0]">
-                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-3 mb-2.5 pb-2.5 border-b border-[#e2e8f0]">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3">
                     <Landmark size={18} />
                     <span><b>Settlement Account</b></span>
                   </div>
@@ -548,8 +527,8 @@ function DemandDetailPage() {
                 </div>
 
                 {/* payment account */}
-                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4 mb-4 pb-4 border-b border-[#e2e8f0]">
-                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-3 mb-2.5 pb-2.5 border-b border-[#e2e8f0]">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3">
                     <Landmark size={18} />
                     <span><b>Payment Account</b></span>
                   </div>
@@ -561,13 +540,13 @@ function DemandDetailPage() {
                 </div>
 
                 {/* pay on website */}
-                <div className="grid grid-cols-[0.7fr_1.3fr] gap-4">
-                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3.5">
+                <div className="grid grid-cols-[0.7fr_1.3fr] gap-3">
+                  <div className="flex items-center text-[12px] text-[#1e293b] last:mb-0 gap-3">
                     <Globe size={18} />
                     <span><b>Pay on Website</b></span>
                   </div>
                   <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                    <span><b>AMAC/{demand?.reference}</b></span>
+                    <span><b>AMAC/DN/{demand?.reference}</b></span>
                   </div>
                 </div>
               </div>
@@ -575,8 +554,8 @@ function DemandDetailPage() {
               {/* <!-- Sign-off System Block Layout --> */}
               <div className="text-[13px]">
                 <div className="font-bold text-[#0f172a]">Regards,</div>
-                <div className="h-11.25"></div>
-                <div className="border-b border-[#e2e8f0] mb-6.25 w-50"></div>
+                <div className="h-6"></div>
+                <div className="border-b border-[#e2e8f0] mb-3 w-40"></div>
                 <div className="font-bold text-[#0f172a]">Adekunle Adeyanju</div>
                 <div className="text-[#64748b] text-[12px]">
                   Director of Audit & Compliance Division<br />Amac Revenue
@@ -585,27 +564,27 @@ function DemandDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* <!-- Visual Pay Now Sidebar Panel --> */}
               <div
-                className="border border-[#e2e8f0] rounded-lg p-6 text-center bg-[#f8fafc] flex flex-col items-center"
+                className="border border-[#e2e8f0] rounded-lg p-4 text-center bg-[#f8fafc] flex flex-col items-center"
               >
                 <div
                   className="text-[#0f172a] font-extrabold text-[14px] tracking-tight mb-1"
                 >
                   SECURE WEB GATEWAY
                 </div>
-                <div className="text-[11px] text-[#64748b] mb-5">
-                  Scan via AMAC Mobile or Banking apps.
+                <div className="text-[11px] text-[#64748b] mb-3">
+                  Scan to pay.
                 </div>
 
                 <div
-                  className="w-full border border-[#e2e8f0] rounded-md mb-5 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] aspect-square overflow-hidden object-cover"
+                  className="w-[140px] h-[140px] border border-[#e2e8f0] rounded-md mb-3 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden object-cover"
                 >
                   <img
                     src={qrCodeUrl}
                     alt="QR Code"
-                    className="w-60 h-60 object-cover"
+                    className="w-[140px] h-[140px] object-cover"
                   />
                 </div>
 
@@ -615,22 +594,22 @@ function DemandDetailPage() {
                   System Payment Reference
                 </div>
                 <div
-                  className="font-mono font-bold text-[#009966] text-[14px] bg-white py-1.5 px-3 border border-[#e2e8f0] rounded mb-5 tracking-wide"
+                  className="font-mono font-bold text-[#009966] text-[14px] bg-white py-1.5 px-3 border border-[#e2e8f0] rounded mb-3 tracking-wide"
                 >
                   {demand?.payment?.reference || "N/A"}
                 </div>
               </div>
 
               {/* amac address */}
-              <div className="border border-[#e2e8f0] rounded-lg p-5 bg-white">
+              <div className="border border-[#e2e8f0] rounded-lg p-4 bg-white">
                 <div
-                  className="text-[#0f172a] font-bold text-[12px] mb-3.5 tracking-wider"
+                  className="text-[#0f172a] font-bold text-[12px] mb-2.5 tracking-wider"
                 >
-                  REVENUE ASSISTANCE HELP DESK
+                  HELP DESK
                 </div>
 
                 <div
-                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+                  className="flex items-center mb-2 text-[12px] text-[#1e293b] last:mb-0"
                 >
                   <svg
                     className="text-[#64748b] mr-3 shrink-0"
@@ -651,7 +630,7 @@ function DemandDetailPage() {
                 </div>
 
                 <div
-                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+                  className="flex items-center mb-2 text-[12px] text-[#1e293b] last:mb-0"
                 >
                   <svg
                     className="text-[#64748b] mr-3 shrink-0"
@@ -667,11 +646,11 @@ function DemandDetailPage() {
                     />
                     <polyline points="22,6 12,13 2,6" />
                   </svg>
-                  <span>support@amac.ng</span>
+                  <span>info@amac-revenue.ng</span>
                 </div>
 
                 <div
-                  className="flex items-center mb-3 text-[12px] text-[#1e293b] last:mb-0"
+                  className="flex items-center mb-2 text-[12px] text-[#1e293b] last:mb-0"
                 >
                   <svg
                     className="text-[#64748b] mr-3 shrink-0"
@@ -691,7 +670,7 @@ function DemandDetailPage() {
 
               {/* notice section */}
               <div
-                className="border border-[#fde047] bg-[#fffbeb] rounded-lg p-5 flex items-start"
+                className="border border-[#fde047] bg-[#fffbeb] rounded-lg p-4 flex items-start"
               >
                 <div
                   className="bg-[#b45309] text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[11px] mr-3 shrink-0"
@@ -704,8 +683,7 @@ function DemandDetailPage() {
                   >System Notice Note:</strong
                   >
                   This is an automated legal financial document statement. If matching
-                  payment records have cleared recently, disregard and present
-                  verification codes to the portal to update.
+                  payment records have cleared recently, disregard.
                 </div>
               </div>
             </div>
@@ -713,7 +691,7 @@ function DemandDetailPage() {
 
           {/* <!-- Seamless Edge-to-Edge Footer Strip --> */}
           <div
-            className="bg-[#0f172a] text-white py-4 px-4 flex justify-between items-center text-[12px] mt-12.5 -mx-12.5 -mb-12.5 rounded-b-xb"
+            className="bg-[#0f172a] text-white py-3 px-4 flex justify-between items-center text-[12px] mt-6 -mx-4 -mb-4 rounded-b-xl"
           >
             <div className="flex items-center opacity-80">
               <svg

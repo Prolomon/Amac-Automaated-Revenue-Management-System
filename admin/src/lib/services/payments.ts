@@ -2,6 +2,8 @@ import { API_URL, buildHeaders } from "../api";
 import { Pricing } from "./pricing";
 import { TransactionStatus } from "./wallet";
 import { Member } from "./member";
+import { Wallet } from "./wallet";
+import { Agent } from "./agent";
 
 export type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "QUARTERLY";
 
@@ -213,6 +215,19 @@ export async function verifyPayment(
 
   if (!response.ok) {
     throw new Error(data.message || "Failed to verify payment");
+  }
+
+  return data;
+}
+
+export async function payNow (id: string): Promise<{ ok: boolean; message?: string; data?: { payments?: Payment[], member: Member, wallet?: Wallet, agent?: Agent } }> {
+  const response = await fetch(`${API_URL}/payment/pay-now/${id}`, {
+    method: "GET",
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to initiate payment");
   }
 
   return data;

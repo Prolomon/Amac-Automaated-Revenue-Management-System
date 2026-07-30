@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPayment, getPaymentsByUserId, getPaymentByReference, getPaymentById, getAllPayments, verifyPayment, updatePaymentSchedule, makePayment, getPaymentsByPartnerId, getPaymentsByCenterId } from '../controller/paymentController.js';
+import { createPayment, getPaymentsByUserId, getPaymentByReference, getPaymentById, getAllPayments, verifyPayment, updatePaymentSchedule, makePayment, getPaymentsByPartnerId, getPaymentsByCenterId, getPaymentForUser } from '../controller/paymentController.js';
 import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
 
@@ -18,6 +18,8 @@ router.get('/reference/:reference', authMiddleware, roleMiddleware(['user', "adm
 router.get('/:id', authMiddleware, roleMiddleware(['user', "admin"]), getPaymentById);
 
 router.get('/verify/:id', verifyPayment);
+
+router.get('/pay-now/:id', getPaymentForUser);
 
 router.put('/schedule/:id', authMiddleware, roleMiddleware(['admin']), updatePaymentSchedule);
 

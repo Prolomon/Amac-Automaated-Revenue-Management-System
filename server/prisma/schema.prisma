@@ -228,6 +228,7 @@ model Pricing {
   type        PricingType      @default(BUSINESS)
   frequency   BillingFrequency @default(MONTHLY)
   code        String?
+  zone        String?
   center      String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
