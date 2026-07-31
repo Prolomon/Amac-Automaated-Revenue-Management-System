@@ -23,7 +23,7 @@ export default function PaymentPage() {
 
     useEffect(() => {
         if (memberIdFromQuery) {
-            setIdentifier(m)
+            setIdentifier(memberIdFromQuery)
         }
     }, [memberIdFromQuery])
 
