@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 function PaymentContent() {
     const router = useRouter();
@@ -19,13 +19,6 @@ function PaymentContent() {
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<boolean>(false);
-    const memberIdFromQuery = searchParams.get("m");
-
-    useEffect(() => {
-        if (memberIdFromQuery) {
-            setIdentifier(memberIdFromQuery)
-        }
-    }, [memberIdFromQuery])
 
     const handleInputChange = (value: string) => {
         setIdentifier(value);
@@ -56,14 +49,14 @@ function PaymentContent() {
 
     useEffect(() => {
         const getPayNow = async () => {
-            if (!identifier.trim() || memberIdFromQuery.trim()) {
+            if (!identifier.trim()) {
                 addToast("error", "Please enter a valid identifier");
                 return;
             }
 
             try {
 
-                const res = await payNow(identifier.trim() || memberIdFromQuery.trim());
+                const res = await payNow(identifier.trim());
                 if (res.ok) {
                     setStatus(true);
                     addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
@@ -77,10 +70,10 @@ function PaymentContent() {
             }
         }
 
-        if (identifier.trim().length > 0 || memberIdFromQuery.trim().length > 0) {
+        if (identifier.trim().length > 0) {
             getPayNow();
         }
-    }, [addToast, identifier, memberIdFromQuery]);
+    }, [addToast, identifier]);
 
     const handlePayNow = async () => {
         if (!identifier.trim()) {
