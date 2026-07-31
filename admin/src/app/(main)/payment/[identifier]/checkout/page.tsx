@@ -154,7 +154,6 @@ export default function PaymentPage() {
             <section className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-white to-cyan-50">
                 <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-300/20 blur-3xl" />
                 <div className="absolute -right-20 bottom-4 h-72 w-72 rounded-full bg-cyan-200/30 blur-3xl" />
-
                 <div className="relative mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
                     {/* Member Profile Card */}
                     <div className="mb-8 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg">
@@ -230,7 +229,7 @@ export default function PaymentPage() {
                                                     <FileText className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-800">{payment.pricing.title.trim() || "Payment"}</p>
+                                                    <p className="text-sm font-medium text-slate-800 text-left">{payment.pricing.title.trim() || "Payment"}</p>
                                                     <p className="text-xs text-slate-500">
                                                         Ref: {payment.reference}
                                                     </p>
