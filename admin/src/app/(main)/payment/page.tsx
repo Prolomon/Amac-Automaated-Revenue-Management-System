@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 
 function PaymentContent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const [identifier, setIdentifier] = useState("");
     const [showPayButton, setShowPayButton] = useState(false);
     const [verifyInput, setVerifyInput] = useState("");
