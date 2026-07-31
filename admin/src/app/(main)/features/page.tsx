@@ -24,7 +24,7 @@ export default function FeaturesPage() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-16">
             {/* Right side - Text content */}
             <div className="w-full lg:w-1/2 text-left">
-              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                 Simple & Secure
               </span>
               <h1 className="mt-6 text-3xl font-bold leading-tight text-white md:text-5xl">
@@ -34,11 +34,11 @@ export default function FeaturesPage() {
                 Pay your tenement and business rates, download receipts, submit complaints, and track your payment history — all from one secure portal.
               </p>
               <div className="mt-8 flex flex-wrap justify-start gap-3">
-                <Link href="/payment" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50">
+                <Link href="/payment" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-50">
                   Make Payment Now
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <a href="mailto:support@abujamunicipal.gov.ng" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
+                <a href="mailto:support@abujamunicipal.gov.ng" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100">
                   Contact Support
                 </a>
               </div>
@@ -46,7 +46,7 @@ export default function FeaturesPage() {
 
             {/* Left side - Terminal visualization */}
             <div className="w-full lg:w-1/2">
-              <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-xl">
+              <div className="rounded-lg border border-emerald-200 bg-white p-6 shadow-md">
                 {/* Terminal header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex gap-2">
@@ -54,7 +54,7 @@ export default function FeaturesPage() {
                     <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
                     <div className="h-3 w-3 rounded-full bg-green-400"></div>
                   </div>
-                  <div className="text-xs font-semibold text-emerald-700">FEATURES LIST</div>
+                  <div className="text-xs font-semibold text-emerald-800">FEATURES LIST</div>
                 </div>
 
                 {/* Terminal content */}
@@ -94,7 +94,7 @@ export default function FeaturesPage() {
 
                   {/* Status Box */}
                   <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                    <p className="text-xs text-emerald-700 font-semibold">✓ All systems operational</p>
+                    <p className="text-xs text-emerald-800 font-semibold">✓ All systems operational</p>
                     <p className="text-xs text-emerald-600 mt-1">6 features available</p>
                   </div>
                 </div>
@@ -106,7 +106,7 @@ export default function FeaturesPage() {
 
       <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
         <div className="mb-10">
-          <span className="text-xs uppercase tracking-wide text-emerald-700">Citizen Features</span>
+          <span className="text-xs uppercase tracking-wide text-emerald-800">Citizen Features</span>
           <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Everything you need to manage your payments</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
             A simple, secure, and transparent platform for all your revenue payment needs.
@@ -114,9 +114,9 @@ export default function FeaturesPage() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Phone className="h-5 w-5" />
               </span>
               <div>
@@ -126,9 +126,9 @@ export default function FeaturesPage() {
             <p className="mt-3 text-sm text-slate-600">Pay your tenement and business rates securely online using card, bank transfer, or mobile money through Remita.</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Mail className="h-5 w-5" />
               </span>
               <div>
@@ -138,7 +138,7 @@ export default function FeaturesPage() {
             <p className="mt-3 text-sm text-slate-600">Generate invoices instantly and download payment receipts for your records. No paperwork required.</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-70">
                 <Eye className="h-5 w-5" />
@@ -150,9 +150,9 @@ export default function FeaturesPage() {
             <p className="mt-3 text-sm text-slate-600">Access your complete transaction history anytime. Track all your payments with dates and receipt numbers.</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <FileText className="h-5 w-5" />
               </span>
               <div>
@@ -162,9 +162,9 @@ export default function FeaturesPage() {
             <p className="mt-3 text-sm text-slate-600">Have an issue with your bill or property assessment? Submit a complaint online and track its progress until resolution.</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
@@ -174,9 +174,9 @@ export default function FeaturesPage() {
             <p className="mt-3 text-sm text-slate-600">Verify your tenement rate certificate online. Share the verification link with employers, banks, or government agencies.</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Clock className="h-5 w-5" />
               </span>
               <div>
@@ -189,9 +189,9 @@ export default function FeaturesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-        <div className="rounded-3xl border border-emerald-100 bg-emerald-50/60 p-6 shadow-sm md:p-8">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-6 shadow-sm md:p-8">
           <div className="mb-6">
-            <span className="text-xs uppercase tracking-wide text-emerald-700">Secure & Transparent</span>
+            <span className="text-xs uppercase tracking-wide text-emerald-800">Secure & Transparent</span>
             <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Your payments are protected</h2>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
               We use bank-level security to ensure your transactions are safe and your data is protected.
@@ -200,7 +200,7 @@ export default function FeaturesPage() {
 
           <div className="grid gap-5 md:grid-cols-2">
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
@@ -210,7 +210,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <CheckCircle className="h-5 w-5" />
               </span>
               <div>
@@ -220,7 +220,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
@@ -230,7 +230,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Clock className="h-5 w-5" />
               </span>
               <div>
@@ -244,7 +244,7 @@ export default function FeaturesPage() {
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
         <div className="mb-10">
-          <span className="text-xs uppercase tracking-wide text-emerald-700">How It Works</span>
+          <span className="text-xs uppercase tracking-wide text-emerald-800">How It Works</span>
           <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Get started in three simple steps</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
             Making payments has never been easier. Follow these steps to complete your transaction.
@@ -253,7 +253,7 @@ export default function FeaturesPage() {
 
         <div className="grid gap-8 md:grid-cols-3">
           <div className="text-center">
-            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
               <Settings className="h-8 w-8" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-slate-900">Create an Account</h3>
@@ -261,7 +261,7 @@ export default function FeaturesPage() {
           </div>
 
           <div className="text-center">
-            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
               <FileText className="h-8 w-8" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-slate-900">Generate Invoice</h3>
@@ -269,7 +269,7 @@ export default function FeaturesPage() {
           </div>
 
           <div className="text-center">
-            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
               <CheckCircle className="h-8 w-8" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-slate-900">Make Payment</h3>
@@ -279,9 +279,9 @@ export default function FeaturesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-        <div className="rounded-3xl border border-emerald-100 bg-linear-to-br from-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
+        <div className="rounded-xl border border-emerald-100 bg-linear-to-br from-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
           <div className="mb-6">
-            <span className="text-xs uppercase tracking-wide text-emerald-700">Why Choose Us</span>
+            <span className="text-xs uppercase tracking-wide text-emerald-800">Why Choose Us</span>
             <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Built for efficiency and trust</h2>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
               Join thousands of citizens who trust AMAC Revenue Management for their payment needs.
@@ -290,7 +290,7 @@ export default function FeaturesPage() {
 
           <div className="grid gap-5 md:grid-cols-3">
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                 <Users className="h-6 w-6" />
               </span>
               <div>
@@ -300,7 +300,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                 <TrendingUp className="h-6 w-6" />
               </span>
               <div>
@@ -310,7 +310,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="flex gap-4">
-              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+              <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                 <ShieldCheck className="h-6 w-6" />
               </span>
               <div>

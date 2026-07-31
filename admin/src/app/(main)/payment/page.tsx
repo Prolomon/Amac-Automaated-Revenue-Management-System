@@ -101,12 +101,10 @@ export default function PaymentPage() {
         <main>
             {/* Section 1: Showcase */}
             <section className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-white to-cyan-50">
-                <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-300/20 blur-3xl" />
-                <div className="absolute -right-20 bottom-4 h-72 w-72 rounded-full bg-cyan-200/30 blur-3xl" />
 
                 <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:items-center md:px-6 md:py-20">
                     <div>
-                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                             Payment Portal
                         </span>
                         <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
@@ -118,21 +116,21 @@ export default function PaymentPage() {
 
                         <div className="mt-6 grid grid-cols-2 gap-3">
                             <div className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm">
-                                <Shield className="h-6 w-6 text-emerald-700" />
+                                <Shield className="h-6 w-6 text-emerald-800" />
                                 <p className="mt-2 text-xs font-medium text-slate-600">SSL Secured</p>
                             </div>
                             <div className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm">
-                                <Clock className="h-6 w-6 text-emerald-700" />
+                                <Clock className="h-6 w-6 text-emerald-800" />
                                 <p className="mt-2 text-xs font-medium text-slate-600">Instant Processing</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-3xl border border-emerald-100 bg-white/80 p-6 shadow-xl backdrop-blur-sm">
-                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6">
+                    <div className="rounded-xl border border-emerald-100 bg-white p-6 shadow-md">
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-6">
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-800 text-white">
                                         <CreditCard className="h-5 w-5" />
                                     </div>
                                     <div>
@@ -170,7 +168,7 @@ export default function PaymentPage() {
             {/* Section 2: Enter Details */}
             <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
                 <div className="mb-10 text-center">
-                    <span className="text-xs uppercase tracking-wide text-emerald-700">Start Payment</span>
+                    <span className="text-xs uppercase tracking-wide text-emerald-800">Start Payment</span>
                     <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Enter Your Details</h2>
                     <p className="mt-2 max-w-2xl mx-auto text-sm text-slate-600 md:text-base">
                         Provide your phone number, member ID, or payment ID to view and pay your bills.
@@ -178,7 +176,7 @@ export default function PaymentPage() {
                 </div>
 
                 <div className="max-w-2xl mx-auto">
-                    <div className="rounded-3xl border border-emerald-100 bg-white p-8 shadow-sm">
+                    <div className="rounded-xl border border-emerald-100 bg-white p-8 shadow-sm">
                         <div className="space-y-6">
                             <div>
                                 <label htmlFor="identifier" className="mb-2 block text-sm font-semibold text-slate-700">
@@ -203,7 +201,7 @@ export default function PaymentPage() {
                                 <div className="animate-fade-in">
                                     {status ? (<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
                                         <div className="flex items-start gap-3">
-                                            <CheckCircle className="h-5 w-5 text-emerald-700 mt-0.5" />
+                                            <CheckCircle className="h-5 w-5 text-emerald-800 mt-0.5" />
                                             <div>
                                                 <p className="text-sm font-semibold text-slate-900">Payment Found</p>
                                                 <p className="text-xs text-slate-600 mt-1">
@@ -223,7 +221,7 @@ export default function PaymentPage() {
                                         </div>
                                     </div>)}
                                     {status && (
-                                        <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700" onClick={handlePayNow}>
+                                        <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900" onClick={handlePayNow}>
                                             <CreditCard className="h-4 w-4" />
                                             Pay Now
                                         </button>
@@ -237,9 +235,9 @@ export default function PaymentPage() {
 
             {/* Section 3: Verify Payment */}
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6" id="verify">
-                <div className="rounded-3xl border border-emerald-100 bg-emerald-50/60 p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-6 shadow-sm md:p-8">
                     <div className="mb-6 text-center">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Payment Status</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Payment Status</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Verify Your Payment</h2>
                         <p className="mt-2 max-w-2xl mx-auto text-sm text-slate-600 md:text-base">
                             Check the status of your payment by entering your transaction details.
@@ -247,7 +245,7 @@ export default function PaymentPage() {
                     </div>
 
                     <div className="max-w-2xl mx-auto">
-                        <div className="rounded-3xl border border-emerald-100 bg-white p-6 shadow-sm">
+                        <div className="rounded-xl border border-emerald-100 bg-white p-6 shadow-sm">
                             <div className="space-y-4">
                                 <div>
                                     <label htmlFor="verify-id" className="mb-2 block text-sm font-semibold text-slate-700">
@@ -272,7 +270,7 @@ export default function PaymentPage() {
                                 <button
                                     onClick={handleVerifyPayment}
                                     disabled={loading}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? <RefreshCw className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                                     {loading ? "Verifying..." : "Verify Payment"}
@@ -286,7 +284,7 @@ export default function PaymentPage() {
             {/* Not Found Modal */}
             {showNotFoundModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
                         <div className="mb-4 flex items-center justify-between">
                             <h3 className="text-lg font-bold text-slate-900">Verification Result</h3>
                             <button onClick={() => setShowNotFoundModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -300,7 +298,7 @@ export default function PaymentPage() {
                         </div>
                         <button
                             onClick={() => setShowNotFoundModal(false)}
-                            className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                            className="w-full rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
                         >
                             Close
                         </button>
@@ -311,7 +309,7 @@ export default function PaymentPage() {
             {/* Payment Found Modal */}
             {showPaymentModal && paymentData && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl my-8 max-h-[90vh] flex flex-col overflow-hidden">
+                    <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-md my-8 max-h-[90vh] flex flex-col overflow-hidden">
                         <div className="mb-4 flex items-center justify-between shrink-0">
                             <h3 className="text-lg font-bold text-slate-900">Payment Details</h3>
                             <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -322,7 +320,7 @@ export default function PaymentPage() {
                         <div className="space-y-4 overflow-y-auto flex-1">
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
                                 <div className="flex items-start gap-3">
-                                    <CheckCircle className="h-6 w-6 text-emerald-700 mt-0.5" />
+                                    <CheckCircle className="h-6 w-6 text-emerald-800 mt-0.5" />
                                     <div>
                                         <p className="text-sm font-semibold text-slate-900">Payment Verified</p>
                                         <p className="text-xs text-slate-600 mt-1">
@@ -485,7 +483,7 @@ export default function PaymentPage() {
                         <div className="mt-6">
                             <button
                                 onClick={() => setShowPaymentModal(false)}
-                                className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                                className="w-full rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
                             >
                                 Close
                             </button>
@@ -497,7 +495,7 @@ export default function PaymentPage() {
             {/* Section 4: Payment Methods */}
             <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
                 <div className="mb-10 text-center">
-                    <span className="text-xs uppercase tracking-wide text-emerald-700">Available Methods</span>
+                    <span className="text-xs uppercase tracking-wide text-emerald-800">Available Methods</span>
                     <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Choose Your Payment Method</h2>
                     <p className="mt-2 max-w-2xl mx-auto text-sm text-slate-600 md:text-base">
                         Select from our various payment options for your convenience.
@@ -505,32 +503,32 @@ export default function PaymentPage() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                             <CreditCard className="h-6 w-6" />
                         </div>
                         <h3 className="mt-3 text-base font-semibold text-slate-900">Card Payment</h3>
                         <p className="mt-2 text-sm text-slate-600">Pay with your debit or credit card</p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                             <Wallet className="h-6 w-6" />
                         </div>
                         <h3 className="mt-3 text-base font-semibold text-slate-900">Bank Transfer</h3>
                         <p className="mt-2 text-sm text-slate-600">Transfer directly from your bank account</p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                             <Phone className="h-6 w-6" />
                         </div>
                         <h3 className="mt-3 text-base font-semibold text-slate-900">Mobile Money</h3>
                         <p className="mt-2 text-sm text-slate-600">Pay using mobile money platforms</p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                             <Shield className="h-6 w-6" />
                         </div>
                         <h3 className="mt-3 text-base font-semibold text-slate-900">Secure Payment</h3>
@@ -541,9 +539,9 @@ export default function PaymentPage() {
 
             {/* Section 5: Security Features */}
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-                <div className="rounded-3xl border border-emerald-100 bg-linear-to-br from-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-emerald-100 bg-linear-to-br from-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
                     <div className="mb-6 text-center">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Protected</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Protected</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Your Security is Our Priority</h2>
                         <p className="mt-2 max-w-2xl mx-auto text-sm text-slate-600 md:text-base">
                             We use bank-level security measures to protect your transactions and personal information.
@@ -552,7 +550,7 @@ export default function PaymentPage() {
 
                     <div className="grid gap-6 md:grid-cols-3">
                         <div className="flex gap-4">
-                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                                 <Shield className="h-6 w-6" />
                             </span>
                             <div>
@@ -562,7 +560,7 @@ export default function PaymentPage() {
                         </div>
 
                         <div className="flex gap-4">
-                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                                 <CheckCircle className="h-6 w-6" />
                             </span>
                             <div>
@@ -572,7 +570,7 @@ export default function PaymentPage() {
                         </div>
 
                         <div className="flex gap-4">
-                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
+                            <span className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-sm">
                                 <Clock className="h-6 w-6" />
                             </span>
                             <div>
@@ -586,9 +584,9 @@ export default function PaymentPage() {
 
             {/* Section 6: Need Help */}
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6 text-center">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Support</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Support</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Need Help?</h2>
                         <p className="mt-2 max-w-2xl mx-auto text-sm text-slate-600 md:text-base">
                             Our support team is available to assist you with any payment-related inquiries.
@@ -596,25 +594,25 @@ export default function PaymentPage() {
                     </div>
 
                     <div className="grid gap-6 md:grid-cols-2">
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-6 text-center">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                 <Mail className="h-6 w-6" />
                             </div>
                             <h3 className="mt-3 text-base font-semibold text-slate-900">Email Support</h3>
                             <p className="mt-2 text-sm text-slate-600">Send us your questions</p>
-                            <a href="mailto:support@abujamunicipal.gov.ng" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                            <a href="mailto:support@abujamunicipal.gov.ng" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-900">
                                 support@abujamunicipal.gov.ng
                                 <ArrowRight className="h-4 w-4" />
                             </a>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-6 text-center">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                 <Phone className="h-6 w-6" />
                             </div>
                             <h3 className="mt-3 text-base font-semibold text-slate-900">Call Us</h3>
                             <p className="mt-2 text-sm text-slate-600">Mon - Fri, 8:00am - 5:00pm</p>
-                            <a href="tel:+2348003BWARITC" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                            <a href="tel:+2348003BWARITC" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-900">
                                 +234 (0) 8003 BWARITC
                                 <ArrowRight className="h-4 w-4" />
                             </a>

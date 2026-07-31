@@ -10,12 +10,10 @@ export default function LandingPage() {
   return (
     <main>
       <section id="overview" className="relative overflow-hidden">
-        <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-300/30 blur-3xl" />
-        <div className="absolute -right-20 bottom-4 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
 
         <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:items-center md:px-6 md:py-20">
           <div>
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
               Amac Revenue Management
             </span>
             <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
@@ -31,7 +29,7 @@ export default function LandingPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href="/auth/admin"
-                className="inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                className="inline-flex rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
               >
                 Login to Dashboard
               </Link>
@@ -54,18 +52,18 @@ export default function LandingPage() {
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm col-span-2 sm:col-span-1">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Daily Collections</p>
-                <p className="mt-1 text-lg font-bold text-emerald-700">₦8.4M</p>
+                <p className="mt-1 text-lg font-bold text-emerald-800">₦8.4M</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-emerald-100 bg-white/80 p-3 shadow-xl backdrop-blur-sm">
+          <div className="rounded-xl border border-emerald-100 bg-white p-3 shadow-md">
             <Image
               src="/revenue-hero.svg"
               alt="Revenue dashboard illustration"
               width={1200}
               height={900}
-              className="h-auto w-full rounded-2xl"
+              className="h-auto w-full rounded-lg"
               priority
             />
           </div>
@@ -74,9 +72,9 @@ export default function LandingPage() {
 
       <section id="wallet" className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Wallet className="h-5 w-5" />
               </span>
               <p className="text-xs uppercase tracking-wide text-slate-500">Wallet Balance Tracking</p>
@@ -87,9 +85,9 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <CreditCard className="h-5 w-5" />
               </span>
               <p className="text-xs uppercase tracking-wide text-slate-500">Payment Operations</p>
@@ -100,12 +98,12 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
                 <TrendingUp className="h-5 w-5" />
               </span>
-              <p className="text-xs uppercase tracking-wide text-emerald-700">Revenue Assurance</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-800">Revenue Assurance</p>
             </div>
             <h3 className="mt-3 text-xl font-semibold text-slate-900">Less leakage, better reporting</h3>
             <p className="mt-2 text-sm text-slate-700">
@@ -116,9 +114,9 @@ export default function LandingPage() {
       </section>
 
       <section id="recruitment" className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-10">
-        <div className="rounded-3xl border border-cyan-100 bg-linear-to-r from-white via-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
+        <div className="rounded-xl border border-cyan-100 bg-linear-to-r from-white via-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
               <Users className="h-5 w-5" />
             </span>
             <p className="text-xs uppercase tracking-wide text-slate-500">Recruitment</p>
@@ -132,7 +130,7 @@ export default function LandingPage() {
           <div className="mt-5">
             <Link
               href="/recruitment-portal"
-              className="inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+              className="inline-flex rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
             >
               Apply for Recruitment
             </Link>
@@ -147,36 +145,36 @@ export default function LandingPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Users className="h-5 w-5" />
               </span>
               <h3 className="text-base font-semibold text-slate-900">Member Management</h3>
             </div>
             <p className="mt-2 text-sm text-slate-600">Maintain complete entity profiles with location, category, and pricing setup.</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <Settings className="h-5 w-5" />
               </span>
               <h3 className="text-base font-semibold text-slate-900">Agent Allocation</h3>
             </div>
             <p className="mt-2 text-sm text-slate-600">Assign and track responsible agents for each member account.</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <BarChart3 className="h-5 w-5" />
               </span>
               <h3 className="text-base font-semibold text-slate-900">Pricing Control</h3>
             </div>
             <p className="mt-2 text-sm text-slate-600">Upgrade and adjust pricing plans with clear billing visibility.</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                 <FileText className="h-5 w-5" />
               </span>
               <h3 className="text-base font-semibold text-slate-900">Export and Insights</h3>
@@ -187,9 +185,9 @@ export default function LandingPage() {
       </section>
 
       <section id="contact" className="mx-auto w-full max-w-7xl px-4 pb-14 md:px-6 md:pb-20">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
               <Mail className="h-5 w-5" />
             </span>
             <div>

@@ -152,11 +152,9 @@ export default function PaymentPage() {
         <main>
             {/* Member & Payment Summary Header */}
             <section className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-white to-cyan-50">
-                <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-300/20 blur-3xl" />
-                <div className="absolute -right-20 bottom-4 h-72 w-72 rounded-full bg-cyan-200/30 blur-3xl" />
                 <div className="relative mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
                     {/* Member Profile Card */}
-                    <div className="mb-8 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg">
+                    <div className="mb-8 overflow-hidden rounded-lg border border-emerald-100 bg-white shadow-lg">
                         <div className="bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-5">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-white">
@@ -211,7 +209,7 @@ export default function PaymentPage() {
                     </div>
 
                     {/* Payments List */}
-                    <div className="mb-8 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg">
+                    <div className="mb-8 overflow-hidden rounded-lg border border-emerald-100 bg-white shadow-lg">
                         <div className="border-b border-emerald-100 bg-emerald-50/50 px-6 py-4">
                             <h2 className="text-lg font-semibold text-slate-800">Payment Records</h2>
                         </div>
@@ -225,7 +223,7 @@ export default function PaymentPage() {
                                     <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-300 border ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
                                                     <FileText className="h-5 w-5" />
                                                 </div>
                                                 <div>
@@ -265,7 +263,7 @@ export default function PaymentPage() {
                     {selectedPayment && (<div className="mb-8 grid gap-4 sm:grid-cols-3">
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Principal</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(principal)}</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-800">{formatCurrency(principal)}</p>
                         </div>
                         <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Value Added Tax (VAT)</p>
@@ -289,7 +287,7 @@ export default function PaymentPage() {
                         </div>
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Total Amount Due</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(totalAmount)}</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-800">{formatCurrency(totalAmount)}</p>
                         </div>
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Total Paid</p>
@@ -304,7 +302,7 @@ export default function PaymentPage() {
                     {/* Wallet & Agent Info */}
                     <div className="mb-8 grid gap-6 md:grid-cols-2">
                         {wallet && (
-                            <div className="rounded-2xl border border-emerald-100 bg-white shadow-lg">
+                            <div className="rounded-lg border border-emerald-100 bg-white shadow-lg">
                                 <div className="border-b border-emerald-100 px-6 py-4">
                                     <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                                         <Wallet className="h-5 w-5 text-emerald-600" /> Wallet Information
@@ -322,7 +320,7 @@ export default function PaymentPage() {
                                         </div>
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
-                                            <span className="text-sm font-semibold text-emerald-700">
+                                            <span className="text-sm font-semibold text-emerald-800">
                                                 {formatCurrency(wallet.balance || 0)}
                                             </span>
                                         </div> */}
@@ -348,7 +346,7 @@ export default function PaymentPage() {
                         )}
 
                         {agent && (
-                            <div className="rounded-2xl border border-emerald-100 bg-white shadow-lg">
+                            <div className="rounded-lg border border-emerald-100 bg-white shadow-lg">
                                 <div className="border-b border-emerald-100 px-6 py-4">
                                     <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                                         <User className="h-5 w-5 text-emerald-600" /> Agent Information
@@ -387,7 +385,7 @@ export default function PaymentPage() {
                     </div>
 
                     {/* Pay Now Action */}
-                    <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-lg">
+                    <div className="rounded-lg border border-emerald-100 bg-white p-6 shadow-lg">
                         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
                             <div>
                                 <h3 className="text-lg font-semibold text-slate-800">Ready to complete your payment?</h3>
@@ -398,7 +396,7 @@ export default function PaymentPage() {
                             <button
                                 onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handlePayNow}
                                 disabled={loading || (Number(totalAmount) === Number(totalPaid))}
-                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" :"inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"}
+                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" :"inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"}
                             >
                                 {(Number(totalAmount) === Number(totalPaid)) ? 
                                     <>

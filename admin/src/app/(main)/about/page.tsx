@@ -9,12 +9,10 @@ export default function AboutPage() {
     return (
         <main>
             <section className="relative overflow-hidden">
-                <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-300/30 blur-3xl" />
-                <div className="absolute -right-20 bottom-4 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
 
                 <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:items-center md:px-6 md:py-20">
                     <div>
-                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                             About the Council
                         </span>
                         <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
@@ -28,11 +26,11 @@ export default function AboutPage() {
                         </p>
                     </div>
 
-                    <div className="rounded-3xl border border-emerald-100 bg-white/80 p-3 shadow-xl backdrop-blur-sm">
+                    <div className="rounded-xl border border-emerald-100 bg-white p-3 shadow-md">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                            <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                         <MapPin className="h-5 w-5" />
                                     </span>
                                     <div>
@@ -43,9 +41,9 @@ export default function AboutPage() {
                                 <p className="mt-3 text-xs text-slate-600">Abuja Municipal Area Council, FCT, Abuja — Nigeria</p>
                             </div>
 
-                            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                            <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                         <Wallet className="h-5 w-5" />
                                     </span>
                                     <div>
@@ -56,9 +54,9 @@ export default function AboutPage() {
                                 <p className="mt-3 text-xs text-slate-600">Federal Government Approved payment gateway</p>
                             </div>
 
-                            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                            <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                         <Clock className="h-5 w-5" />
                                     </span>
                                     <div>
@@ -69,9 +67,9 @@ export default function AboutPage() {
                                 <p className="mt-3 text-xs text-slate-600">8:00am – 5:00pm WAT</p>
                             </div>
 
-                            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                            <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                         <Shield className="h-5 w-5" />
                                     </span>
                                     <div>
@@ -87,9 +85,9 @@ export default function AboutPage() {
             </section>
 
             <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Our Mission</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Our Mission</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Modernizing Revenue Collection</h2>
                         <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
                             Providing a transparent, automated, and citizen-centric revenue solution for Abuja Municipal Area Council.
@@ -97,19 +95,19 @@ export default function AboutPage() {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <h3 className="text-base font-semibold text-slate-900">Transparency</h3>
                             <p className="mt-2 text-sm text-slate-600">Clear billing and complete visibility into revenue operations for all stakeholders.</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <h3 className="text-base font-semibold text-slate-900">Automation</h3>
                             <p className="mt-2 text-sm text-slate-600">Digitized assessment, invoicing, and collection to reduce manual effort and errors.</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <h3 className="text-base font-semibold text-slate-900">Security</h3>
                             <p className="mt-2 text-sm text-slate-600">256-bit SSL encryption and secure access controls protect all transactions.</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <h3 className="text-base font-semibold text-slate-900">Accessibility</h3>
                             <p className="mt-2 text-sm text-slate-600">Online portal available 24/7 for payments, complaints, and certificate requests.</p>
                         </div>
@@ -118,9 +116,9 @@ export default function AboutPage() {
             </section>
 
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">About the System</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">About the System</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Abuja Municipal Digital Revenue Initiative</h2>
                     </div>
 
@@ -139,23 +137,23 @@ export default function AboutPage() {
                             <p className="text-base font-semibold text-slate-900">Key Features</p>
                             <ul className="mt-2 space-y-2 text-sm text-slate-600">
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Secure online payment via Remita
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Digital invoice generation and receipt downloads
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Complaint submission and tracking
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Certificate and clearance verification
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Agent oversight and wallet management
                                 </li>
                             </ul>
@@ -165,9 +163,9 @@ export default function AboutPage() {
             </section>
 
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Governance</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Governance</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Council Structure</h2>
                         <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
                             Led by an executive chairman and supported by department heads, the council operates with clear accountability and community representation.
@@ -175,9 +173,9 @@ export default function AboutPage() {
                     </div>
 
                     <div className="grid gap-5 md:grid-cols-3">
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <div className="flex items-center gap-3">
-                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                     <Crown className="h-5 w-5" />
                                 </span>
                                 <div>
@@ -188,9 +186,9 @@ export default function AboutPage() {
                             <p className="mt-3 text-sm text-slate-600">Provides strategic leadership and oversees all council operations and policy directions.</p>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <div className="flex items-center gap-3">
-                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                     <Building2 className="h-5 w-5" />
                                 </span>
                                 <div>
@@ -201,9 +199,9 @@ export default function AboutPage() {
                             <p className="mt-3 text-sm text-slate-600">Dedicated departments handling revenue collection, infrastructure, and administration.</p>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
                             <div className="flex items-center gap-3">
-                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                                     <Users className="h-5 w-5" />
                                 </span>
                                 <div>
@@ -218,9 +216,9 @@ export default function AboutPage() {
             </section>
 
             <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6">
-                        <span className="text-xs uppercase tracking-wide text-emerald-700">Impact</span>
+                        <span className="text-xs uppercase tracking-wide text-emerald-800">Impact</span>
                         <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Community Development</h2>
                         <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
                             Revenue collected through the platform directly funds essential services and infrastructure across Abuja Municipal.
@@ -242,19 +240,19 @@ export default function AboutPage() {
                             <p className="text-base font-semibold text-slate-900">Our Commitment</p>
                             <ul className="mt-2 space-y-2 text-sm text-slate-600">
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Efficient and transparent revenue management
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Citizen-centric service delivery
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Accountability and regular public reporting
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700" />
+                                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-800" />
                                     Continuous improvement of digital services
                                 </li>
                             </ul>

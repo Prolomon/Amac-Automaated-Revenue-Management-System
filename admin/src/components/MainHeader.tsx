@@ -28,15 +28,26 @@ export function MainHeader() {
     };
 
     return (
-        <header className="sticky top-0 z-50 border-b border-emerald-100/80 bg-white/90 backdrop-blur-md">
+        <>
+            {/* Official government identification bar */}
+            <div className="bg-emerald-900 text-emerald-50">
+                <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-1.5 text-xs md:px-6">
+                    <Image src="/icon.png" alt="" width={14} height={14} className="opacity-90" aria-hidden="true" />
+                    <span>
+                        An official portal of the <span className="font-semibold">Abuja Municipal Area Council</span>, Federal Capital Territory
+                    </span>
+                </div>
+            </div>
+
+            <header className="sticky top-0 z-50 border-b border-emerald-200 bg-white">
             <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-                <Link href="/" className="flex items-center gap-2.5">
-                    <div className="rounded-xl border border-emerald-300 bg-white p-1 shadow-sm">
+                <Link href="/" className="flex items-center gap-3">
+                    <div className="rounded-md border-2 border-emerald-800 bg-white p-1">
                         <Image src="/icon.png" alt="Karu Revenue Logo" width={34} height={34} />
                     </div>
                     <div>
-                        <p className="text-sm font-bold leading-tight text-slate-900">Amac Revenue</p>
-                        <p className="text-xs text-slate-500">Management System</p>
+                        <p className="text-sm font-bold leading-tight text-slate-900">Amac Revenue Management System</p>
+                        <p className="text-xs text-slate-500">Abuja Municipal Area Council</p>
                     </div>
                 </Link>
 
@@ -50,8 +61,8 @@ export function MainHeader() {
                                 href={item.href}
                                 className={`inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                                     active
-                                        ? "bg-emerald-50 text-emerald-700"
-                                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                        ? "bg-emerald-50 text-emerald-800"
+                                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"
                                 }`}
                             >
                                 {item.label}
@@ -63,13 +74,13 @@ export function MainHeader() {
                 <div className="flex items-center gap-2">
                     <Link
                         href="/recruitment-portal"
-                        className="hidden rounded-xl border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 sm:inline-flex"
+                        className="hidden rounded-xl border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-50 sm:inline-flex"
                     >
                         Recruitment
                     </Link>
                     <Link
                         href="/auth/admin"
-                        className="hidden rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:inline-flex"
+                        className="hidden rounded-xl bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 md:inline-flex"
                     >
                         Login
                     </Link>
@@ -98,8 +109,8 @@ export function MainHeader() {
                                     onClick={() => setMobileMenuOpen(false)}
                                     className={`inline-flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                                         active
-                                            ? "bg-emerald-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                            ? "bg-emerald-800 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"
                                     }`}
                                 >
                                     {item.label}
@@ -109,13 +120,14 @@ export function MainHeader() {
                         <Link
                             href="/auth/admin"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="mt-2 inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                            className="mt-2 inline-flex items-center justify-center rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
                         >
                             Login
                         </Link>
                     </nav>
                 </div>
             )}
-        </header>
+            </header>
+        </>
     );
 }
