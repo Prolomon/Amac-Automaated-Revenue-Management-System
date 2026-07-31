@@ -219,9 +219,23 @@ function DemandDetailPage() {
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
-  const penalty = subtotal * 0.1;
-  const interest = subtotal * 0.05;
-  const totalAmount = subtotal + penalty + interest;
+
+  // Get payment date and current date
+  const paymentDate = new Date(demand?.payment?.date);
+  const currentDate = new Date();
+
+  // Calculate days overdue
+  let daysOverdue = 0;
+  if (currentDate > paymentDate) {
+    const diffTime = currentDate - paymentDate;
+    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+  }
+
+  // Penalty: 0.005% per day overdue
+  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+  const totalAmount = subtotal + penalty;
 
   // Build location string
   let locationStr = 'N/A';
@@ -475,16 +489,6 @@ function DemandDetailPage() {
                         {formatCurrency(penalty)}
                       </td>
                     </tr>
-                    <tr className="font-medium text-[#1e293b]">
-                      <td className="py-2 px-4 border-b border-[#e2e8f0]">
-                        Interest Accrued
-                      </td>
-                      <td
-                        className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5"
-                      >
-                        {formatCurrency(interest)}
-                      </td>
-                    </tr>
                     <tr
                       className="bg-[#0f172a] text-white font-bold text-[15px] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] border-0"
                     >
@@ -500,7 +504,7 @@ function DemandDetailPage() {
                   </tbody>
                 </table>
                 <div className="italic text-[11px] text-[#64748b] mt-2">
-                  * Interest charges continue to accumulate iteratively daily until
+                  * Penalty charges continue to accumulate iteratively daily until
                   the exact financial settlement position registers as zero.
                 </div>
               </div>
