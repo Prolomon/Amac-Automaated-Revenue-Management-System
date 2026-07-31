@@ -230,9 +230,7 @@ export default function PaymentPage() {
                                                     <FileText className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-800">
-                                                        {payment.pricing.title || "Payment"}
-                                                    </p>
+                                                    <p className="text-sm font-medium text-slate-800">{payment.pricing.title.trim() || "Payment"}</p>
                                                     <p className="text-xs text-slate-500">
                                                         Ref: {payment.reference}
                                                     </p>
