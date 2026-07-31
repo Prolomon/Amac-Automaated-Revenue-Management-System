@@ -1145,8 +1145,7 @@ const getPaymentForUser = async (req, res) => {
       }
 
       member = await prisma.member.findFirst({
-        where: { uid: payment?.userId },
-        select: { uid: true },
+        where: { uid: payment?.userId }
       });
 
       let wallet = await prisma.wallet.findFirst({
