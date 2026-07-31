@@ -18,6 +18,7 @@ export default function PaymentPage() {
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState(false);
+    const [selectedPayment, setSelectedPayment] = useState<string>("")
 
     const id = identifier as string;
 
@@ -33,7 +34,7 @@ export default function PaymentPage() {
                 const res = await payNow(id.trim());
                 if (res.ok) {
                     setStatus(true);
-                    setPaymentData(res.data ? {payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent} : null);
+                    setPaymentData(res.data ? { payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent } : null);
                 } else {
                     setStatus(false);
                     addToast("error", res.message || "Failed to initiate payment");
@@ -57,22 +58,22 @@ export default function PaymentPage() {
 
         setLoading(true);
 
-        try {
+        // try {
 
-            const res = await payNow(id);
-            if (!res.ok) {
-                addToast("error", res.message || "Failed to initiate payment");
-                return;
-            }
+        //     const res = await payNow(id);
+        //     if (!res.ok) {
+        //         addToast("error", res.message || "Failed to initiate payment");
+        //         return;
+        //     }
 
-            setPaymentData(res.data ? {payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent} : null);
-            addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
+        //     setPaymentData(res.data ? { payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent } : null);
+        //     addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
 
-        } catch (error) {
-            addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
-        } finally {
-            setLoading(false);
-        }
+        // } catch (error) {
+        //     addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
+        // } finally {
+        //     setLoading(false);
+        // }
     }, [addToast, id]);
 
     const formatCurrency = (amount: number) => {
@@ -121,11 +122,31 @@ export default function PaymentPage() {
     }
 
     const { member, payments, wallet, agent } = paymentData;
-    const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+    const payment = payments.find((p) => p.reference === selectedPayment);
     const totalPaid = payments.reduce((sum, p) => sum + p.paid, 0);
     const totalDebt = payments.reduce((sum, p) => sum + p.debt, 0);
 
-    console.log(member, payments, wallet, agent)
+    const principal = Number(payment?.amount);
+    const vat = principal * 0.075;
+    const charges = principal * 0.015;
+    const subtotal = principal + vat + charges;
+
+    // Get payment date and current date
+    const paymentDate = new Date(payment?.date);
+    const currentDate = new Date();
+
+    // Calculate days overdue
+    let daysOverdue = 0;
+    if (currentDate > paymentDate) {
+        const diffTime = currentDate - paymentDate;
+        daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+    }
+
+    // Penalty: 0.005% per day overdue
+    const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+    const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+    const totalAmount = subtotal + penalty;
 
     return (
         <main>
@@ -190,22 +211,6 @@ export default function PaymentPage() {
                         </div>
                     </div>
 
-                    {/* Payment Summary Cards */}
-                    <div className="mb-8 grid gap-4 sm:grid-cols-3">
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Total Amount Due</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(totalAmount)}</p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Total Paid</p>
-                            <p className="mt-1 text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Outstanding Debt</p>
-                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
-                        </div>
-                    </div>
-
                     {/* Payments List */}
                     <div className="mb-8 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg">
                         <div className="border-b border-emerald-100 bg-emerald-50/50 px-6 py-4">
@@ -218,7 +223,7 @@ export default function PaymentPage() {
                                 </div>
                             ) : (
                                 payments.map((payment, index) => (
-                                    <div key={payment.reference || index} className="px-6 py-4 hover:bg-emerald-50/30">
+                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 border"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
@@ -253,9 +258,49 @@ export default function PaymentPage() {
                                             <span>Debt: {formatCurrency(payment.debt)}</span>
                                             <span>Sessions: {payment.sessions?.length || 0}</span>
                                         </div>
-                                    </div>
+                                    </button>
                                 ))
                             )}
+                        </div>
+                    </div>
+
+                    {/* Payment Summary Cards */}
+                    <div className="mb-8 grid gap-4 sm:grid-cols-3">
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Principal</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(principal)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Value Added Tax (VAT)</p>
+                            <p className="mt-1 text-2xl font-bold text-green-600">{formatCurrency(vat)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Charges</p>
+                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(charges)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Subtotal</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(subtotal)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Overdue Day(s)</p>
+                            <p className="mt-1 text-2xl font-bold text-green-600">{daysOverdue}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Penalty</p>
+                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(penalty)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Total Amount Due</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(totalAmount)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Total Paid</p>
+                            <p className="mt-1 text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-medium text-slate-500">Outstanding Debt</p>
+                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
                         </div>
                     </div>
 
@@ -278,12 +323,12 @@ export default function PaymentPage() {
                                             <span className="text-sm text-slate-500">Account Number</span>
                                             <span className="text-sm font-medium text-slate-800">{wallet.accountNo || "N/A"}</span>
                                         </div>
-                                        <div className="flex justify-between">
+                                        {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
                                             <span className="text-sm font-semibold text-emerald-700">
                                                 {formatCurrency(wallet.balance || 0)}
                                             </span>
-                                        </div>
+                                        </div> */}
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Currency</span>
                                             <span className="text-sm font-medium text-slate-800">{wallet.currency}</span>
@@ -294,12 +339,12 @@ export default function PaymentPage() {
                                                 <span className="text-sm font-medium text-slate-800">{wallet.bank.name}</span>
                                             </div>
                                         )}
-                                        <div className="flex justify-between">
+                                        {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Status</span>
                                             <span className={`text-sm font-medium ${wallet.status ? "text-green-600" : "text-red-600"}`}>
                                                 {wallet.status ? "Active" : "Inactive"}
                                             </span>
-                                        </div>
+                                        </div> */}
                                     </div>
                                 </div>
                             </div>
@@ -365,7 +410,7 @@ export default function PaymentPage() {
                                     </>
                                 ) : (
                                     <>
-                                        Pay Now
+                                        I have made the payment
                                         <ArrowRight className="h-4 w-4" />
                                     </>
                                 )}
