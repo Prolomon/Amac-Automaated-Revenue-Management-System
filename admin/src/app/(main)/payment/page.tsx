@@ -56,14 +56,14 @@ function PaymentContent() {
 
     useEffect(() => {
         const getPayNow = async () => {
-            if (!identifier.trim()) {
+            if (!identifier.trim() || memberIdFromQuery.trim()) {
                 addToast("error", "Please enter a valid identifier");
                 return;
             }
 
             try {
 
-                const res = await payNow(identifier.trim());
+                const res = await payNow(identifier.trim() || memberIdFromQuery.trim());
                 if (res.ok) {
                     setStatus(true);
                     addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
@@ -77,10 +77,10 @@ function PaymentContent() {
             }
         }
 
-        if (identifier.trim().length > 0) {
+        if (identifier.trim().length > 0 || memberIdFromQuery.trim().length > 0 {
             getPayNow();
         }
-    }, [addToast, identifier]);
+    }, [addToast, identifier, memberIdFromQuery]);
 
     const handlePayNow = async () => {
         if (!identifier.trim()) {
