@@ -187,11 +187,7 @@ export const processDemands = async () => {
         }
 
         // Generate QR code URL
-        const qrData = JSON.stringify({
-          userId: demand.userId,
-          paymentId: payment.id,
-          amount: totalAmount,
-        });
+        const qrData = `https://urms.afriverge.com/payment?m=${member.uid}`;
         const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=240`;
 
         // Read HTML template
