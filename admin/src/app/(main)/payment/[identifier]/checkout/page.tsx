@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
+import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw, BanknoteCheck } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
 import { useRouter } from "next/navigation";
@@ -137,10 +137,6 @@ export default function PaymentPage() {
 
     // Calculate days overdue
     let daysOverdue = 0;
-    // if (currentDate > paymentDate) {
-    //     const diffTime = currentDate - paymentDate;
-    //     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-    // }
     if (currentDate > paymentDate) {
         const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
         daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
@@ -220,14 +216,14 @@ export default function PaymentPage() {
                         <div className="border-b border-emerald-100 bg-emerald-50/50 px-6 py-4">
                             <h2 className="text-lg font-semibold text-slate-800">Payment Records</h2>
                         </div>
-                        <div className="divide-y divide-emerald-50">
+                        <div className="divide-y divide-emerald-50 px-6 py-8 grid md:grid-cols-2 gap-6">
                             {payments.length === 0 ? (
                                 <div className="px-6 py-8 text-center text-sm text-slate-500">
                                     No payment records found.
                                 </div>
                             ) : (
                                 payments.map((payment, index) => (
-                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 border"}`}>
+                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-500 border ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
@@ -269,28 +265,28 @@ export default function PaymentPage() {
                     </div>
 
                     {/* Payment Summary Cards */}
-                    <div className="mb-8 grid gap-4 sm:grid-cols-3">
+                    {selectedPayment && (<div className="mb-8 grid gap-4 sm:grid-cols-3">
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Principal</p>
                             <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(principal)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Value Added Tax (VAT)</p>
-                            <p className="mt-1 text-2xl font-bold text-green-600">{formatCurrency(vat)}</p>
+                            <p className="mt-1 text-2xl font-bold text-amber-600">{formatCurrency(vat)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Charges</p>
-                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(charges)}</p>
+                            <p className="mt-1 text-2xl font-bold text-amber-600">{formatCurrency(charges)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Subtotal</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(subtotal)}</p>
+                            <p className="mt-1 text-2xl font-bold text-amber-700">{formatCurrency(subtotal)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Overdue Day(s)</p>
-                            <p className="mt-1 text-2xl font-bold text-green-600">{daysOverdue}</p>
+                            <p className="mt-1 text-2xl font-bold text-red-600">{daysOverdue}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Penalty</p>
                             <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(penalty)}</p>
                         </div>
@@ -300,13 +296,13 @@ export default function PaymentPage() {
                         </div>
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Total Paid</p>
-                            <p className="mt-1 text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
                         </div>
                         <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
                             <p className="text-xs font-medium text-slate-500">Outstanding Debt</p>
                             <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
                         </div>
-                    </div>
+                    </div>)}
 
                     {/* Wallet & Agent Info */}
                     <div className="mb-8 grid gap-6 md:grid-cols-2">
@@ -321,11 +317,11 @@ export default function PaymentPage() {
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Name</span>
-                                            <span className="text-sm font-medium text-slate-800">{wallet.accountName}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.accountName : "****** *******"}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Number</span>
-                                            <span className="text-sm font-medium text-slate-800">{wallet.accountNo || "N/A"}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.accountNo || "N/A" : "**********"}</span>
                                         </div>
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
@@ -340,7 +336,7 @@ export default function PaymentPage() {
                                         {wallet.bank && (
                                             <div className="flex justify-between">
                                                 <span className="text-sm text-slate-500">Bank</span>
-                                                <span className="text-sm font-medium text-slate-800">{wallet.bank.name}</span>
+                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.bank.name : "******* *******"}</span>
                                             </div>
                                         )}
                                         {/* <div className="flex justify-between">
@@ -403,11 +399,16 @@ export default function PaymentPage() {
                                 </p>
                             </div>
                             <button
-                                onClick={handlePayNow}
-                                disabled={loading || totalDebt <= 0}
-                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handlePayNow}
+                                disabled={loading || (Number(totalAmount) === Number(totalPaid))}
+                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" :"inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"}
                             >
-                                {loading ? (
+                                {(Number(totalAmount) === Number(totalPaid)) ? 
+                                    <>
+                                    <BanknoteCheck className="h-4 w-4 animate-spin" />
+                                    Paid
+                                </>
+                                 : loading ? (
                                     <>
                                         <RefreshCw className="h-4 w-4 animate-spin" />
                                         Processing...
