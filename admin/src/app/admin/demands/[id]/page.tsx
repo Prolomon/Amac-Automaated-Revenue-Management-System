@@ -261,11 +261,7 @@ function DemandDetailPage() {
   }
 
   // Generate QR code URL
-  const qrData = JSON.stringify({
-    userId: demand?.member?.uid,
-    paymentId: demand?.payment?.id,
-    amount: totalAmount,
-  });
+  const qrData = `https://urms.afriverge.com/payment?m=${member.uid}`;
   const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=240`;
 
   return (

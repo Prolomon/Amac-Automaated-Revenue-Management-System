@@ -5,10 +5,11 @@ import Image from "next/image";
 import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function PaymentPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [identifier, setIdentifier] = useState("");
     const [showPayButton, setShowPayButton] = useState(false);
     const [verifyInput, setVerifyInput] = useState("");
@@ -18,6 +19,13 @@ export default function PaymentPage() {
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<boolean>(false);
+    const memberIdFromQuery = searchParams.get("m");
+
+    useEffect(() => {
+        if (m) {
+            setIdentifier(m)
+        }
+    }, [m])
 
     const handleInputChange = (value: string) => {
         setIdentifier(value);
