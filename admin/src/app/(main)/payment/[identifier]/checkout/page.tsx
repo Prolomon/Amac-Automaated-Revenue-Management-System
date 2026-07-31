@@ -125,6 +125,8 @@ export default function PaymentPage() {
     const totalPaid = payments.reduce((sum, p) => sum + p.paid, 0);
     const totalDebt = payments.reduce((sum, p) => sum + p.debt, 0);
 
+    console.log(member, payments, wallet, agent)
+
     return (
         <main>
             {/* Member & Payment Summary Header */}
