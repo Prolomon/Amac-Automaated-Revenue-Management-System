@@ -223,7 +223,7 @@ export default function PaymentPage() {
                                 </div>
                             ) : (
                                 payments.map((payment, index) => (
-                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-500 border ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
+                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-300 border ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
@@ -231,7 +231,7 @@ export default function PaymentPage() {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-medium text-slate-800">
-                                                        {payment.payment || "Payment"}
+                                                        {payment.pricing.title || "Payment"}
                                                     </p>
                                                     <p className="text-xs text-slate-500">
                                                         Ref: {payment.reference}
