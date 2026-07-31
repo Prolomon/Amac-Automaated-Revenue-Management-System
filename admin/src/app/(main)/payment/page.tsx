@@ -77,7 +77,7 @@ function PaymentContent() {
             }
         }
 
-        if (identifier.trim().length > 0 || memberIdFromQuery.trim().length > 0 {
+        if (identifier.trim().length > 0 || memberIdFromQuery.trim().length > 0) {
             getPayNow();
         }
     }, [addToast, identifier, memberIdFromQuery]);
