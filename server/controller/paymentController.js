@@ -1162,7 +1162,13 @@ const getPaymentForUser = async (req, res) => {
         }
       }
 
-      return res.status(200).json({ ok: true, data: { payments: [payment], wallet, agent, member } });
+      const payments = await prisma.payment.findMany({
+        where: { userId: member.uid },
+        include: { member: true, pricing: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return res.status(200).json({ ok: true, data: { payments, wallet, agent, member } });
     }
 
   } catch (err) {
