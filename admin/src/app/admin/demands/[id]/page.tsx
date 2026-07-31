@@ -226,8 +226,12 @@ function DemandDetailPage() {
 
   // Calculate days overdue
   let daysOverdue = 0;
+  // if (currentDate > paymentDate) {
+  //   const diffTime = currentDate - paymentDate;
+  //   daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+  // }
   if (currentDate > paymentDate) {
-    const diffTime = currentDate - paymentDate;
+    const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
   }
 
