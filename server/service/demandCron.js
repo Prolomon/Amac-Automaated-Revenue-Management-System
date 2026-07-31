@@ -70,9 +70,23 @@ export const processDemands = async () => {
         const vat = principal * 0.075;
         const charges = principal * 0.015;
         const subtotal = principal + vat + charges;
-        const penalty = subtotal * 0.1;
-        const interest = subtotal * 0.05;
-        const totalAmount = subtotal + penalty + interest;
+
+        // Get payment date and current date
+        const paymentDate = new Date(payment?.date);
+        const currentDate = new Date();
+
+        // Calculate days overdue
+        let daysOverdue = 0;
+        if (currentDate > paymentDate) {
+          const diffTime = currentDate - paymentDate;
+          daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+        }
+
+        // Penalty: 0.005% per day overdue
+        const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+        const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+        const totalAmount = subtotal + penalty;
 
         const formatCurrency = (amount) => {
           return Number(amount || 0).toLocaleString('en-US', {
@@ -152,7 +166,7 @@ export const processDemands = async () => {
 
         console.log(`Processing demand ${demand.id} for member ${member.email} with reference ${referenceNo}`);
         console.log(wallet, demand.wallet, payment.walletId, member.uid, member.agent);
-        
+
         // Build location string
         let locationStr = 'N/A';
         if (member.location) {
@@ -182,7 +196,7 @@ export const processDemands = async () => {
 
         // Read HTML template
         const templatePath = path.join(__dirname, '..', 'service', 'templates', 'index.html');
-        
+
         if (!fs.existsSync(templatePath)) {
           console.error(`Email template not found at ${templatePath}`);
           continue;
@@ -202,7 +216,6 @@ export const processDemands = async () => {
           '{{LIABILITY_ROWS}}': liabilityRows,
           '{{SUBTOTAL_AMOUNT}}': formatCurrency(subtotal),
           '{{PENALTY_AMOUNT}}': formatCurrency(penalty),
-          '{{INTEREST_AMOUNT}}': formatCurrency(interest),
           '{{TOTAL_AMOUNT}}': formatCurrency(totalAmount),
           '{{QR_CODE_URL}}': qrCodeUrl,
           '{{PAYMENT_REFERENCE}}': paymentRef,
