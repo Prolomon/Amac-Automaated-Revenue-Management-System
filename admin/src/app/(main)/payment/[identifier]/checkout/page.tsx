@@ -317,11 +317,11 @@ export default function PaymentPage() {
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Name</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.accountName : "****** *******"}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "****** *******" : wallet.accountName}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Number</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.accountNo || "N/A" : "**********"}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ?  "**********" : wallet.accountNo || "N/A"}</span>
                                         </div>
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
@@ -336,7 +336,7 @@ export default function PaymentPage() {
                                         {wallet.bank && (
                                             <div className="flex justify-between">
                                                 <span className="text-sm text-slate-500">Bank</span>
-                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? wallet.bank.name : "******* *******"}</span>
+                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "******* *******" : wallet.bank.name}</span>
                                             </div>
                                         )}
                                         {/* <div className="flex justify-between">
