@@ -22,10 +22,10 @@ export default function PaymentPage() {
     const memberIdFromQuery = searchParams.get("m");
 
     useEffect(() => {
-        if (m) {
+        if (memberIdFromQuery) {
             setIdentifier(m)
         }
-    }, [m])
+    }, [memberIdFromQuery])
 
     const handleInputChange = (value: string) => {
         setIdentifier(value);
