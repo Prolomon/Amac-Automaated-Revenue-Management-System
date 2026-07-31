@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw, BanknoteCheck } from "lucide-react";
+import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
 import { useRouter } from "next/navigation";
@@ -405,7 +405,7 @@ export default function PaymentPage() {
                             >
                                 {(Number(totalAmount) === Number(totalPaid)) ? 
                                     <>
-                                    <BanknoteCheck className="h-4 w-4 animate-spin" />
+                                    <CreditCard className="h-4 w-4 animate-spin" />
                                     Paid
                                 </>
                                  : loading ? (
