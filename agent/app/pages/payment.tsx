@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CheckoutPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const { success, failed } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -163,7 +163,8 @@ export default function CheckoutPage() {
         payment.id,
         debt,
         member.center,
-        member.company
+        member.company,
+        token
       );
 
       if (res.ok) {

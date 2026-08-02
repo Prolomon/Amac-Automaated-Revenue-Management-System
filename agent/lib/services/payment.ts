@@ -40,13 +40,14 @@ export async function confirmPayment(
   amount?: number,
   center?: string,
   company?: string,
+  token?: string,
 ) {
   if (!userId || !paymentId || !amount || !center || !company) {
     throw new Error("Missing required parameters for confirming payment");
   }
   const response = await fetch(`${API_URL}/payment/confirm/${userId}/${paymentId}`, {
     method: "POST",
-    headers: buildHeaders(true),
+    headers: buildHeaders(true, token),
     body: JSON.stringify({ amount, center, company }),
   });
   const data = await response.json();
