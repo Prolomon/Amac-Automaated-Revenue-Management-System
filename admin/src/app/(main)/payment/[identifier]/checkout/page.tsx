@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
+import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, XCircle, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { Payment, payNow, confirmPayment, DataType } from "@/lib/services/payments";
 import { Member } from "@/lib/services/member";
@@ -17,6 +17,9 @@ export default function PaymentPage() {
     const [loading, setLoading] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<string>("")
     const [confirmDetails, setConfirmDetails] = useState<DataType | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showFailureModal, setShowFailureModal] = useState(false);
+    const [failureMessage, setFailureMessage] = useState<string | null>(null);
 
     const id = identifier as string;
 
@@ -130,17 +133,23 @@ export default function PaymentPage() {
 
             const p = paymentData?.payments?.find(p => p?.payment?.reference === selectedPayment)
 
-            const res = await confirmPayment(id, p?.payment?.id, totalAmount, paymentData?.member?.center, paymentData?.member?.company);
+            const res = await confirmPayment(id, p?.payment?.id, p?.payment?.debt || totalAmount, paymentData?.member?.center, paymentData?.member?.company);
             if (!res.ok) {
+                setFailureMessage(res.message || "Failed to confirm payment");
+                setShowFailureModal(true);
                 addToast("error", res.message || "Failed to confirm payment");
                 return;
             }
 
             setConfirmDetails(res.data || null);
-            addToast("success", "Payment confirmed successfully. Please check your email for further instructions.");
+            setShowSuccessModal(true);
+            addToast("success", res?.message || "Payment confirmed successfully. Please check your email for further instructions.");
 
         } catch (error) {
-            addToast("error", error instanceof Error ? error.message : "Failed to confirm payment");
+            const msg = error instanceof Error ? error.message : "Failed to confirm payment";
+            setFailureMessage(msg);
+            setShowFailureModal(true);
+            addToast("error", msg);
         } finally {
             setLoading(false);
         }
@@ -391,7 +400,7 @@ export default function PaymentPage() {
                                     Transfer the payment amount to the account details provided: {formatCurrency(totalDebt)}
                                 </p>
                             </div>
-                            <button
+                            {selectedPayment && (<button
                                 onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handleConfirmPayment}
                                 disabled={loading || (Number(totalAmount) === Number(totalPaid))}
                                 className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" : "inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"}
@@ -412,11 +421,129 @@ export default function PaymentPage() {
                                             <ArrowRight className="h-4 w-4" />
                                         </>
                                     )}
-                            </button>
+                            </button>)}
                         </div>
                     </div>
                 </div>
             </section>
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                    onClick={() => setShowSuccessModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-emerald-100 bg-white shadow-lg"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-4">
+                            <div className="flex items-center gap-3 text-white">
+                                <div className="rounded-full bg-white/20 p-2 text-white">
+                                    <CheckCircle className="h-6 w-6" />
+                                </div>
+                                <h3 className="text-lg font-semibold">Payment Confirmed</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowSuccessModal(false)}
+                                aria-label="Close"
+                                className="rounded-full p-1 text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 text-sm text-slate-600">
+                            <p className="mb-3 font-medium text-slate-700">Your payment was confirmed successfully.</p>
+
+                            {confirmDetails ? (
+                                <dl className="divide-y divide-emerald-100 rounded-lg border border-emerald-100 bg-emerald-50/40 text-sm">
+                                    {confirmDetails?.payment?.reference && (
+                                        <div className="flex items-center justify-between px-4 py-2.5">
+                                            <dt className="text-slate-500">Reference</dt>
+                                            <dd className="font-medium text-slate-900">{confirmDetails?.payment?.reference}</dd>
+                                        </div>
+                                    )}
+                                    {confirmDetails?.payment?.amount && (
+                                        <div className="flex items-center justify-between px-4 py-2.5">
+                                            <dt className="text-slate-500">Amount</dt>
+                                            <dd className="font-medium text-slate-900">₦{Number(confirmDetails?.payment?.amount).toLocaleString()}</dd>
+                                        </div>
+                                    )}
+                                    {confirmDetails?.payment?.status && (
+                                        <div className="flex items-center justify-between px-4 py-2.5">
+                                            <dt className="text-slate-500">Status</dt>
+                                            <dd className="font-medium capitalize text-emerald-700">{confirmDetails?.payment?.status}</dd>
+                                        </div>
+                                    )}
+                                    {confirmDetails?.payment?.date && (
+                                        <div className="flex items-center justify-between px-4 py-2.5">
+                                            <dt className="text-slate-500">Date</dt>
+                                            <dd className="font-medium text-slate-900">{confirmDetails?.payment?.date}</dd>
+                                        </div>
+                                    )}
+                                </dl>
+                            ) : (
+                                <p className="text-slate-700">Payment confirmed successfully.</p>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end border-t border-emerald-100 px-6 py-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowSuccessModal(false)}
+                                className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Failure Modal */}
+            {showFailureModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                    onClick={() => setShowFailureModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-rose-100 bg-white shadow-lg"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-rose-600 to-rose-500 px-6 py-4">
+                            <div className="flex items-center gap-3 text-white">
+                                <div className="rounded-full bg-white/20 p-2 text-white">
+                                    <XCircle className="h-6 w-6" />
+                                </div>
+                                <h3 className="text-lg font-semibold">Payment Failed</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowFailureModal(false)}
+                                aria-label="Close"
+                                className="rounded-full p-1 text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 text-sm text-slate-600">
+                            <p>{failureMessage || "There was an issue confirming your payment."}</p>
+                        </div>
+
+                        <div className="flex justify-end border-t border-rose-100 px-6 py-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowFailureModal(false)}
+                                className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

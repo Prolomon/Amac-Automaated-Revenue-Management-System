@@ -1426,7 +1426,7 @@ const confirmPayment = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Payment record not found" });
     }
 
-    if (paymentRecord.paid) {
+    if (paymentRecord.paid === amount && paymentRecord.debt === 0) {
       return res.status(201).json({ ok: true, message: "Payment has already been made for this record" });
     }
 
@@ -1446,8 +1446,12 @@ const confirmPayment = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Payment wallet not found for the user" });
     }
 
+    if (paymentWallet?.balance <= 0) {
+      return res.status(400).json({ ok: false, message: "Insufficient balance in wallet" });
+    }
+
     if (paymentWallet && Number(paymentWallet.balance) == 0) {
-      return res.status(400).json({ ok: false, message: "Insufficient balance in sender wallet" });
+      throw new Error("Insufficient balance in sender wallet");
     }
 
     const paymentConfig = main.paymentConfig || {
@@ -1493,7 +1497,7 @@ const confirmPayment = async (req, res) => {
       const ms = mp + vat + mf;
 
       // Get payment date and current date
-      const mpd = new Date(paymentRecord?.date);
+      const mpd = new Date(paymentRecord?.due);
       const mcd = new Date();
 
       // Calculate days overdue
@@ -1753,7 +1757,7 @@ const confirmPayment = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      message: "Payment initiated, split and transfers initialized successfully",
+      message: "Payment confirmed successfully. Please check your email for further instructions.",
       data: {
         payment: paymentResult.payment,
         paymentTransaction: paymentResult.paymentTransaction,
