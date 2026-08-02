@@ -1,11 +1,9 @@
-import { User, X } from "lucide-react-native";
+import { User, Search, MapPin, Mail, Phone, ChevronRight } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,25 +12,29 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../hooks/use-auth";
+import { useRouter, RelativePathString } from "expo-router";
 
-
-export default function Profile() {
-
+export default function MembersScreen() {
+  const router = useRouter();
   const { members } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState("");
 
   const fetchMembers = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setLoading(true);
     }
-    const res = await members();
-    setData(res || []);
-    if (!options?.silent) {
-      setLoading(false);
+    try {
+      const res = await members();
+      setData(res || []);
+    } catch (e) {
+      setData([]);
+    } finally {
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [members]);
 
@@ -55,239 +57,154 @@ export default function Profile() {
     )
     : data;
 
-  const selectedMember = data.find((m) => m.uid === selectedId);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#333" />
-      </View>
-    );
-  }
+  const formatLocation = (loc: any) => {
+    if (!loc) return "N/A";
+    if (typeof loc === "string") return loc;
+    const parts = [loc.address, loc.city, loc.state].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : "N/A";
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={{ backgroundColor: "ghostwhite" }}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <View style={styles.headerCard}>
-          <Text style={styles.pageTitle}>Members</Text>
-          <Text style={styles.pageSubtitle}>Manage {data.length} registered member{data.length !== 1 ? "s" : ""}</Text>
-        </View>
+      <View style={styles.headerCard}>
+        <Text style={styles.pageTitle}>Registered Members</Text>
+        <Text style={styles.pageSubtitle}>
+          Manage and review {data.length} registered member{data.length !== 1 ? "s" : ""} under your coverage.
+        </Text>
+      </View>
 
-        <View style={styles.searchContainer}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Search size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email or ID..."
             value={search}
             onChangeText={setSearch}
             placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
           />
         </View>
+      </View>
 
-        {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color="#0ea360" />
-          </View>
-        ) : (
-          <View style={styles.listContainer}>
-            <FlatList
-              data={filtered}
-              keyExtractor={(item) => item.uid}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.memberItem}
-                  onPress={() => setSelectedId(item.uid)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.memberItemContent}>
-                    <View style={styles.memberAvatarWrap}>
-                      <User size={20} color="#0ea360" />
-                    </View>
-                    <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>
-                        {item.fullname || item.email || item.uid}
-                      </Text>
-                      {item.businessName && (
-                        <Text style={styles.memberBusiness}>{item.businessName}</Text>
-                      )}
-                      <Text style={styles.memberEmail}>{item.email}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>No members found</Text>
-                  <Text style={styles.emptyStateSubtext}>Add your first member to get started</Text>
-                </View>
-              }
-            />
-          </View>
-        )}
-      </ScrollView>
-
-      <Modal
-        visible={!!selectedId}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedId("")}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Member Details</Text>
-              <TouchableOpacity
-                style={styles.closeIconButton}
-                onPress={() => setSelectedId("")}
-                activeOpacity={0.7}
-              >
-                <X size={24} color="#0ea360" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {selectedMember ? (
-                <>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Full Name</Text>
-                    <Text style={styles.detailValue}>{selectedMember.fullname}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Email</Text>
-                    <Text style={styles.detailValue}>{selectedMember.email}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>UID</Text>
-                    <Text style={styles.detailValue}>{selectedMember.uid}</Text>
-                  </View>
-
-                  {selectedMember.phone && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Phone</Text>
-                      <Text style={styles.detailValue}>{selectedMember.phone}</Text>
-                    </View>
-                  )}
-
-                  {selectedMember.businessName && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Business Name</Text>
-                      <Text style={styles.detailValue}>{selectedMember.businessName}</Text>
-                    </View>
-                  )}
-
-                  {selectedMember.type && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Account Type</Text>
-                      <Text style={styles.detailValue}>{selectedMember.type}</Text>
-                    </View>
-                  )}
-
-                  {selectedMember.category && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Category</Text>
-                      <Text style={styles.detailValue}>{selectedMember.category}</Text>
-                    </View>
-                  )}
-
-                  {selectedMember.center && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Center</Text>
-                      <Text style={styles.detailValue}>{selectedMember.center}</Text>
-                    </View>
-                  )}
-
-                  {selectedMember.location && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Location</Text>
-                      <Text style={styles.detailValue}>
-                        {typeof selectedMember.location === 'string'
-                          ? selectedMember.location
-                          : JSON.stringify(selectedMember.location)}
-                      </Text>
-                    </View>
-                  )}
-
-                  {selectedMember.createdAt && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Joined</Text>
-                      <Text style={styles.detailValue}>
-                        {new Date(selectedMember.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <Text style={styles.emptyStateText}>No details found.</Text>
-              )}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setSelectedId("")}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.closeBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#0ea360" />
+          <Text style={styles.loadingText}>Loading members list...</Text>
         </View>
-      </Modal>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.uid || item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#0ea360"]} />
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.memberItem}
+              onPress={() => router.push(`/pages/member/${item.uid || item.id}` as RelativePathString)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.memberItemContent}>
+                <View style={styles.memberAvatarWrap}>
+                  <Text style={styles.avatarInitial}>
+                    {(item.fullname || "M").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>
+                    {item.fullname || "Unnamed Member"}
+                  </Text>
+                  {item.businessName && (
+                    <Text style={styles.memberBusiness}>{item.businessName}</Text>
+                  )}
+                  <View style={styles.metaRow}>
+                    <Mail size={12} color="#94a3b8" />
+                    <Text style={styles.metaText} numberOfLines={1}>{item.email}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <MapPin size={12} color="#94a3b8" />
+                    <Text style={styles.metaText} numberOfLines={1}>
+                      {formatLocation(item.location)}
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#cbd5e1" />
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <User size={48} color="#cbd5e1" />
+              <Text style={styles.emptyStateText}>No members found</Text>
+              <Text style={styles.emptyStateSubtext}>
+                No registered members matched your criteria. Pull down to refresh.
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "ghostwhite" },
-  content: { paddingBottom: 24 },
-  
   headerCard: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 18,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
   },
   pageTitle: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 26,
+    fontWeight: "bold",
     color: "#0f172a",
     marginBottom: 4,
   },
   pageSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#64748b",
-    fontWeight: "500",
+    lineHeight: 18,
   },
-
   searchContainer: {
-    paddingHorizontal: 18,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "ghostwhite",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e6eaeb",
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
+    flex: 1,
+    height: "100%",
     fontSize: 15,
-    color: "#1a202c",
-    fontWeight: "500",
+    color: "#0f172a",
   },
-
-  listContainer: {
-    paddingHorizontal: 18,
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
   },
   memberItem: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e6eaeb",
+    borderColor: "#e2e8f0",
     marginBottom: 12,
     padding: 14,
   },
@@ -296,126 +213,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   memberAvatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#f0fdf4",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#e6f9f0",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 14,
     borderWidth: 1,
-    borderColor: "#e6f9f0",
+    borderColor: "#d4f5e6",
+  },
+  avatarInitial: {
+    color: "#0ea360",
+    fontWeight: "bold",
+    fontSize: 18,
   },
   memberInfo: {
     flex: 1,
+    gap: 2,
   },
   memberName: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "bold",
     color: "#0f172a",
   },
   memberBusiness: {
     fontSize: 13,
     color: "#0ea360",
     fontWeight: "600",
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     marginTop: 2,
   },
-  memberEmail: {
+  metaText: {
     fontSize: 12,
-    color: "#94a3b8",
-    marginTop: 3,
+    color: "#64748b",
+    flex: 1,
   },
-
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 40,
   },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#64748b",
+  },
   emptyState: {
-    paddingVertical: 48,
+    paddingVertical: 64,
     alignItems: "center",
+    gap: 8,
   },
   emptyStateText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
     color: "#0f172a",
-    marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 13,
     color: "#94a3b8",
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    maxHeight: "90%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  closeIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f0fdf4",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e6f9f0",
-  },
-  modalScroll: {
-    maxHeight: "70%",
-    marginBottom: 16,
-  },
-  detailRow: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#94a3b8",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  closeBtn: {
-    backgroundColor: "#0ea360",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  closeBtnText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
+    textAlign: "center",
+    maxWidth: 240,
+    lineHeight: 18,
   },
 });

@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 import { AuthContextValue, Member, Notification, Payment, User, Wallet } from "../lib/types";
-import { login as AgentLogin, forgetPassword, resetPassword, createSecurityCode, forgetSecurityCode, verifySecurityCode } from "@/lib/services/agent";
+import { login as AgentLogin, forgetPassword, resetPassword } from "@/lib/services/agent";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -392,13 +392,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await AsyncStorage.setItem("urms_agent_pin", secureToken);
-
-      try {
-        await createSecurityCode(currentUser?.uid || "", secureToken, confirmSecureToken, token as string);
-      } catch (e) {
-        // ignore server failure as long as stored in async storage
-      }
-
       return { ok: true, message: "Security code created successfully" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while creating the security code" };
@@ -417,13 +410,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await AsyncStorage.setItem("urms_agent_pin", newSecureToken);
-
-      try {
-        await forgetSecurityCode(currentUser?.uid || "", oldSecureToken, newSecureToken, confirmSecureToken, token as string);
-      } catch (e) {
-        // ignore server failure as long as updated in async storage
-      }
-
       return { ok: true, message: "Security code changed successfully" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while changing the security code" };
@@ -440,17 +426,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return { ok: false, message: "Security code does not match" };
         }
       }
-
-      // Fallback to server verification
-      const response = await verifySecurityCode(currentUser?.uid || "", secureToken, token as string);
-      if (!response.ok) {
-        return { ok: false, message: response.message || "Security code verification failed" };
-      }
-
-      // Save to async storage for future verification offline / cached
-      await AsyncStorage.setItem("urms_agent_pin", secureToken);
-
-      return { ok: true, message: response.message || "Security code verified successfully" };
+      return { ok: false, message: "Security code not set" };
     } catch (error: any) {
       return { ok: false, message: "An error occurred while verifying the security code" };
     }

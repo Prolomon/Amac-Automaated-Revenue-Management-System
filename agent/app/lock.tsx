@@ -1,7 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RelativePathString, useRouter } from "expo-router";
 import { Lock, Delete, LogOut } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -40,37 +39,13 @@ export default function LockScreen() {
     };
     
     const handleProceed = async () => {
-        if (pin.length < 4) {
-            failed("Security code must be at least 4 digits");
+        if (pin.length < 6) {
+            failed("Security code must be at least 6 digits");
             return;
         }
-
-        try {
-            // Retrieve security code / pin directly from AsyncStorage as requested
-            const savedPin = await AsyncStorage.getItem("urms_agent_pin");
-            if (savedPin) {
-                if (savedPin === pin) {
-                    success("Pin Verified successfully");
-                    router.replace("(pages)" as RelativePathString);
-                    return;
-                } else {
-                    failed("Security code does not match");
-                    setPin("");
-                    return;
-                }
-            }
-        } catch (e) {
-            // fallback if AsyncStorage fails
-        }
-
         const res = await verifyCode(pin);
         if (res.ok) {
-            try {
-                await AsyncStorage.setItem("urms_agent_pin", pin);
-            } catch (e) {
-                // ignore write errors
-            }
-            success("Pin Verified successfully");
+            success("Pin Verified successfully")
             router.replace("(pages)" as RelativePathString);
         } else {
             failed(res.message || "An error occurred validating pin")
