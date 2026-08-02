@@ -1442,11 +1442,11 @@ const confirmPayment = async (req, res) => {
       where: { userId: paymentRecord.reference, role: "CHECKOUT" },
     });
 
-    if (paymentWallet) {
-      amount = Number(paymentWallet.balance);
+    if (!paymentWallet) {
+      return res.status(404).json({ ok: false, message: "Payment wallet not found for the user" });
     }
 
-     if (paymentWallet && Number(paymentWallet.balance) == 0) {
+    if (paymentWallet && Number(paymentWallet.balance) == 0) {
       return res.status(400).json({ ok: false, message: "Insufficient balance in sender wallet" });
     }
 
@@ -1456,30 +1456,11 @@ const confirmPayment = async (req, res) => {
       technology: 10,
     };
 
-    const principal = Number(amount);
-    const vat = principal * 0.075;
-    const fee = principal * 0.015;
-    const subtotal = principal + vat + fee;
-
-    const paymentDate = new Date(paymentRecord.due);
-    const currentDate = new Date();
-
-    let daysOverdue = 0;
-    if (currentDate > paymentDate) {
-      const diffTime = currentDate - paymentDate;
-      daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    }
-
-    const penaltyRatePerDay = 0.00005; // 0.005% per day
-    const penalty = subtotal * penaltyRatePerDay * daysOverdue;
-
-    const grossAmount = Number(subtotal + penalty);
+    const grossAmount = Number(paymentWallet.balance || 0);
+    const feePercentage = 0.015; // 1.5% fee
+    const fee = grossAmount * feePercentage;
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
-
-    if (paymentWallet && Number(paymentWallet.balance) < grossAmount) {
-      return res.status(400).json({ ok: false, message: "Insufficient balance in sender wallet" });
-    }
 
     const mainShare = Number(paymentConfig.main ?? 0);
     const agentShare = Number(paymentConfig.agent ?? 0);
@@ -1496,7 +1477,7 @@ const confirmPayment = async (req, res) => {
       grossAmount,
       fee,
       netAmount: totalAmount,
-      mainAmount, 
+      mainAmount,
       agentAmount,
       technologyAmount,
       senderWallet: paymentWallet,
@@ -1505,8 +1486,31 @@ const confirmPayment = async (req, res) => {
     });
 
     const paymentResult = await prisma.$transaction(async (tx) => {
+      // Calculate for single payment
+      const mp = Number(paymentRecord?.amount);
+      const vat = mp * 0.075;
+      const mf = mp * 0.015;
+      const ms = mp + vat + mf;
+
+      // Get payment date and current date
+      const mpd = new Date(paymentRecord?.date);
+      const mcd = new Date();
+
+      // Calculate days overdue
+      let mso = 0;
+      if (mcd > mpd) {
+        const diffTime = mcd.getTime() - mpd.getTime(); // ✅ use getTime()
+        mso = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+      }
+
+      // Penalty: 0.005% per day overdue
+      const mprpd = 0.00005; // 0.005% = 0.00005
+      const mplty = ms * mprpd * mso;
+
+      const mta = ms + mplty;
+
       const existingDebt = Number(paymentRecord.debt || 0);
-      const currentAmount = Number(paymentRecord.amount || 0);
+      const currentAmount = Number(mta || 0);
 
       let remainingPayment = grossAmount;
       let updatedDebt = existingDebt;
@@ -1526,7 +1530,7 @@ const confirmPayment = async (req, res) => {
         updatedDebt += outstandingForCurrentCycle;
       }
 
-      const isFullyPaid = updatedDebt <= 0;
+      const isFullyPaid = paymentRecord.paid === mta && updatedDebt == 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
@@ -1559,13 +1563,13 @@ const confirmPayment = async (req, res) => {
       }
 
       if (paymentWallet) {
-        if (Number(paymentWallet.balance) === grossAmount) {
+        if (Number(paymentWallet.balance) === mta) {
           await deleteAccount(paymentWallet.accountHolderId);
           await tx.wallet.delete({ where: { id: paymentWallet.id } });
         } else {
           await tx.wallet.update({
             where: { id: paymentWallet.id },
-            data: { balance: { decrement: grossAmount } },
+            data: { balance: 0 },
           });
         }
       }

@@ -63,118 +63,130 @@ const nombaWebhook = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
     }
 
-    let wallet = null;
-    let user = null;
-
     console.log(`Looking for wallet with aliasRef: ${aliasRef}`);
+    const baseTransactionData = {
+      merchantTxRef: merchantUserId,
+      event: 'nomba.payment_success',
+      amount,
+      currency: 'NGN',
+      channel: 'wallet',
+      customerEmail,
+      paymentId: null,
+      userId: merchantUserId,
+      metadata: {
+        requestId: event.requestId || null,
+        role: 'MERCHANT',
+        transactionType: 'CREDIT',
+        creditedAmount: amount,
+        senderAccountNumber: senderDetails.accountNumber || null,
+        senderBankName: senderDetails.bankName || null,
+        senderBankCode: senderDetails.bankCode || null,
+        senderName: senderDetails.senderName || null,
+        aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
+        aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
+        aliasAccountReference: aliasRef,
+        aliasAccountType: txn?.aliasAccountType || null,
+        sessionId: txn?.sessionId || null,
+        transactionId: txn?.transactionId || null,
+        transactionTypeName: txn?.type || null,
+        narration: txn?.narration || null,
+        time: txn?.time || null,
+        originatingFrom: txn?.originatingFrom || null,
+        merchant,
+        transaction: txn,
+      },
+      rawPayload: event,
+    };
 
-    if (aliasRef) {
-      wallet = await prisma.wallet.findFirst({
+    const result = await prisma.$transaction(async (tx) => {
+      const existingTransaction = await tx.transaction.findUnique({
+        where: { reference: `${transactionReference}-MERCHANT` },
+      });
+
+      if (existingTransaction) {
+        return { duplicate: true };
+      }
+
+      const wallet = await tx.wallet.findFirst({
         where: { userId: aliasRef },
       });
-    }
 
-    console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
+      console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
 
-    if (!wallet) {
-      console.log('No wallet found for payment, recording as PENDING');
-      // Could not find a wallet to credit; record transaction and return
-      await prisma.transaction.create({
+      if (!wallet) {
+        console.log('No wallet found for payment, recording as PENDING');
+
+        await tx.transaction.create({
+          data: {
+            reference: `${transactionReference}-MERCHANT-PENDING`,
+            status: 'PENDING',
+            gatewayResponse: 'Wallet credit pending',
+            merchantTxRef: merchantUserId,
+            event: 'nomba.payment_success',
+            amount,
+            currency: 'NGN',
+            channel: 'wallet',
+            customerEmail,
+            paymentId: null,
+            userId: merchantUserId,
+            metadata: {
+              ...baseTransactionData.metadata,
+              status: 'PENDING',
+            },
+            rawPayload: event,
+          },
+        });
+
+        return { pending: true };
+      }
+
+      const creditAmount = Number(amount - fee);
+
+      console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${creditAmount}`);
+
+      const updatedWallet = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: creditAmount } },
+      });
+
+      await tx.transaction.create({
         data: {
-          reference: `${transactionReference}-MERCHANT-PENDING`,
-          merchantTxRef: merchantUserId,
-          event: 'nomba.payment_success',
-          status: 'PENDING',
+          reference: `${transactionReference}-MERCHANT`,
+          status: 'SUCCESS',
+          gatewayResponse: 'Wallet credited',
+          merchantTxRef: wallet.userId,
+          event: 'nomba.payment.credit',
           amount,
           currency: 'NGN',
           channel: 'wallet',
-          gatewayResponse: 'Wallet credit pending',
           customerEmail,
           paymentId: null,
-          userId: merchantUserId,
+          userId: wallet.userId,
           metadata: {
-            requestId: event.requestId || null,
-            role: 'MERCHANT',
-            transactionType: 'CREDIT',
-            creditedAmount: amount,
-            senderAccountNumber: senderDetails.accountNumber || null,
-            senderBankName: senderDetails.bankName || null,
-            senderBankCode: senderDetails.bankCode || null,
-            senderName: senderDetails.senderName || null,
-            aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
-            aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
-            aliasAccountReference: aliasRef,
-            aliasAccountType: txn?.aliasAccountType || null,
-            sessionId: txn?.sessionId || null,
-            transactionId: txn?.transactionId || null,
-            transactionTypeName: txn?.type || null,
-            narration: txn?.narration || null,
-            time: txn?.time || null,
-            originatingFrom: txn?.originatingFrom || null,
-            merchant,
-            transaction: txn,
-            status: 'PENDING',
+            ...baseTransactionData.metadata,
+            status: 'SUCCESS',
           },
           rawPayload: event,
         },
-      }).catch(() => null);
+      });
 
+      return { wallet: updatedWallet };
+    });
+
+    if (result?.duplicate) {
+      return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+    }
+
+    if (result?.pending) {
       return res.status(200).json({ ok: false, message: 'No matching wallet found', data: { aliasRef } });
     }
 
-    // Update wallet balance atomically
-    const newBalance = Number(wallet.balance ?? 0) + Number(amount - fee);
-
-    console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${amount - fee}. New balance: ${newBalance}`);
-
-    const updatedWallet = await prisma.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: newBalance },
-    });
-
-    // Record transaction
-    const transact = await prisma.transaction.create({
-      data: {
-        reference: `${transactionReference}-MERCHANT`,
-        merchantTxRef: wallet.userId,
-        event: 'nomba.payment.credit',
-        status: 'SUCCESS',
-        amount,
-        currency: 'NGN',
-        channel: 'wallet',
-        gatewayResponse: 'Wallet credited',
-        customerEmail,
-        paymentId: null,
-        userId: wallet.userId,
-        metadata: {
-          requestId: event.requestId || null,
-          role: 'MERCHANT',
-          transactionType: 'CREDIT',
-          creditedAmount: amount,
-          senderAccountNumber: senderDetails.accountNumber || null,
-          senderBankName: senderDetails.bankName || null,
-          senderBankCode: senderDetails.bankCode || null,
-          senderName: senderDetails.senderName || null,
-          aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
-          aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
-          aliasAccountReference: aliasRef,
-          aliasAccountType: txn?.aliasAccountType || null,
-          sessionId: txn?.sessionId || null,
-          transactionId: txn?.transactionId || null,
-          transactionTypeName: txn?.type || null,
-          narration: txn?.narration || null,
-          time: txn?.time || null,
-          originatingFrom: txn?.originatingFrom || null,
-          merchant,
-          transaction: txn,
-          status: 'SUCCESS',
-        },
-        rawPayload: event,
-      },
-    })
-
-    return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: updatedWallet.id, balance: updatedWallet.balance } });
+    return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: result.wallet.id, balance: result.wallet.balance } });
   } catch (err) {
+    if (err?.code === 'P2002') {
+      return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+    }
+
     return res.status(500).json({ ok: false, message: err?.message || 'Server error' });
   }
 };
