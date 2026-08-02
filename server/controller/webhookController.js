@@ -51,20 +51,13 @@ const nombaWebhook = async (req, res) => {
     const customerEmail = senderDetails?.email || null;
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    console.log('Received Nomba webhook:', {
-      type,
-      aliasRef,
-      amount,
-      fee,
-      merchantUserId,
-      walletId,
-      customerEmail,
-      transactionReference
-    });
+    console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
 
     if (!aliasRef) {
       return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
     }
+
+    console.log(`Received payment_success webhook for aliasRef: ${aliasRef}, amount: ${amount}, fee: ${fee}, merchantUserId: ${merchantUserId}, transactionReference: ${transactionReference}`);
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
@@ -73,11 +66,15 @@ const nombaWebhook = async (req, res) => {
     let wallet = null;
     let user = null;
 
+    console.log(`Looking for wallet with aliasRef: ${aliasRef}`);
+
     if (aliasRef) {
       wallet = await prisma.wallet.findFirst({
         where: { userId: aliasRef },
       });
     }
+
+    console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
 
     if (!wallet) {
       console.log('No wallet found for payment, recording as PENDING');
@@ -127,6 +124,8 @@ const nombaWebhook = async (req, res) => {
 
     // Update wallet balance atomically
     const newBalance = Number(wallet.balance ?? 0) + Number(amount - fee);
+
+    console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${amount - fee}. New balance: ${newBalance}`);
 
     const updatedWallet = await prisma.wallet.update({
       where: { id: wallet.id },
