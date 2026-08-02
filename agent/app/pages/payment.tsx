@@ -1,10 +1,10 @@
 import { formatCurrency } from "@/config";
 import { useAuth } from "@/hooks/use-auth";
-import { useWallet } from "@/hooks/use-wallet";
 import { useToast } from "@/hooks/use-toast";
+import { payNow, confirmPayment } from "@/lib/services/payment";
 import { RelativePathString, useRouter, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, CreditCard, CheckCircle2, AlertCircle, Sparkles, Building, User } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, CreditCard, ShieldCheck, AlertCircle, Building, User, Calendar, FileText, CheckCircle2 } from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -12,142 +12,135 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function PaymentPage() {
+export default function CheckoutPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { payments, receipt, currentUser, token } = useAuth();
-  const { wallet } = useWallet();
+  const { currentUser } = useAuth();
   const { success, failed } = useToast();
 
-  // List of payments state
-  const [paymentsList, setPaymentsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingList, setLoadingList] = useState(false);
-  const [query, setQuery] = useState("");
+  const [checkoutData, setCheckoutData] = useState<any>(null);
 
-  // Modal states for listing view
-  const [selectedPaymentForModal, setSelectedPaymentForModal] = useState<any | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  // Success/Failure feedback modals
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [failureVisible, setFailureVisible] = useState(false);
+  const [failureMessage, setFailureMessage] = useState("");
+  const [confirmDetails, setConfirmDetails] = useState<any>(null);
 
-  // Scanned payment detail state
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [paymentDetail, setPaymentDetail] = useState<any | null>(null);
-
-  // Fetch single payment detail if ID is present
-  const fetchPaymentDetail = useCallback(async (paymentId: string) => {
+  const fetchDetails = useCallback(async () => {
+    if (!id) return;
     try {
-      setLoadingDetail(true);
-      const res = await receipt(paymentId);
-      if (res && (res.id || res.reference)) {
-        setPaymentDetail(res);
+      setLoading(true);
+      const res = await payNow(id as string);
+      if (res.ok && res.data) {
+        setCheckoutData(res.data);
       } else {
-        // Fallback simulated payment information for review/manual ID
-        setPaymentDetail({
-          reference: paymentId,
-          amount: 5000,
-          businessName: currentUser?.fullname || "AURMS Member",
-          category: "MUNICIPAL RATE",
-          billing: "ANNUAL",
-          status: "PENDING",
-          date: new Date().toISOString(),
-        });
+        failed(res.message || "Could not retrieve checkout details");
       }
     } catch (err: any) {
-      failed("Could not fetch payment information");
+      failed(err?.message || "Error retrieving checkout details");
     } finally {
-      setLoadingDetail(false);
+      setLoading(false);
     }
-  }, [receipt, currentUser, failed]);
-
-  // Fetch list of payments if ID is not present
-  const fetchPaymentsList = useCallback(async () => {
-    try {
-      setLoadingList(true);
-      const list = await payments();
-      setPaymentsList(list || []);
-    } catch (err) {
-      setPaymentsList([]);
-    } finally {
-      setLoadingList(false);
-    }
-  }, [payments]);
+  }, [id, failed]);
 
   useEffect(() => {
-    if (id) {
-      fetchPaymentDetail(id as string);
-    } else {
-      fetchPaymentsList();
-    }
-  }, [id, fetchPaymentDetail, fetchPaymentsList]);
+    fetchDetails();
+  }, [fetchDetails]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    if (id) {
-      await fetchPaymentDetail(id as string);
-    } else {
-      await fetchPaymentsList();
-    }
+    await fetchDetails();
     setRefreshing(false);
   };
 
-  // Filter list of payments
-  const filteredPayments = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    const sorted = [...paymentsList].sort((a, b) => {
-      const aDate = new Date(a.createdAt || a.date).getTime();
-      const bDate = new Date(b.createdAt || b.date).getTime();
-      return bDate - aDate;
-    });
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color="#0ea360" />
+          <Text style={styles.loadingText}>Loading checkout details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    if (!trimmed) return sorted;
+  if (!checkoutData || !checkoutData.member) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ArrowLeft color="#0f172a" size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.errorCenter}>
+          <AlertCircle size={48} color="#ef4444" />
+          <Text style={styles.errorTitle}>No Checkout Information</Text>
+          <Text style={styles.errorDesc}>The payment reference or identifier is invalid or has expired.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    return sorted.filter((item) => {
-      const searchable = [
-        item.reference,
-        item.businessName,
-        item.fullname,
-        item.category,
-        item.payment,
-        item.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  const { member, payments, agent } = checkoutData;
 
-      return searchable.includes(trimmed);
-    });
-  }, [paymentsList, query]);
+  // Find the exact matched payment or default to the first one
+  const matchedWrap = payments?.find(
+    (p: any) =>
+      p?.payment?.id === id ||
+      p?.payment?.reference === id ||
+      p?.id === id ||
+      p?.reference === id
+  ) || payments?.[0];
 
-  // Payment Made button handler
-  const handlePaymentMade = () => {
-    success("Payment verification submitted successfully. System is verifying!");
-    router.replace("/pages/(pages)" as RelativePathString);
-  };
+  const payment = matchedWrap?.payment || matchedWrap;
+  const wallet = matchedWrap?.wallet;
 
-  // Payment with Card handler (left blank as requested)
-  const handlePaymentWithCard = () => {
-    // Left completely blank as requested
-  };
+  if (!payment) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ArrowLeft color="#0f172a" size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.errorCenter}>
+          <AlertCircle size={48} color="#ef4444" />
+          <Text style={styles.errorTitle}>No Active Payment Found</Text>
+          <Text style={styles.errorDesc}>This member does not have an active payment for this checkout.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const getStatusStyle = (status?: string) => {
-    const s = String(status || "").toUpperCase();
-    if (s === "SUCCESS") {
-      return { badge: styles.statusSuccess, text: styles.statusTextSuccess };
-    }
-    if (s === "PENDING") {
-      return { badge: styles.statusPending, text: styles.statusTextPending };
-    }
-    if (s === "FAILED") {
-      return { badge: styles.statusFailed, text: styles.statusTextFailed };
-    }
-    return { badge: styles.statusNeutral, text: styles.statusTextNeutral };
-  };
+  // Calculate pricing summary details
+  const principal = Number(payment.amount || 0);
+  const vat = principal * 0.075;
+  const charges = principal * 0.015;
+  const subtotal = principal + vat + charges;
+
+  // Days Overdue & Penalty Calculation
+  const paymentDate = new Date(payment.date || payment.due || new Date());
+  const currentDate = new Date();
+  let daysOverdue = 0;
+  if (currentDate > paymentDate) {
+    const diffTime = currentDate.getTime() - paymentDate.getTime();
+    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  }
+  const penalty = subtotal * 0.00005 * daysOverdue;
+  const totalAmount = subtotal + penalty;
+  const debt = payment.debt !== undefined ? payment.debt : totalAmount;
 
   const formatDate = (val?: string) => {
     if (!val) return "N/A";
@@ -162,298 +155,229 @@ export default function PaymentPage() {
     }
   };
 
-  // If a payment ID is specified, show scanned payment details page
-  if (id) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft color="#0f172a" size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Make Payment</Text>
-          <View style={{ width: 44 }} />
-        </View>
+  const handleConfirmPayment = async () => {
+    setConfirming(true);
+    try {
+      const res = await confirmPayment(
+        member.uid || member.id,
+        payment.id,
+        debt,
+        member.center,
+        member.company
+      );
 
-        <ScrollView
-          contentContainerStyle={styles.container}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          {loadingDetail ? (
-            <View style={styles.loadingCenter}>
-              <ActivityIndicator size="large" color="#0ea360" />
-              <Text style={styles.loadingText}>Loading payment details...</Text>
-            </View>
-          ) : paymentDetail ? (
-            <View style={styles.detailWrap}>
-              {/* Payment Info Card */}
-              <View style={styles.detailCard}>
-                <View style={styles.sectionHeader}>
-                  <CreditCard size={20} color="#0ea360" />
-                  <Text style={styles.sectionTitle}>Payment Information</Text>
-                </View>
+      if (res.ok) {
+        setConfirmDetails(res.data);
+        setSuccessVisible(true);
+        success("Payment confirmed successfully!");
+      } else {
+        setFailureMessage(res.message || "Failed to confirm payment");
+        setFailureVisible(true);
+      }
+    } catch (error: any) {
+      setFailureMessage(error?.message || "An unexpected error occurred during confirmation");
+      setFailureVisible(true);
+    } finally {
+      setConfirming(false);
+    }
+  };
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Reference ID</Text>
-                  <Text style={styles.infoValue}>{paymentDetail.reference}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Payer / Business Name</Text>
-                  <Text style={styles.infoValue}>{paymentDetail.businessName || paymentDetail.fullname || "N/A"}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Category</Text>
-                  <Text style={styles.infoValue}>{paymentDetail.category || "N/A"}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Billing Plan</Text>
-                  <Text style={styles.infoValue}>{paymentDetail.billing || "N/A"}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Date Created</Text>
-                  <Text style={styles.infoValue}>{formatDate(paymentDetail.date || paymentDetail.createdAt)}</Text>
-                </View>
-
-                <View style={styles.infoRowLast}>
-                  <Text style={styles.infoLabel}>Amount Due</Text>
-                  <Text style={styles.amountText}>{formatCurrency(Number(paymentDetail.amount || 0))}</Text>
-                </View>
-              </View>
-
-              {/* Agent's Bank/Account Details Card */}
-              <View style={styles.agentCard}>
-                <View style={styles.sectionHeader}>
-                  <Building size={20} color="#3b82f6" />
-                  <Text style={styles.sectionTitle}>Agent Account Details</Text>
-                </View>
-                <Text style={styles.agentCardSub}>Transfer the exact amount to the account below to pay.</Text>
-
-                <View style={styles.agentRow}>
-                  <View style={styles.iconBackground}>
-                    <Building size={18} color="#2563eb" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.agentFieldLabel}>Bank Name</Text>
-                    <Text style={styles.agentFieldValue}>{wallet?.bank?.name || "AURMS Partner Bank"}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.agentRow}>
-                  <View style={styles.iconBackground}>
-                    <CreditCard size={18} color="#2563eb" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.agentFieldLabel}>Account Number</Text>
-                    <Text style={styles.agentFieldValueHighlight}>{wallet?.accountNo || "N/A"}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.agentRowLast}>
-                  <View style={styles.iconBackground}>
-                    <User size={18} color="#2563eb" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.agentFieldLabel}>Agent Name</Text>
-                    <Text style={styles.agentFieldValue}>{currentUser?.fullname || "AURMS Agent"}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.buttonWrap}>
-                <TouchableOpacity
-                  style={styles.payMadeBtn}
-                  activeOpacity={0.85}
-                  onPress={handlePaymentMade}
-                >
-                  <CheckCircle2 size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.payMadeBtnText}>Payment Made</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.cardPayBtn}
-                  activeOpacity={0.85}
-                  onPress={handlePaymentWithCard}
-                >
-                  <CreditCard size={20} color="#3b82f6" style={{ marginRight: 8 }} />
-                  <Text style={styles.cardPayBtnText}>Payment with Card</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.errorCard}>
-              <AlertCircle size={40} color="#ef4444" />
-              <Text style={styles.errorTitle}>Payment Not Found</Text>
-              <Text style={styles.errorDesc}>The specified payment reference does not exist or has expired.</Text>
-            </View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // If no ID is specified, show list of payments made
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <ArrowLeft color="#0f172a" size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payments Made</Text>
+        <Text style={styles.headerTitle}>Confirm Payment</Text>
         <View style={{ width: 44 }} />
       </View>
 
-      <View style={styles.searchWrap}>
-        <TextInput
-          placeholder="Search reference, payer, category, status..."
-          placeholderTextColor="#94a3b8"
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {loadingList ? (
-          <View style={styles.loadingCenter}>
-            <ActivityIndicator size="large" color="#0ea360" />
-            <Text style={styles.loadingText}>Loading payment transactions...</Text>
+        <View style={styles.content}>
+          {/* Member Profile Banner */}
+          <View style={styles.memberCard}>
+            <View style={styles.memberRow}>
+              <View style={styles.avatarWrap}>
+                <Text style={styles.avatarText}>
+                  {(member.fullname || "M").charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.memberName}>{member.fullname}</Text>
+                {member.businessName && (
+                  <Text style={styles.memberSub}>{member.businessName}</Text>
+                )}
+                <Text style={styles.memberSub}>
+                  {member.email} | {member.phone || "N/A"}
+                </Text>
+              </View>
+            </View>
           </View>
-        ) : filteredPayments.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <AlertCircle size={36} color="#94a3b8" />
-            <Text style={styles.emptyTitle}>No Payments Found</Text>
-            <Text style={styles.emptyText}>Pull to refresh or try another search.</Text>
-          </View>
-        ) : (
-          <View style={styles.listWrap}>
-            {filteredPayments.map((item, index) => {
-              const statusStyle = getStatusStyle(item.status);
-              return (
-                <View key={item.id || item.reference || index} style={styles.paymentCard}>
-                  <View style={styles.cardTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardRef} numberOfLines={1}>Ref: {item.reference}</Text>
-                      <Text style={styles.cardPayer} numberOfLines={1}>{item.businessName || item.fullname || "AMAC Member"}</Text>
-                      <Text style={styles.cardCategory}>{item.category || "Municipal Levy"}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, statusStyle.badge]}>
-                      <Text style={[styles.statusText, statusStyle.text]}>{String(item.status).toUpperCase()}</Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.cardBottom}>
-                    <View>
-                      <Text style={styles.dateLabel}>Date</Text>
-                      <Text style={styles.dateValue}>{formatDate(item.date || item.createdAt)}</Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={styles.cardAmountLabel}>Amount Paid</Text>
-                      <Text style={styles.cardAmountValue}>{formatCurrency(Number(item.amount || 0))}</Text>
-                    </View>
-                  </View>
+          {/* Pricing Breakdown Card */}
+          <View style={styles.breakdownCard}>
+            <View style={styles.sectionHeader}>
+              <FileText size={18} color="#0ea360" />
+              <Text style={styles.sectionTitle}>Payment breakdown</Text>
+            </View>
 
-                  {Number(item.paid || 0) !== Number(item.amount || 0) && (
-                    <TouchableOpacity
-                      style={styles.payNowBtnList}
-                      onPress={() => {
-                        setSelectedPaymentForModal(item);
-                        setModalVisible(true);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <CreditCard size={14} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={styles.payNowBtnTextList}>Pay</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Billing Item</Text>
+              <Text style={styles.breakdownValueHighlight}>
+                {payment.pricing?.title || "Payment Item"}
+              </Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Reference ID</Text>
+              <Text style={styles.breakdownValue}>{payment.reference}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Principal Amount</Text>
+              <Text style={styles.breakdownValue}>{formatCurrency(principal)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
+              <Text style={styles.breakdownValue}>{formatCurrency(vat)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Charges (1.5%)</Text>
+              <Text style={styles.breakdownValue}>{formatCurrency(charges)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Subtotal</Text>
+              <Text style={styles.breakdownValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Overdue Day(s)</Text>
+              <Text style={[styles.breakdownValue, daysOverdue > 0 ? { color: "#ef4444" } : undefined]}>
+                {daysOverdue}
+              </Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Overdue Penalty</Text>
+              <Text style={[styles.breakdownValue, penalty > 0 ? { color: "#ef4444" } : undefined]}>
+                {formatCurrency(penalty)}
+              </Text>
+            </View>
+
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Due</Text>
+              <Text style={styles.totalValue}>{formatCurrency(debt)}</Text>
+            </View>
           </View>
-        )}
+
+          {/* Wallet details */}
+          {wallet && (
+            <View style={styles.walletCard}>
+              <View style={styles.sectionHeader}>
+                <Building size={18} color="#2563eb" />
+                <Text style={styles.sectionTitle}>Agent Wallet Information</Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Bank Name</Text>
+                <Text style={styles.breakdownValue}>{wallet.bank?.name || "N/A"}</Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Account Number</Text>
+                <Text style={styles.breakdownValueHighlight}>{wallet.accountNo || "N/A"}</Text>
+              </View>
+
+              <View style={styles.breakdownRowLast}>
+                <Text style={styles.breakdownLabel}>Account Name</Text>
+                <Text style={styles.breakdownValue}>{wallet.accountName || "N/A"}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Action button */}
+          <TouchableOpacity
+            style={styles.confirmBtn}
+            onPress={handleConfirmPayment}
+            disabled={confirming}
+          >
+            {confirming ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <ShieldCheck size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.confirmBtnText}>Confirm Payment</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      {/* Pay Modal for Listing */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* Success Modal */}
+      <Modal visible={successVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Bill Payment Details</Text>
-            {selectedPaymentForModal && (
-              <View style={styles.modalPaymentInfo}>
-                <Text style={styles.modalPaymentRef}>Reference: {selectedPaymentForModal.reference}</Text>
-                <Text style={styles.modalPaymentAmt}>Amount Due: {formatCurrency(Number(selectedPaymentForModal.amount || 0) - Number(selectedPaymentForModal.paid || 0))}</Text>
+          <View style={styles.modalCard}>
+            <View style={styles.successIconWrap}>
+              <CheckCircle2 size={48} color="#0ea360" />
+            </View>
+            <Text style={styles.modalTitle}>Payment Confirmed!</Text>
+            <Text style={styles.modalDesc}>
+              The payment was confirmed and registered successfully in the system.
+            </Text>
+
+            {confirmDetails && confirmDetails.payment && (
+              <View style={styles.confirmDetailsBox}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Reference:</Text>
+                  <Text style={styles.detailVal}>{confirmDetails.payment.reference}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Amount Paid:</Text>
+                  <Text style={styles.detailVal}>{formatCurrency(Number(confirmDetails.payment.amount))}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Status:</Text>
+                  <Text style={styles.detailVal}>{confirmDetails.payment.status}</Text>
+                </View>
               </View>
             )}
 
-            {/* Agent Account Card */}
-            <View style={styles.agentCardModal}>
-              <View style={styles.agentCardHeaderModal}>
-                <Building size={18} color="#0ea360" />
-                <Text style={styles.agentCardTitleModal}>Agent Account Details</Text>
-              </View>
-              <Text style={styles.agentCardDescModal}>Make a direct bank transfer to the account number below:</Text>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => {
+                setSuccessVisible(false);
+                router.replace("/pages/(pages)" as RelativePathString);
+              }}
+            >
+              <Text style={styles.modalCloseText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
-              <View style={styles.agentRowModal}>
-                <Text style={styles.agentRowLabelModal}>Bank Name</Text>
-                <Text style={styles.agentRowValueModal}>{wallet?.bank?.name || "AURMS Partner Bank"}</Text>
-              </View>
-
-              <View style={styles.agentRowModal}>
-                <Text style={styles.agentRowLabelModal}>Account Number</Text>
-                <Text style={styles.agentRowValueHighlightModal}>{wallet?.accountNo || "N/A"}</Text>
-              </View>
-
-              <View style={styles.agentRowLastModal}>
-                <Text style={styles.agentRowLabelModal}>Account Name</Text>
-                <Text style={styles.agentRowValueModal}>{wallet?.accountName || currentUser?.fullname || "AURMS Agent"}</Text>
-              </View>
+      {/* Failure Modal */}
+      <Modal visible={failureVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { borderColor: "#fecaca" }]}>
+            <View style={styles.failureIconWrap}>
+              <AlertCircle size={48} color="#ef4444" />
             </View>
+            <Text style={[styles.modalTitle, { color: "#ef4444" }]}>Payment Failed</Text>
+            <Text style={styles.modalDesc}>{failureMessage || "An error occurred while confirming the payment."}</Text>
 
-            {/* Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.paymentMadeBtnModal}
-                activeOpacity={0.8}
-                onPress={() => {
-                  success("Payment verification submitted successfully. System is verifying!");
-                  setModalVisible(false);
-                  onRefresh();
-                }}
-              >
-                <CheckCircle2 size={18} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={styles.paymentMadeBtnTextModal}>Payment Completed</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.payWithCardBtnModal}
-                activeOpacity={0.8}
-                onPress={() => {
-                  // Left completely blank as requested
-                }}
-              >
-                <CreditCard size={18} color="#0ea360" style={{ marginRight: 6 }} />
-                <Text style={styles.payWithCardBtnTextModal}>Pay with Card</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.closeModalBtnModal}
-                activeOpacity={0.8}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.closeModalBtnTextModal}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.modalCloseBtn, { backgroundColor: "#ef4444" }]}
+              onPress={() => setFailureVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -462,8 +386,13 @@ export default function PaymentPage() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
-  container: { paddingBottom: 40 },
+  safe: { flex: 1, backgroundColor: "ghostwhite" },
+  scrollContent: { paddingBottom: 40 },
+  loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 12, fontSize: 15, color: "#64748b" },
+  errorCenter: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  errorTitle: { fontSize: 18, fontWeight: "bold", color: "#ef4444", marginTop: 14 },
+  errorDesc: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 6, lineHeight: 20 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -485,142 +414,32 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0f172a",
   },
-  loadingCenter: {
-    paddingVertical: 100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: "#64748b",
-  },
-  searchWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  content: { padding: 16, gap: 16 },
+  memberCard: {
     backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderColor: "#f1f5f9",
-  },
-  searchInput: {
-    height: 44,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: "#0f172a",
-  },
-  emptyCard: {
-    margin: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 24,
-    alignItems: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginTop: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#64748b",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  listWrap: {
-    padding: 16,
-    gap: 12,
-  },
-  paymentCard: {
-    backgroundColor: "#ffffff",
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
     padding: 16,
   },
-  cardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    borderBottomWidth: 1,
-    borderColor: "#f1f5f9",
-    paddingBottom: 12,
-    marginBottom: 12,
+  memberRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  avatarWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#e6f9f0",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  cardRef: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-  cardPayer: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#334155",
-    marginTop: 2,
-  },
-  cardCategory: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 4,
-    fontWeight: "500",
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  statusSuccess: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
-  statusPending: { backgroundColor: "#fef3c7", borderColor: "#fde68a" },
-  statusFailed: { backgroundColor: "#fef2f2", borderColor: "#fecaca" },
-  statusNeutral: { backgroundColor: "#f8fafc", borderColor: "#e2e8f0" },
-  statusText: { fontSize: 11, fontWeight: "bold" },
-  statusTextSuccess: { color: "#166534" },
-  statusTextPending: { color: "#92400e" },
-  statusTextFailed: { color: "#b91c1c" },
-  statusTextNeutral: { color: "#475569" },
-  cardBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  dateLabel: {
-    fontSize: 11,
-    color: "#94a3b8",
-  },
-  dateValue: {
-    fontSize: 13,
-    color: "#475569",
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  cardAmountLabel: {
-    fontSize: 11,
-    color: "#94a3b8",
-    textAlign: "right",
-  },
-  cardAmountValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0ea360",
-    marginTop: 2,
-  },
-
-  // Detail Page Styles
-  detailWrap: {
-    padding: 16,
-    gap: 16,
-  },
-  detailCard: {
+  avatarText: { fontSize: 20, fontWeight: "bold", color: "#0ea360" },
+  memberName: { fontSize: 18, fontWeight: "bold", color: "#0f172a" },
+  memberSub: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  breakdownCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    padding: 18,
+    borderRadius: 14,
+    padding: 16,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -629,296 +448,110 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#f1f5f9",
     paddingBottom: 10,
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#f8fafc",
-  },
-  infoRowLast: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    marginTop: 6,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  infoValue: {
-    fontSize: 14,
-    color: "#0f172a",
-    fontWeight: "600",
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0ea360",
-  },
-  agentCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 18,
-  },
-  agentCardSub: {
-    fontSize: 13,
-    color: "#64748b",
-    marginBottom: 14,
-    lineHeight: 18,
-  },
-  agentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#f8fafc",
-  },
-  agentRowLast: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-  },
-  iconBackground: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#eff6ff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  agentFieldLabel: {
-    fontSize: 11,
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  agentFieldValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1e293b",
-    marginTop: 2,
-  },
-  agentFieldValueHighlight: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#2563eb",
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  buttonWrap: {
-    gap: 12,
-    marginTop: 8,
-  },
-  payMadeBtn: {
-    height: 52,
-    backgroundColor: "#0ea360",
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#0ea360",
-  },
-  payMadeBtnText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  cardPayBtn: {
-    height: 52,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardPayBtnText: {
-    color: "#1e293b",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorCard: {
-    margin: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 30,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#ef4444",
-    marginTop: 14,
-  },
-  errorDesc: {
-    fontSize: 14,
-    color: "#64748b",
-    textAlign: "center",
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  payNowBtnList: {
-    height: 38,
-    backgroundColor: "#0ea360",
-    borderRadius: 8,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  payNowBtnTextList: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  agentCardModal: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 16,
-    marginBottom: 18,
-  },
-  agentCardHeaderModal: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  agentCardTitleModal: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-  agentCardDescModal: {
-    fontSize: 12,
-    color: "#64748b",
     marginBottom: 12,
   },
-  agentRowModal: {
+  sectionTitle: { fontSize: 15, fontWeight: "bold", color: "#0f172a" },
+  breakdownRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#f8fafc",
   },
-  agentRowLastModal: {
+  breakdownRowLast: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  agentRowLabelModal: {
-    fontSize: 12,
-    color: "#64748b",
-  },
-  agentRowValueModal: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  agentRowValueHighlightModal: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#0ea360",
-    letterSpacing: 0.5,
-  },
-  paymentMadeBtnModal: {
-    height: 48,
-    backgroundColor: "#0ea360",
-    borderRadius: 10,
+  breakdownLabel: { fontSize: 13, color: "#64748b" },
+  breakdownValue: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
+  breakdownValueHighlight: { fontSize: 14, fontWeight: "bold", color: "#0ea360" },
+  totalRow: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: 12,
+    marginTop: 6,
   },
-  paymentMadeBtnTextModal: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
-  payWithCardBtnModal: {
-    height: 48,
+  totalLabel: { fontSize: 15, fontWeight: "bold", color: "#0f172a" },
+  totalValue: { fontSize: 18, fontWeight: "800", color: "#0ea360" },
+  walletCard: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#0ea360",
-    borderRadius: 10,
+    borderColor: "#e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+  },
+  confirmBtn: {
+    height: 52,
+    backgroundColor: "#0ea360",
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
-  payWithCardBtnTextModal: {
-    color: "#0ea360",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  closeModalBtnModal: {
-    height: 48,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeModalBtnTextModal: {
-    color: "#64748b",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  modalPaymentInfo: {
-    backgroundColor: "#f8fafc",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    marginBottom: 16,
-  },
-  modalPaymentRef: {
-    fontSize: 13,
-    color: "#64748b",
-  },
-  modalPaymentAmt: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#ef4444",
-    marginTop: 4,
-  },
+  confirmBtnText: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
+
+  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  modalContent: {
+  modalCard: {
     backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: "90%",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 12,
+  successIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e6f9f0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  modalActions: {
-    gap: 10,
+  failureIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#fef2f2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
   },
+  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#0ea360", marginBottom: 8 },
+  modalDesc: { fontSize: 14, color: "#64748b", textAlign: "center", lineHeight: 20, marginBottom: 16 },
+  confirmDetailsBox: {
+    backgroundColor: "ghostwhite",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
+    width: "100%",
+    padding: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  detailItem: { flexDirection: "row", justifyContent: "space-between" },
+  detailLabel: { fontSize: 12, color: "#64748b" },
+  detailVal: { fontSize: 12, fontWeight: "600", color: "#0f172a" },
+  modalCloseBtn: {
+    height: 48,
+    backgroundColor: "#0ea360",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
+  modalCloseText: { color: "#ffffff", fontSize: 15, fontWeight: "bold" },
 });
