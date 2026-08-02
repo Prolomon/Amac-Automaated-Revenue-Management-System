@@ -111,7 +111,9 @@ export default function PayScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Pay Member Bills</Text>
-        <Text style={styles.headerSubtitle}>Enter Member ID, phone number, or Payment ID to look up bills</Text>
+        <Text style={styles.headerSubtitle}>
+          Enter Member ID, phone number, or Payment ID to look up bills
+        </Text>
       </View>
 
       {/* Input section at the top */}
@@ -174,20 +176,26 @@ export default function PayScreen() {
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Phone Number</Text>
-                <Text style={styles.detailValue}>{memberDetail.phone || "N/A"}</Text>
+                <Text style={styles.detailValue}>
+                  {memberDetail.phone || "N/A"}
+                </Text>
               </View>
 
               {memberDetail.businessName && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Business Name</Text>
-                  <Text style={styles.detailValue}>{memberDetail.businessName}</Text>
+                  <Text style={styles.detailValue}>
+                    {memberDetail.businessName}
+                  </Text>
                 </View>
               )}
 
               {memberDetail.category && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Category</Text>
-                  <Text style={styles.detailValue}>{memberDetail.category}</Text>
+                  <Text style={styles.detailValue}>
+                    {memberDetail.category}
+                  </Text>
                 </View>
               )}
             </View>
@@ -199,23 +207,68 @@ export default function PayScreen() {
               <View style={styles.emptyCard}>
                 <AlertCircle size={32} color="#94a3b8" />
                 <Text style={styles.emptyTitle}>No Payments Listed</Text>
-                <Text style={styles.emptyText}>This member currently has no bills or transaction history.</Text>
+                <Text style={styles.emptyText}>
+                  This member currently has no bills or transaction history.
+                </Text>
               </View>
             ) : (
               <View style={styles.paymentsList}>
                 {paymentsList.map((wrap, index) => {
                   const payment = wrap.payment || wrap;
-                  const isPaid = payment.paid === payment.amount;
+
+                  const principal = Number(payment?.payment?.amount);
+                  const vat = principal * 0.075;
+                  const charges = principal * 0.015;
+                  const subtotal = principal + vat + charges;
+
+                  // Get payment date and current date
+                  const paymentDate = new Date(payment?.payment?.date);
+                  const currentDate = new Date();
+
+                  // Calculate days overdue
+                  let daysOverdue = 0;
+                  if (currentDate > paymentDate) {
+                    const diffTime =
+                      currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+                    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+                  }
+
+                  // Penalty: 0.005% per day overdue
+                  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+                  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+                  const totalAmount = subtotal + penalty;
+
+                  const isPaid = payment.paid === totalAmount;
                   return (
-                    <View key={payment.id || payment.reference || index} style={styles.paymentItem}>
+                    <View
+                      key={payment.id || payment.reference || index}
+                      style={styles.paymentItem}
+                    >
                       <View style={styles.paymentHeader}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.paymentTitle}>{payment.pricing?.title || "Bill Payment"}</Text>
-                          <Text style={styles.paymentRef}>Ref: {payment.reference}</Text>
-                          <Text style={styles.paymentDate}>Due: {formatDate(payment.due || payment.date)}</Text>
+                          <Text style={styles.paymentTitle}>
+                            {payment.pricing?.title || "Bill Payment"}
+                          </Text>
+                          <Text style={styles.paymentRef}>
+                            Ref: {payment.reference}
+                          </Text>
+                          <Text style={styles.paymentDate}>
+                            Due: {formatDate(payment.due || payment.date)}
+                          </Text>
                         </View>
-                        <View style={[styles.statusBadge, { borderColor: getStatusColor(payment.status) }]}>
-                          <Text style={[styles.statusText, { color: getStatusColor(payment.status) }]}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            { borderColor: getStatusColor(payment.status) },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusText,
+                              { color: getStatusColor(payment.status) },
+                            ]}
+                          >
                             {String(payment.status).toUpperCase()}
                           </Text>
                         </View>
@@ -223,19 +276,62 @@ export default function PayScreen() {
 
                       <View style={styles.paymentBody}>
                         <View style={styles.amountCol}>
-                          <Text style={styles.amountLabel}>Total Amount</Text>
-                          <Text style={styles.amountValue}>{formatCurrency(payment.amount)}</Text>
+                          <Text style={styles.amountLabel}>Payment Amount</Text>
+                          <Text style={styles.amountValue}>
+                            {formatCurrency(payment.amount)}
+                          </Text>
                         </View>
+
                         <View style={styles.amountCol}>
                           <Text style={styles.amountLabel}>Paid Amount</Text>
-                          <Text style={[styles.amountValue, { color: isPaid ? "#0ea360" : "#ef4444" }]}>
+                          <Text
+                            style={[
+                              styles.amountValue,
+                              { color: isPaid ? "#0ea360" : "#ef4444" },
+                            ]}
+                          >
                             {formatCurrency(payment.paid || 0)}
                           </Text>
                         </View>
+                        
                         <View style={styles.amountCol}>
                           <Text style={styles.amountLabel}>Debt</Text>
-                          <Text style={[styles.amountValue, { color: "#ef4444" }]}>
-                            {formatCurrency(payment.debt !== undefined ? payment.debt : (payment.amount - (payment.paid || 0)))}
+                          <Text
+                            style={[styles.amountValue, { color: "#ef4444" }]}
+                          >
+                            {formatCurrency(penalty || 0)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.amountCol}>
+                          <Text style={styles.amountLabel}>Charges</Text>
+                          <Text style={styles.amountValue}>
+                            {formatCurrency(charges)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.amountCol}>
+                          <Text style={styles.amountLabel}>Vat (7.5%)</Text>
+                          <Text
+                            style={[
+                              styles.amountValue,
+                              { color: "#0ea360" },
+                            ]}
+                          >
+                            {formatCurrency(vat || 0)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.amountCol}>
+                          <Text style={styles.amountLabel}>Penalty</Text>
+                          <Text
+                            style={[styles.amountValue, { color: "#ef4444" }]}
+                          >
+                            {formatCurrency(
+                              payment.debt !== undefined
+                                ? payment.debt
+                                : payment.amount - (payment.paid || 0)
+                            )}
                           </Text>
                         </View>
                       </View>
@@ -243,10 +339,16 @@ export default function PayScreen() {
                       {!isPaid && (
                         <TouchableOpacity
                           style={styles.payNowBtn}
-                          onPress={() => handlePayPress(payment.id || payment.reference)}
+                          onPress={() =>
+                            handlePayPress(payment.reference || payment.id)
+                          }
                           activeOpacity={0.8}
                         >
-                          <CreditCard size={16} color="#fff" style={{ marginRight: 6 }} />
+                          <CreditCard
+                            size={16}
+                            color="#fff"
+                            style={{ marginRight: 6 }}
+                          />
                           <Text style={styles.payNowBtnText}>Pay Bill</Text>
                         </TouchableOpacity>
                       )}
@@ -260,7 +362,10 @@ export default function PayScreen() {
           <View style={styles.emptyState}>
             <AlertCircle size={40} color="#94a3b8" />
             <Text style={styles.emptyStateText}>No Account Verified Yet</Text>
-            <Text style={styles.emptyStateSubtext}>Enter a valid Member ID, Phone Number, or Payment ID above and press search to verify.</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Enter a valid Member ID, Phone Number, or Payment ID above and
+              press search to verify.
+            </Text>
           </View>
         )}
       </ScrollView>

@@ -2,9 +2,23 @@ import { formatCurrency } from "@/config";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { payNow, confirmPayment } from "@/lib/services/payment";
-import { RelativePathString, useRouter, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, CreditCard, ShieldCheck, AlertCircle, Building, User, Calendar, FileText, CheckCircle2 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import {
+  RelativePathString,
+  useRouter,
+  useLocalSearchParams,
+} from "expo-router";
+import {
+  ArrowLeft,
+  CreditCard,
+  ShieldCheck,
+  AlertCircle,
+  Building,
+  User,
+  Calendar,
+  FileText,
+  CheckCircle2,
+} from "lucide-react-native";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -14,6 +28,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -34,11 +49,23 @@ export default function CheckoutPage() {
   const [failureMessage, setFailureMessage] = useState("");
   const [confirmDetails, setConfirmDetails] = useState<any>(null);
 
+  const [pinEntryVisible, setPinEntryVisible] = useState(false);
+  const [pin, setPin] = useState("");
+  const pinInputRef = useRef<TextInput>(null);
+  //Payment with card
+  const [cardModal, setCardModal] = useState(false);
+
+
   const fetchDetails = useCallback(async () => {
-    if (!id) return;
+    const rawId = Array.isArray(id) ? id[0] : id;
+    const trimmedId = (rawId ?? "").trim();
+    if (!trimmedId) {
+      failed("Please enter a Member ID, Phone Number, or Payment ID");
+      return;
+    }
     try {
       setLoading(true);
-      const res = await payNow(id as string);
+      const res = await payNow(trimmedId as string);
       if (res.ok && res.data) {
         setCheckoutData(res.data);
       } else {
@@ -76,7 +103,10 @@ export default function CheckoutPage() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
             <ArrowLeft color="#0f172a" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Checkout</Text>
@@ -85,7 +115,9 @@ export default function CheckoutPage() {
         <View style={styles.errorCenter}>
           <AlertCircle size={48} color="#ef4444" />
           <Text style={styles.errorTitle}>No Checkout Information</Text>
-          <Text style={styles.errorDesc}>The payment reference or identifier is invalid or has expired.</Text>
+          <Text style={styles.errorDesc}>
+            The payment reference or identifier is invalid or has expired.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -94,13 +126,14 @@ export default function CheckoutPage() {
   const { member, payments, agent } = checkoutData;
 
   // Find the exact matched payment or default to the first one
-  const matchedWrap = payments?.find(
-    (p: any) =>
-      p?.payment?.id === id ||
-      p?.payment?.reference === id ||
-      p?.id === id ||
-      p?.reference === id
-  ) || payments?.[0];
+  const matchedWrap =
+    payments?.find(
+      (p: any) =>
+        p?.payment?.id === id ||
+        p?.payment?.reference === id ||
+        p?.id === id ||
+        p?.reference === id
+    ) || payments?.[0];
 
   const payment = matchedWrap?.payment || matchedWrap;
   const wallet = matchedWrap?.wallet;
@@ -109,7 +142,10 @@ export default function CheckoutPage() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
             <ArrowLeft color="#0f172a" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Checkout</Text>
@@ -118,7 +154,9 @@ export default function CheckoutPage() {
         <View style={styles.errorCenter}>
           <AlertCircle size={48} color="#ef4444" />
           <Text style={styles.errorTitle}>No Active Payment Found</Text>
-          <Text style={styles.errorDesc}>This member does not have an active payment for this checkout.</Text>
+          <Text style={styles.errorDesc}>
+            This member does not have an active payment for this checkout.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -140,7 +178,7 @@ export default function CheckoutPage() {
   }
   const penalty = subtotal * 0.00005 * daysOverdue;
   const totalAmount = subtotal + penalty;
-  const debt = payment.debt !== undefined ? payment.debt : totalAmount;
+  const debt = payment.debt;
 
   const formatDate = (val?: string) => {
     if (!val) return "N/A";
@@ -176,7 +214,9 @@ export default function CheckoutPage() {
         setFailureVisible(true);
       }
     } catch (error: any) {
-      setFailureMessage(error?.message || "An unexpected error occurred during confirmation");
+      setFailureMessage(
+        error?.message || "An unexpected error occurred during confirmation"
+      );
       setFailureVisible(true);
     } finally {
       setConfirming(false);
@@ -196,7 +236,9 @@ export default function CheckoutPage() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <View style={styles.content}>
           {/* Member Profile Banner */}
@@ -240,7 +282,9 @@ export default function CheckoutPage() {
 
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Principal Amount</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(principal)}</Text>
+              <Text style={styles.breakdownValue}>
+                {formatCurrency(principal)}
+              </Text>
             </View>
 
             <View style={styles.breakdownRow}>
@@ -250,24 +294,38 @@ export default function CheckoutPage() {
 
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Charges (1.5%)</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(charges)}</Text>
+              <Text style={styles.breakdownValue}>
+                {formatCurrency(charges)}
+              </Text>
             </View>
 
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Subtotal</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(subtotal)}</Text>
+              <Text style={styles.breakdownValue}>
+                {formatCurrency(subtotal)}
+              </Text>
             </View>
 
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Overdue Day(s)</Text>
-              <Text style={[styles.breakdownValue, daysOverdue > 0 ? { color: "#ef4444" } : undefined]}>
+              <Text
+                style={[
+                  styles.breakdownValue,
+                  daysOverdue > 0 ? { color: "#ef4444" } : undefined,
+                ]}
+              >
                 {daysOverdue}
               </Text>
             </View>
 
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Overdue Penalty</Text>
-              <Text style={[styles.breakdownValue, penalty > 0 ? { color: "#ef4444" } : undefined]}>
+              <Text
+                style={[
+                  styles.breakdownValue,
+                  penalty > 0 ? { color: "#ef4444" } : undefined,
+                ]}
+              >
                 {formatCurrency(penalty)}
               </Text>
             </View>
@@ -283,22 +341,30 @@ export default function CheckoutPage() {
             <View style={styles.walletCard}>
               <View style={styles.sectionHeader}>
                 <Building size={18} color="#2563eb" />
-                <Text style={styles.sectionTitle}>Agent Wallet Information</Text>
+                <Text style={styles.sectionTitle}>
+                  Agent Wallet Information
+                </Text>
               </View>
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Bank Name</Text>
-                <Text style={styles.breakdownValue}>{wallet.bank?.name || "N/A"}</Text>
+                <Text style={styles.breakdownValue}>
+                  {wallet.bank?.name || "N/A"}
+                </Text>
               </View>
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Account Number</Text>
-                <Text style={styles.breakdownValueHighlight}>{wallet.accountNo || "N/A"}</Text>
+                <Text style={styles.breakdownValueHighlight}>
+                  {wallet.accountNo || "N/A"}
+                </Text>
               </View>
 
               <View style={styles.breakdownRowLast}>
                 <Text style={styles.breakdownLabel}>Account Name</Text>
-                <Text style={styles.breakdownValue}>{wallet.accountName || "N/A"}</Text>
+                <Text style={styles.breakdownValue}>
+                  {wallet.accountName || "N/A"}
+                </Text>
               </View>
             </View>
           )}
@@ -313,10 +379,25 @@ export default function CheckoutPage() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <ShieldCheck size={20} color="#fff" style={{ marginRight: 8 }} />
+                <ShieldCheck
+                  size={20}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
                 <Text style={styles.confirmBtnText}>Confirm Payment</Text>
               </>
             )}
+          </TouchableOpacity>
+
+          {/* Card payment button */}
+          <TouchableOpacity
+            style={styles.confirmBtn}
+            onPress={() => {
+              setCardModal(true);
+            }}
+          >
+            <CreditCard size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.confirmBtnText}>Pay With Card</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -330,22 +411,29 @@ export default function CheckoutPage() {
             </View>
             <Text style={styles.modalTitle}>Payment Confirmed!</Text>
             <Text style={styles.modalDesc}>
-              The payment was confirmed and registered successfully in the system.
+              The payment was confirmed and registered successfully in the
+              system.
             </Text>
 
             {confirmDetails && confirmDetails.payment && (
               <View style={styles.confirmDetailsBox}>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>Reference:</Text>
-                  <Text style={styles.detailVal}>{confirmDetails.payment.reference}</Text>
+                  <Text style={styles.detailVal}>
+                    {confirmDetails.payment.reference}
+                  </Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>Amount Paid:</Text>
-                  <Text style={styles.detailVal}>{formatCurrency(Number(confirmDetails.payment.amount))}</Text>
+                  <Text style={styles.detailVal}>
+                    {formatCurrency(Number(confirmDetails.payment.amount))}
+                  </Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>Status:</Text>
-                  <Text style={styles.detailVal}>{confirmDetails.payment.status}</Text>
+                  <Text style={styles.detailVal}>
+                    {confirmDetails.payment.status}
+                  </Text>
                 </View>
               </View>
             )}
@@ -370,14 +458,103 @@ export default function CheckoutPage() {
             <View style={styles.failureIconWrap}>
               <AlertCircle size={48} color="#ef4444" />
             </View>
-            <Text style={[styles.modalTitle, { color: "#ef4444" }]}>Payment Failed</Text>
-            <Text style={styles.modalDesc}>{failureMessage || "An error occurred while confirming the payment."}</Text>
+            <Text style={[styles.modalTitle, { color: "#ef4444" }]}>
+              Payment Failed
+            </Text>
+            <Text style={styles.modalDesc}>
+              {failureMessage ||
+                "An error occurred while confirming the payment."}
+            </Text>
 
             <TouchableOpacity
               style={[styles.modalCloseBtn, { backgroundColor: "#ef4444" }]}
               onPress={() => setFailureVisible(false)}
             >
               <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment with card Modal */}
+      <Modal visible={cardModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.successIconWrap}>
+              <CreditCard size={48} color="#0ea360" />
+            </View>
+
+            <Text style={styles.modalTitle}>Payment With Card</Text>
+            <Text style={styles.modalDesc}>
+              {pinEntryVisible
+                ? "Enter your card PIN"
+                : "Insert, tap, or swipe your card to complete the payment"}
+            </Text>
+
+            {!pinEntryVisible && (
+              <View style={styles.pendingRow}>
+                <ActivityIndicator size="small" color="#0ea360" />
+                <Text style={styles.pendingText}>Waiting for card...</Text>
+              </View>
+            )}
+
+            {pinEntryVisible && (
+              <TouchableOpacity
+                activeOpacity={1}
+                style={styles.pinBoxRow}
+                onPress={() => pinInputRef.current?.focus()}
+              >
+                {[0, 1, 2, 3].map((i) => (
+                  <View key={i} style={styles.pinBox}>
+                    {pin.length > i && <View style={styles.pinDot} />}
+                  </View>
+                ))}
+
+                <TextInput
+                  ref={pinInputRef}
+                  value={pin}
+                  onChangeText={(text) =>
+                    setPin(text.replace(/[^0-9]/g, "").slice(0, 4))
+                  }
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  secureTextEntry
+                  autoFocus
+                  style={styles.hiddenInput}
+                />
+              </TouchableOpacity>
+            )}
+
+            {confirmDetails && confirmDetails.payment && (
+              <View style={styles.confirmDetailsBox}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Reference:</Text>
+                  <Text style={styles.detailVal}>
+                    {confirmDetails.payment.reference}
+                  </Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Amount:</Text>
+                  <Text style={styles.detailVal}>
+                    {formatCurrency(Number(totalAmount))}
+                  </Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Status:</Text>
+                  <Text style={styles.detailVal}>
+                    {confirmDetails.payment.status}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => {
+                setCardModal(false);
+              }}
+            >
+              <Text style={styles.modalCloseText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -391,9 +568,25 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
   loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 12, fontSize: 15, color: "#64748b" },
-  errorCenter: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  errorTitle: { fontSize: 18, fontWeight: "bold", color: "#ef4444", marginTop: 14 },
-  errorDesc: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 6, lineHeight: 20 },
+  errorCenter: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#ef4444",
+    marginTop: 14,
+  },
+  errorDesc: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 20,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -468,7 +661,11 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: { fontSize: 13, color: "#64748b" },
   breakdownValue: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
-  breakdownValueHighlight: { fontSize: 14, fontWeight: "bold", color: "#0ea360" },
+  breakdownValueHighlight: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#0ea360",
+  },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -531,8 +728,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#0ea360", marginBottom: 8 },
-  modalDesc: { fontSize: 14, color: "#64748b", textAlign: "center", lineHeight: 20, marginBottom: 16 },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0ea360",
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
   confirmDetailsBox: {
     backgroundColor: "ghostwhite",
     borderWidth: 1,
@@ -555,4 +763,43 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalCloseText: { color: "#ffffff", fontSize: 15, fontWeight: "bold" },
+  pendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  pendingText: {
+    fontSize: 13,
+    color: "#0ea360",
+    fontWeight: "600",
+  },
+  pinBoxRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  pinBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    backgroundColor: "#e6f9f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pinDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#0f172a",
+  },
+  hiddenInput: {
+    position: "absolute",
+    opacity: 0,
+    height: 1,
+    width: 1,
+  },
 });

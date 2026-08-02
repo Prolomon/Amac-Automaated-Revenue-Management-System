@@ -26,6 +26,24 @@ export default function LoginScreen() {
   const { success, failed } = useToast();
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const checkRedirect = async () => {
+      if (!authLoading && currentUser) {
+        try {
+          const pin = await AsyncStorage.getItem("urms_agent_pin");
+          if (pin) {
+            router.replace("/lock");
+          } else {
+            router.replace("/(pages)");
+          }
+        } catch {
+          router.replace("/lock");
+        }
+      }
+    };
+    checkRedirect();
+  }, [currentUser, authLoading, router]);
+
   const handleSubmit = async () => {
     setLoading(true);
     try {

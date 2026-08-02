@@ -27,7 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser } = useAuth();
+  const { currentUser, code, createCode } = useAuth();
 
   const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
   const [accountCopied, setAccountCopied] = useState(false);
@@ -38,6 +38,12 @@ export default function Dashboard() {
   const walletBalance = Number(wallet?.balance || 0);
   const walletAccountNo = wallet?.accountNo || 0;
   const walletBank = wallet?.bank?.name || "-";
+
+  //Security Code
+  const [securityVisible, setSecurityVisible] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [confirmCode, setConfirmCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
 
   const handleCopyAccountNumber = async () => {
     if (!wallet?.accountNo) return;
@@ -89,6 +95,29 @@ export default function Dashboard() {
     if (status === "PENDING") return "#f59e0b";
     if (status === "FAILED") return "#ef4444";
     return "#6b7280";
+  };
+
+  const handleCreateSecurityCode = async () => {
+    if (!currentUser?.uid) return failed("User not found");
+
+    console.log("Changing security code with values:", { oldCode, newCode, confirmCode });
+
+    if (!newCode.trim() || !confirmCode.trim())
+      return failed("Code required");
+
+    if (newCode.trim() !== confirmCode.trim())
+      return failed("Codes do not match");
+
+    const res = await createCode(
+      newCode.trim(),
+      confirmCode.trim(),
+    );
+
+    if (!res.ok) return failed(res.message ?? "Could not change code");
+
+    success(res.message ?? "Code updated");
+    setSecurityVisible(false);
+
   };
 
   return (
@@ -258,6 +287,88 @@ export default function Dashboard() {
             )}
           </View>
         </View>
+
+        <Modal transparent visible={securityVisible} animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Change Security Code</Text>
+
+                <Text style={styles.label}>New code</Text>
+                {/* New Code */}
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    value={newCode}
+                    onChangeText={setNewCode}
+                    placeholder="New code"
+                    placeholderTextColor="#c7cbd0"
+                    style={[styles.input, { paddingRight: 44 }]}
+                    secureTextEntry={!showCode}
+                    maxLength={6}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeToggle}
+                    onPress={() => setShowCode((v) => !v)}
+                    accessibilityLabel={
+                      showCode ? "Hide code" : "Show code"
+                    }
+                  >
+                    {showCode ? (
+                      <EyeOff color="#5b6b73" />
+                    ) : (
+                      <Eye color="#5b6b73" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.label}>Confirm code</Text>
+                {/* Confirm Code */}
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    value={confirmCode}
+                    onChangeText={setConfirmCode}
+                    placeholder="Confirm code"
+                    placeholderTextColor="#c7cbd0"
+                    style={[styles.input, { paddingRight: 44 }]}
+                    secureTextEntry={!showCode}
+                    maxLength={6}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeToggle}
+                    onPress={() => setShowCode((v) => !v)}
+                    accessibilityLabel={
+                      showCode ? "Hide code" : "Show code"
+                    }
+                  >
+                    {showCode ? (
+                      <EyeOff color="#5b6b73" />
+                    ) : (
+                      <Eye color="#5b6b73" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* modal buttons */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.secondaryBtn}
+                    activeOpacity={0.85}
+                    onPress={() => setSecurityVisible(false)}
+                  >
+                    <Text style={styles.secondaryText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, { flex: 1, marginLeft: 8 }]}
+                    activeOpacity={0.85}
+                    onPress={handleCreateSecurityCode}
+                    disabled={confirmCode.length < 6 || newCode.length < 6 || oldCode.length < 6 || saving}
+                  >
+                    <Text style={styles.primaryText}>Create</Text>
+                  </TouchableOpacity>
+                </View>
+
+              </View>
+            </View>
+          </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -514,4 +625,69 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: "80%",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "600", marginBottom: 10 },
+  modalButtons: { flexDirection: "row", marginTop: 14, alignItems: "center" },
+  label: { marginTop: 8, marginBottom: 6, color: "#5b6b73" },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#e6e9eb",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+    marginTop: 8,
+  },
+  inputWrapper: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  eyeToggle: {
+    position: "absolute",
+    right: 10,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  primaryBtn: {
+    backgroundColor: "#0ea360",
+    height: 46,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryText: { color: "#fff", fontSize: 16 },
+  tertiaryBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d5dadc",
+    backgroundColor: "#f10000",
+  },
+  secondaryBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d5dadc",
+    backgroundColor: "#fff",
+  },
+  secondaryText: { color: "#0ea360" },
 });

@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | undefined>(undefined);
+  const [code, setCode] = useState<string>("")
 
   useEffect(() => {
     (async () => {
@@ -48,6 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (tok) {
           setToken(tok);
         }
+        const pin = await AsyncStorage.getItem("urms_agent_pin");
+        if (pin) {
+          setCode(pin);
+        }
       } catch (e) {
         // ignore
       } finally {
@@ -55,32 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
-
-  const register = async (user: Omit<Member, "uid" | "role" | "createdAt">) => {
-    try {
-      const response = await fetch(`${API_URL}/member`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(user),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return { ok: false, message: error.message || "Registration failed" };
-      }
-
-      await response.json();
-      
-      return {
-        ok: true,
-        message: "Registration successful",
-      };
-    } catch (e: any) {
-      return { ok: false, message: e?.message || "Registration failed" };
-    }
-  };
 
   const login = async (uid: string, password: string) => {
     try {
@@ -436,7 +415,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     wallet,
     currentUser,
     loading,
-    register,
     login,
     logout,
     updateProfile,
@@ -452,6 +430,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     createCode,
     changeCode,
     verifyCode,
+    code
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

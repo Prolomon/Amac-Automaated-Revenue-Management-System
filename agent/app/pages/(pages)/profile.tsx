@@ -242,53 +242,6 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
 
-          {/* Change Avatar Modal */}
-          <Modal transparent visible={editVisible} animationType="slide">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Change Profile</Text>
-                <ScrollView>
-
-                </ScrollView>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.secondaryBtn}
-                    activeOpacity={0.85}
-                    onPress={() => setEditVisible(false)}
-                  >
-                    <Text style={styles.secondaryText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.primaryBtn,
-                      {
-                        flex: 1,
-                        marginLeft: 8,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      },
-                    ]}
-                    activeOpacity={0.85}
-                    onPress={handleAvatarChange}
-                    disabled={saving}
-                  >
-                    {saving && (
-                      <ActivityIndicator
-                        size="small"
-                        color="#fff"
-                        style={{ marginRight: 8 }}
-                      />
-                    )}
-                    <Text style={styles.primaryText}>
-                      {saving ? "Saving..." : "Save"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
-
           {/* Change Password Modal */}
           <Modal transparent visible={passwordVisible} animationType="slide">
             <View style={styles.modalOverlay}>
