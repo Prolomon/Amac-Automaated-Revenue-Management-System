@@ -5,7 +5,7 @@ import {
   createMemberSchema,
   updateMemberSchema,
   loginSchema,
-  billingFrequencySchema, 
+  billingFrequencySchema,
   pricingActionSchema,
   changeMemberAgentSchema,
   changeMemberCompanySchema,
@@ -453,6 +453,10 @@ const deleteMember = async (req, res) => {
         where: { id: isWallet.id }
       })
     }
+
+    await prisma.wallet.delete({
+      where: { userId: req.params.id }
+    })
 
     // Then delete the member
     const member = await prisma.member.delete({

@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { customAlphabet } from "nanoid";
+import { createAccount } from "../service/wallet.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,27 +51,6 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    let wallet;
-
-    wallet = await prisma.wallet.findFirst({
-      where: { userId },
-    });
-
-    if (!wallet) {
-      console.log(`Wallet not found for userId: ${userId}. Creating a new wallet.`);
-
-      const agentId = member?.agent;
-
-      wallet = await prisma.wallet.findFirst({
-        where: { userId: agentId },
-      });
-
-      if (!wallet) {
-        console.log(`Wallet not found for agentId: ${agentId}. Creating a new wallet.`);
-      }
-
-    }
-
     // Fetch all payments for this user where status is not COMPLETED
     const payments = await prisma.payment.findMany({
       where: {
@@ -91,6 +71,9 @@ export const createDemandNotice = async (req, res) => {
     // Create Demand records with CREATED status - each with unique reference
     const demandRecords = await prisma.$transaction(
       payments.map(async (payment) => {
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        const expiry = expiryDate.toISOString().split('T')[0];
 
         // Generate unique UID with collision detection
         let uniqueRef;
@@ -114,6 +97,39 @@ export const createDemandNotice = async (req, res) => {
           where: { id: payment.id },
           data: { isDemand: true }, // Update payment status to PENDING
         });
+
+        const acc = await createAccount(`${payment.code} ${member.businessName || member.fullname || "N/A"}`, uniqueRef, null, expiry);
+
+        let wallet;
+        try {
+          wallet = await prisma.wallet.create({
+            data: {
+              userId: id,
+              accountNo: acc?.data?.bankAccountNumber,
+              role: "CHECKOUT",
+              bank: {
+                name: acc?.data?.bankName,
+                id: acc?.data?.accountRef || id,
+                code: 110028,
+              },
+              balance: 0.0,
+              status: acc?.data?.expired,
+              accountName: acc?.data?.bankAccountName,
+              currency: acc?.data?.currency,
+              accountHolderId: acc?.data?.accountHolderId,
+            },
+          });
+
+        } catch (createErr) {
+          if (createErr?.code === "P2002") {
+            return res.status(409).json({
+              ok: false,
+              message:
+                "Wallet account number already exists. Please retry wallet creation.",
+            });
+          }
+          throw createErr;
+        }
 
         return await prisma.demand.create({
           data: {
@@ -186,15 +202,6 @@ export const createMultipleDemandNotice = async (req, res) => {
           where: { uid: userId },
         });
 
-        let wallet;
-
-        wallet = await prisma.wallet.findUnique({
-          where: { userId },
-        });
-
-        if (!wallet) {
-          console.log(`Wallet not found for userId: ${userId}. Creating a new wallet.`);
-        }
 
         if (!member) {
           results.failed++;
@@ -270,6 +277,43 @@ export const createMultipleDemandNotice = async (req, res) => {
                 uniqueRef = genUid;
               }
               attempts++;
+            }
+
+            const expiryDate = new Date();
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+            const expiry = expiryDate.toISOString().split('T')[0];
+
+            const acc = await createAccount(`${payment.code} ${member.businessName || member.fullname || "N/A"}`, uniqueRef, null, expiry);
+
+            let wallet;
+            try {
+              wallet = await prisma.wallet.create({
+                data: {
+                  userId: id,
+                  accountNo: acc?.data?.bankAccountNumber,
+                  role: "CHECKOUT",
+                  bank: {
+                    name: acc?.data?.bankName,
+                    id: acc?.data?.accountRef || id,
+                    code: 110028,
+                  },
+                  balance: 0.0,
+                  status: acc?.data?.expired,
+                  accountName: acc?.data?.bankAccountName,
+                  currency: acc?.data?.currency,
+                  accountHolderId: acc?.data?.accountHolderId,
+                },
+              });
+
+            } catch (createErr) {
+              if (createErr?.code === "P2002") {
+                return res.status(409).json({
+                  ok: false,
+                  message:
+                    "Wallet account number already exists. Please retry wallet creation.",
+                });
+              }
+              throw createErr;
             }
 
             return prisma.demand.create({
@@ -369,15 +413,9 @@ export const createDemandNoticeByPayment = async (req, res) => {
       });
     }
 
-    let wallet;
-
-    wallet = await prisma.wallet.findFirst({
-      where: { userId: member.uid || member.agent },
-    });
-
-    if (!wallet) {
-      console.log(`Wallet not found for userId: ${payment.userId}. Creating a new wallet.`);
-    }
+    const expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+    const expiry = expiryDate.toISOString().split('T')[0];
 
     // Generate unique UID with collision detection
     let uniqueRef;
@@ -403,6 +441,40 @@ export const createDemandNoticeByPayment = async (req, res) => {
         message: "Failed to generate unique ID, please try again",
       });
     }
+
+    const acc = await createAccount(`${payment.code} ${member.businessName || member.fullname || "N/A"}`, uniqueRef, null, expire);
+
+    let wallet;
+    try {
+      wallet = await prisma.wallet.create({
+        data: {
+          userId: id,
+          accountNo: acc?.data?.bankAccountNumber,
+          role: "CHECKOUT",
+          bank: {
+            name: acc?.data?.bankName,
+            id: acc?.data?.accountRef || id,
+            code: 110028,
+          },
+          balance: 0.0,
+          status: acc?.data?.expired,
+          accountName: acc?.data?.bankAccountName,
+          currency: acc?.data?.currency,
+          accountHolderId: acc?.data?.accountHolderId,
+        },
+      });
+
+    } catch (createErr) {
+      if (createErr?.code === "P2002") {
+        return res.status(409).json({
+          ok: false,
+          message:
+            "Wallet account number already exists. Please retry wallet creation.",
+        });
+      }
+      throw createErr;
+    }
+
     const demandRecord = await prisma.demand.create({
       data: {
         reference: uniqueRef,

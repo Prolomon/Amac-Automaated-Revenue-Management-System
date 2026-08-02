@@ -20,7 +20,7 @@ export default function PaymentSplit() {
   const router = useRouter();
   const { user, uid, role } = useAuth();
   const addToast = useToast();
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
   const defaultSplits = [
     { key: "main", name: "Main Account", value: 65, color: "#10b981" },

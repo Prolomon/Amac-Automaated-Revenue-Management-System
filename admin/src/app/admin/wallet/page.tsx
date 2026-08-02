@@ -34,7 +34,7 @@ function WalletPage() {
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [pageLoading, setPageLoading] = useState(true);
     const { user, role } = useAuth();
-    const { wallet, loading, error, message, refresh, setUid, getTransactions, resolveBankAccount } = useWallet();
+    const { wallet, loading, error, message, refresh, setUid, setRole, getTransactions, resolveBankAccount } = useWallet();
     const { addToast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -62,11 +62,7 @@ function WalletPage() {
     const [editAccountName, setEditAccountName] = useState("");
     const [editLoading, setEditLoading] = useState(false);
     const [editValidationError, setEditValidationError] = useState<string | null>(null);
-    const centerId = role === "ADMIN" ? user?.uid : user?.center;
-
-    if (role !== "ADMIN" && user?.permission?.canViewWallet !== true) {
-        router.push("/admin");
-    }
+    const centerId = role === "ADMIN" || role === "IT" ? user?.uid : user?.center;
 
     // Fetch banks
     const fetchBanks = useCallback(async () => {
@@ -175,8 +171,9 @@ function WalletPage() {
     }, [fetChTransactions]);
 
     useEffect(() => {
+        setRole(user?.role || "ADMIN");
         setUid(user?.uid || null);
-    }, [setUid, user?.uid]);
+    }, [setRole, setUid, user?.role, user?.uid]);
 
     // Handle create wallet (with bank details)
     const handleCreateWallet = async (e: React.FormEvent) => {
@@ -204,20 +201,19 @@ function WalletPage() {
                 createAccountName,
                 createBankCode,
                 selectedBank?.name || "",
-                "ADMIN"
+                user?.role || "ADMIN"
             );
 
             if (result && result.ok) {
-                refresh();
                 addToast("success", "Wallet created successfully!");
             } else {
-                refresh();
                 addToast("error", result?.message || "Failed to create wallet. Please try again.");
             }
         } catch (e: any) {
             addToast("error", e?.message || "Failed to create wallet. Please try again.");
         } finally {
             setCreateLoading(false);
+            refresh()
         }
     };
 

@@ -44,7 +44,7 @@ export default function Agents() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
   const [company, setCompany] = useState<Company | null>(null);
 

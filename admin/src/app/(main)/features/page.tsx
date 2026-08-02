@@ -321,6 +321,31 @@ export default function FeaturesPage() {
           </div>
         </div>
       </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pb-14 md:px-6">
+        <div className="mb-6">
+          <span className="text-xs uppercase tracking-wide text-emerald-800">Questions</span>
+          <h2 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Frequently asked about our features</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Do I need to create an account to pay?</h3>
+            <p className="mt-2 text-sm text-slate-600">No. You can pay using your phone number, member ID, or payment ID from the Payment page without registering. Creating an account simply lets you track history and manage multiple properties.</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">How is my invoice amount calculated?</h3>
+            <p className="mt-2 text-sm text-slate-600">Assessments are based on your property category, size, and location as registered with the council. Contact support if you believe your assessment needs review.</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Can I download my receipt later?</h3>
+            <p className="mt-2 text-sm text-slate-600">Yes. Every successful payment is stored against your profile and can be retrieved anytime from the Payment page using your reference number.</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">What if my payment fails?</h3>
+            <p className="mt-2 text-sm text-slate-600">If a payment is deducted but not confirmed, use the Verify Payment tool or contact support with your reference number and we will reconcile it promptly.</p>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

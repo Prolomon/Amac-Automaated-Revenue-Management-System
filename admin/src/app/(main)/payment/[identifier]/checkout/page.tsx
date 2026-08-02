@@ -4,21 +4,19 @@ import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
-import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
-import { useRouter } from "next/navigation";
+import { Payment, payNow, confirmPayment, DataType } from "@/lib/services/payments";
 import { Member } from "@/lib/services/member";
 import { Wallet as WalletType } from "@/lib/services/wallet";
 import { Agent } from "@/lib/services/agent";
 import { useParams } from "next/navigation";
 
 export default function PaymentPage() {
-    const router = useRouter();
     const { identifier } = useParams();
-    const [paymentData, setPaymentData] = useState<{ payments: Payment[]; member: Member; wallet?: WalletType; agent?: Agent } | null>(null);
+    const [paymentData, setPaymentData] = useState<{ payments: { wallet: WalletType; payment: Payment }[]; member: Member; agent?: Agent } | null>(null);
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<string>("")
+    const [confirmDetails, setConfirmDetails] = useState<DataType | null>(null);
 
     const id = identifier as string;
 
@@ -33,10 +31,8 @@ export default function PaymentPage() {
 
                 const res = await payNow(id.trim());
                 if (res.ok) {
-                    setStatus(true);
-                    setPaymentData(res.data ? { payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent } : null);
+                    setPaymentData(res.data ? { payments: res.data.payments || [], member: res.data.member, agent: res.data.agent } : null);
                 } else {
-                    setStatus(false);
                     addToast("error", res.message || "Failed to initiate payment");
                 }
 
@@ -48,32 +44,6 @@ export default function PaymentPage() {
         if (id.trim().length > 0) {
             getPayNow();
         }
-    }, [addToast, id]);
-
-    const handlePayNow = useCallback(async () => {
-        if (!id) {
-            addToast("error", "Please enter a valid identifier");
-            return;
-        }
-
-        setLoading(true);
-
-        // try {
-
-        //     const res = await payNow(id);
-        //     if (!res.ok) {
-        //         addToast("error", res.message || "Failed to initiate payment");
-        //         return;
-        //     }
-
-        //     setPaymentData(res.data ? { payments: res.data.payments || [], member: res.data.member, wallet: res.data.wallet, agent: res.data.agent } : null);
-        //     addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
-
-        // } catch (error) {
-        //     addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
-        // } finally {
-        //     setLoading(false);
-        // }
     }, [addToast, id]);
 
     const formatCurrency = (amount: number) => {
@@ -121,18 +91,18 @@ export default function PaymentPage() {
         );
     }
 
-    const { member, payments, wallet, agent } = paymentData;
-    const payment = payments.find((p) => p.reference === selectedPayment);
-    const totalPaid = payments.reduce((sum, p) => sum + p.paid, 0);
-    const totalDebt = payments.reduce((sum, p) => sum + p.debt, 0);
+    const { member, payments, agent } = paymentData;
+    const payment = payments?.find((p) => p?.payment?.reference === selectedPayment);
+    const totalPaid = payments?.reduce((sum, p) => sum + p?.payment?.paid, 0);
+    const totalDebt = payments?.reduce((sum, p) => sum + p?.payment?.debt, 0);
 
-    const principal = Number(payment?.amount);
+    const principal = Number(payment?.payment?.amount);
     const vat = principal * 0.075;
     const charges = principal * 0.015;
     const subtotal = principal + vat + charges;
 
     // Get payment date and current date
-    const paymentDate = new Date(payment?.date);
+    const paymentDate = new Date(payment?.payment?.date);
     const currentDate = new Date();
 
     // Calculate days overdue
@@ -148,6 +118,34 @@ export default function PaymentPage() {
 
     const totalAmount = subtotal + penalty;
 
+    const handleConfirmPayment = async () => {
+        if (!id) {
+            addToast("error", "Please enter a valid identifier");
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+
+            const p = paymentData?.payments?.find(p => p?.payment?.reference === selectedPayment)
+
+            const res = await confirmPayment(id, p?.payment?.id, totalAmount, paymentData?.member?.center, paymentData?.member?.company);
+            if (!res.ok) {
+                addToast("error", res.message || "Failed to confirm payment");
+                return;
+            }
+
+            setConfirmDetails(res.data || null);
+            addToast("success", "Payment confirmed successfully. Please check your email for further instructions.");
+
+        } catch (error) {
+            addToast("error", error instanceof Error ? error.message : "Failed to confirm payment");
+        } finally {
+            setLoading(false);
+        }
+    }
+
     return (
         <main>
             {/* Member & Payment Summary Header */}
@@ -158,23 +156,23 @@ export default function PaymentPage() {
                         <div className="bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-5">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-white">
-                                    {member.avatar ? (
-                                        <Image src={member.avatar} alt={member.fullname} width={64} height={64} className="rounded-full" />
+                                    {member?.avatar ? (
+                                        <Image src={member?.avatar} alt={member?.fullname} width={64} height={64} className="rounded-full" />
                                     ) : (
                                         <User className="h-8 w-8" />
                                     )}
                                 </div>
                                 <div className="text-white">
-                                    <h1 className="text-2xl font-bold">{member.fullname}</h1>
-                                    {member.businessName && (
-                                        <p className="text-sm text-emerald-100">{member.businessName}</p>
+                                    <h1 className="text-2xl font-bold">{member?.fullname}</h1>
+                                    {member?.businessName && (
+                                        <p className="text-sm text-emerald-100">{member?.businessName}</p>
                                     )}
                                     <div className="mt-1 flex items-center gap-3 text-xs text-emerald-100">
                                         <span className="flex items-center gap-1">
-                                            <Mail className="h-3 w-3" /> {member.email}
+                                            <Mail className="h-3 w-3" /> {member?.email}
                                         </span>
                                         <span className="flex items-center gap-1">
-                                            <Phone className="h-3 w-3" /> {member.phone}
+                                            <Phone className="h-3 w-3" /> {member?.phone}
                                         </span>
                                     </div>
                                 </div>
@@ -183,26 +181,26 @@ export default function PaymentPage() {
                         <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                                 <p className="text-xs font-medium text-slate-500">Member Type</p>
-                                <p className="mt-1 text-sm font-semibold text-slate-800">{member.type}</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-800">{member?.type}</p>
                             </div>
-                            {member.location && (
+                            {member?.location && (
                                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                                     <p className="text-xs font-medium text-slate-500">Location</p>
                                     <p className="mt-1 text-sm font-semibold text-slate-800">
-                                        {member.location.city}, {member.location.state}
+                                        {member?.location.city}, {member?.location.state}
                                     </p>
                                 </div>
                             )}
-                            {member.zone && (
+                            {member?.zone && (
                                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                                     <p className="text-xs font-medium text-slate-500">Zone</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{member.zone}</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{member?.zone}</p>
                                 </div>
                             )}
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                                 <p className="text-xs font-medium text-slate-500">Billing Frequency</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-800">
-                                    {member.billingFrequency || "N/A"}
+                                    {member?.billingFrequency || "N/A"}
                                 </p>
                             </div>
                         </div>
@@ -220,38 +218,38 @@ export default function PaymentPage() {
                                 </div>
                             ) : (
                                 payments.map((payment, index) => (
-                                    <button key={payment.reference || index} onClick={() => setSelectedPayment(payment.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-300 border ${selectedPayment === payment.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
+                                    <button key={payment?.payment?.reference || index} onClick={() => setSelectedPayment(payment?.payment?.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-300 border ${selectedPayment === payment?.payment?.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
                                                     <FileText className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-800 text-left">{payment.pricing.title.trim() || "Payment"}</p>
+                                                    <p className="text-sm font-medium text-slate-800 text-left">{payment?.payment?.pricing.title.trim() || "Payment"}</p>
                                                     <p className="text-xs text-slate-500">
-                                                        Ref: {payment.reference}
+                                                        Ref: {payment?.payment?.reference}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right">
                                                     <p className="text-sm font-semibold text-slate-800">
-                                                        {formatCurrency(payment.amount)}
+                                                        {formatCurrency(payment?.payment?.amount)}
                                                     </p>
                                                     <p className="text-xs text-slate-500">
-                                                        Due: {formatDate(payment.due)}
+                                                        Due: {formatDate(payment?.payment?.due)}
                                                     </p>
                                                 </div>
-                                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(payment.status)}`}>
-                                                    {payment.status}
+                                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(payment?.payment?.status)}`}>
+                                                    {payment?.payment?.status}
                                                 </span>
                                             </div>
                                         </div>
                                         <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4">
-                                            <span>Frequency: {payment.frequency}</span>
-                                            <span>Paid: {formatCurrency(payment.paid)}</span>
-                                            <span>Debt: {formatCurrency(payment.debt)}</span>
-                                            <span>Sessions: {payment.sessions?.length || 0}</span>
+                                            <span>Frequency: {payment?.payment?.frequency}</span>
+                                            <span>Paid: {formatCurrency(payment?.payment?.paid)}</span>
+                                            <span>Debt: {formatCurrency(payment?.payment?.debt)}</span>
+                                            <span>Sessions: {payment?.payment?.sessions?.length || 0}</span>
                                         </div>
                                     </button>
                                 ))
@@ -301,7 +299,7 @@ export default function PaymentPage() {
 
                     {/* Wallet & Agent Info */}
                     <div className="mb-8 grid gap-6 md:grid-cols-2">
-                        {wallet && (
+                        {payment?.wallet && (
                             <div className="rounded-lg border border-emerald-100 bg-white shadow-lg">
                                 <div className="border-b border-emerald-100 px-6 py-4">
                                     <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
@@ -312,11 +310,11 @@ export default function PaymentPage() {
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Name</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "****** *******" : wallet.accountName}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "****** *******" : payment?.wallet?.accountName}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Account Number</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ?  "**********" : wallet.accountNo || "N/A"}</span>
+                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "**********" : payment?.wallet?.accountNo || "N/A"}</span>
                                         </div>
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
@@ -326,18 +324,18 @@ export default function PaymentPage() {
                                         </div> */}
                                         <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Currency</span>
-                                            <span className="text-sm font-medium text-slate-800">{wallet.currency}</span>
+                                            <span className="text-sm font-medium text-slate-800">{payment?.wallet?.currency}</span>
                                         </div>
-                                        {wallet.bank && (
+                                        {payment?.wallet?.bank && (
                                             <div className="flex justify-between">
                                                 <span className="text-sm text-slate-500">Bank</span>
-                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "******* *******" : wallet.bank.name}</span>
+                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "******* *******" : payment?.wallet?.bank.name}</span>
                                             </div>
                                         )}
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Status</span>
-                                            <span className={`text-sm font-medium ${wallet.status ? "text-green-600" : "text-red-600"}`}>
-                                                {wallet.status ? "Active" : "Inactive"}
+                                            <span className={`text-sm font-medium ${payment?.wallet?.status ? "text-green-600" : "text-red-600"}`}>
+                                                {payment?.wallet?.status ? "Active" : "Inactive"}
                                             </span>
                                         </div> */}
                                     </div>
@@ -390,30 +388,30 @@ export default function PaymentPage() {
                             <div>
                                 <h3 className="text-lg font-semibold text-slate-800">Ready to complete your payment?</h3>
                                 <p className="text-sm text-slate-500">
-                                    Click the button to proceed with payment for outstanding balance of {formatCurrency(totalDebt)}
+                                    Transfer the payment amount to the account details provided: {formatCurrency(totalDebt)}
                                 </p>
                             </div>
                             <button
-                                onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handlePayNow}
+                                onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handleConfirmPayment}
                                 disabled={loading || (Number(totalAmount) === Number(totalPaid))}
-                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" :"inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"}
+                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" : "inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"}
                             >
-                                {(Number(totalAmount) === Number(totalPaid)) ? 
+                                {(Number(totalAmount) === Number(totalPaid)) ?
                                     <>
-                                    <CreditCard className="h-4 w-4 animate-spin" />
-                                    Paid
-                                </>
-                                 : loading ? (
-                                    <>
-                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                        Processing...
+                                        <CreditCard className="h-4 w-4 animate-spin" />
+                                        Paid
                                     </>
-                                ) : (
-                                    <>
-                                        I have made the payment
-                                        <ArrowRight className="h-4 w-4" />
-                                    </>
-                                )}
+                                    : loading ? (
+                                        <>
+                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            I have made the payment
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
+                                    )}
                             </button>
                         </div>
                     </div>

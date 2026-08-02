@@ -24,7 +24,7 @@ export default function AssurancePage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
   const { addToast } = useToast();
 
   if (role !== "ADMIN" && user?.permission?.canViewAssurance !== true) {

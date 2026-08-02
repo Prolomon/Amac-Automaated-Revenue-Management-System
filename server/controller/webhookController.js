@@ -51,6 +51,17 @@ const nombaWebhook = async (req, res) => {
     const customerEmail = senderDetails?.email || null;
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
+    console.log('Received Nomba webhook:', {
+      type,
+      aliasRef,
+      amount,
+      fee,
+      merchantUserId,
+      walletId,
+      customerEmail,
+      transactionReference
+    });
+
     if (!aliasRef) {
       return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
     }

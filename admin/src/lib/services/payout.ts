@@ -18,7 +18,7 @@ export const createPayout = async (
   accountName: string,
   bankCode: string,
   bankName: string,
-  role: "MEMBER" | "ADMIN" | "AGENT" | "COMPANY" | "STAFF",
+  role: "MEMBER" | "ADMIN" | "AGENT" | "COMPANY" | "STAFF" | "IT",
 ): Promise<{data?: any, message?: string, ok: boolean}> => {
   const response = await fetch(`${API_URL}/payout`, {
     headers: { ...buildHeaders() },

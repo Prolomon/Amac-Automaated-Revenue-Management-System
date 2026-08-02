@@ -54,7 +54,7 @@ export default function PartnerDetailsPage() {
     const [deleting, setDeleting] = useState(false);
     const [wallet, setWallet] = useState<WalletType | null>(null);
     const zoneOptions = ["A", "B", "C", "D", "E"];
-    const centerId = role === "ADMIN" ? user?.uid : user?.center;
+    const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
     const normalizePricingIds = (value: unknown): string[] => {
         if (typeof value === "string") {

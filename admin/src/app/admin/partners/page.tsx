@@ -27,7 +27,7 @@ export default function OrganizationsPage() {
     totalPages: 1,
   });
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
   const pageRef = useRef(meta.page);
   const limitRef = useRef(meta.limit);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import Cookies from 'js-cookie' 
+import Cookies from 'js-cookie'
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { login as userLogin, getAdmin } from "@/lib/services/admin";
@@ -31,37 +31,18 @@ export const AuthProvider = ({ children }) => {
   const refresh = async () => {
     setLoading(true);
     try {
-      let res;
+      const res = await getAdmin(uid);
 
-      if (role === "ADMIN") {
-        res = await getAdmin(uid);
+      if (res.ok) {
+        setAdmin(res.admin);
+        setIsAuthenticated(true);
+        Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
+        setUid(res.admin.uid);
+        setRole(res.admin.role);
 
-        if (res.ok) {
-          setAdmin(res.admin);
-          setIsAuthenticated(true);
-          Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
-          setUid(res.admin.uid);
-          setRole(res.admin.role);
-
-          Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
-        } else {
-          throw new Error(res.message || "Failed to refresh user data");
-        }
+        Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
       } else {
-        res = await getStaff(uid);
-
-        if (res.ok) {
-          setStaff(res.staff);
-          setIsAuthenticated(true);
-          Cookies.set("amac_session", JSON.stringify(res.staff), { path: "/", expires: 1 });
-          setUid(res.staff.uid);
-          setToken(res.token);
-          setRole(res.role || res.staff.role);
-          Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
-          Cookies.set("amac_role", res.role || res.staff.role, { path: "/", expires: 1 }); // 3 days
-        } else {
-          throw new Error(res.message || "Failed to refresh user data");
-        }
+        throw new Error(res.message || "Failed to refresh user data");
       }
     } catch (err) {
       setError(err.message);
@@ -86,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       setAdmin(res.admin);
       setIsAuthenticated(true);
       Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
+      Cookies.set("amac_uid", res.admin.uid, { path: "/", expires: 1 }); // 3 days
       setUid(res.admin.uid);
       setToken(res.token);
       setRole(res.role || res.admin.role);
@@ -149,7 +131,7 @@ export const AuthProvider = ({ children }) => {
 
 
   const value = {
-    user: role === "ADMIN" ? admin : staff,
+    user: admin,
     isAuthenticated,
     loading,
     error,

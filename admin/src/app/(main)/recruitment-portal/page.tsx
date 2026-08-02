@@ -147,6 +147,13 @@ export default function RecruitmentPortalPage() {
                         Complete your application below to be considered for the Unified Revenue Management System recruitment program.
                     </p>
 
+                    <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5">
+                        <p className="text-sm font-semibold text-amber-900">Recruitment notice</p>
+                        <p className="mt-1 text-sm text-amber-900">
+                            Applying is completely free. We do not charge any fee to apply, sit for a test, attend an interview, or receive an offer. Do not send money or your bank card details to anyone claiming to guarantee you a position. Report suspicious requests to <a href="mailto:support@afriverge.com" className="font-semibold underline">support@afriverge.com</a>.
+                        </p>
+                    </div>
+
                     <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
                         <div className="grid gap-5 md:grid-cols-2">
                             <div>
@@ -376,6 +383,27 @@ export default function RecruitmentPortalPage() {
                             </div>
                         )}
                     </form>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                    <h2 className="text-lg font-semibold text-slate-900">What happens after you apply</h2>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Step 1</p>
+                            <p className="mt-1 text-sm font-medium text-slate-900">Application review</p>
+                            <p className="mt-1 text-sm text-slate-600">Our team reviews submitted applications for completeness and eligibility.</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Step 2</p>
+                            <p className="mt-1 text-sm font-medium text-slate-900">Contact from us</p>
+                            <p className="mt-1 text-sm text-slate-600">Shortlisted applicants are contacted using the phone number or email provided in this form.</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Step 3</p>
+                            <p className="mt-1 text-sm font-medium text-slate-900">Onboarding</p>
+                            <p className="mt-1 text-sm text-slate-600">Successful applicants are onboarded and registered on the Platform as agents or operations staff.</p>
+                        </div>
+                    </div>
                 </div>
             </main>
 

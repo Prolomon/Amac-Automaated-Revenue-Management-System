@@ -20,6 +20,7 @@ export const WalletProvider = ({ children }) => {
     const [error, setError] = useState<Error | null>(null); 
     const [message, setMessage] = useState<string | null>(null);
     const [uid, setUid] = useState<string | null>(null);
+    const [role, setRole] = useState<"MEMBER" | "ADMIN" | "AGENT" | "STAFF" | "IT" | "COMPANY">("ADMIN"); // Default role to "ADMIN" for testing
 
     // Fetch wallet data when customerCode is available
     const fetchWallet = useCallback(async () => {
@@ -33,7 +34,7 @@ export const WalletProvider = ({ children }) => {
                 return;
             }
 
-            const { ok, wallet, message, isExist } = await getWallet(uid, "ADMIN");
+            const { ok, wallet, message, isExist } = await getWallet(uid, role);
 
             if (isExist) {
                 if (ok && wallet) {
@@ -59,7 +60,7 @@ export const WalletProvider = ({ children }) => {
             setLoading(false);
         }
 
-    }, [uid]);
+    }, [role, uid]);
 
     useEffect(() => {
         fetchWallet();
@@ -77,6 +78,7 @@ export const WalletProvider = ({ children }) => {
         message,
         refresh,
         setUid,
+        setRole,
         createWallet,
         initiateTransfer, 
         resolveBankAccount,

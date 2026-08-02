@@ -54,7 +54,7 @@ const createWallet = async (req, res) => {
       });
     }
 
-    const acc = await createAccount(name, bvn, id);
+    const acc = await createAccount(name, id, bvn);
 
     if (!acc?.status) {
       return res.status(502).json({

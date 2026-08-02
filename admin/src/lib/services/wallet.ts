@@ -4,7 +4,7 @@ import { Admin } from "./admin";
 export type Wallet = {
   id: string;
   userId?: string;
-  role: "MEMBER" | "ADMIN" | "AGENT" | "PARTNER" | "STAFF";
+  role: "MEMBER" | "ADMIN" | "AGENT" | "COMPANY" | "STAFF" | "IT";
   balance?: number;
   accountNo?: string;
   createdAt?: Date;
@@ -70,7 +70,7 @@ export async function createWallet(
 
 export async function getWallet(
   id: string,
-  role: "MEMBER" | "ADMIN" | "AGENT" | "COMPANY" | "STAFF",
+  role: "MEMBER" | "ADMIN" | "AGENT" | "COMPANY" | "STAFF" | "IT"
 ): Promise<{
   ok: boolean;
   wallet?: Wallet;

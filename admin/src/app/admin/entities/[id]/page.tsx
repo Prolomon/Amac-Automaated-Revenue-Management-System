@@ -83,7 +83,7 @@ export default function EntityDetailsPage({ params }) {
   const [companyLoading, setCompanyLoading] = useState(false);
   const isFetchingRef = useRef(false);
   const lastFetchAtRef = useRef(0);
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
   const normalizePricingIds = (value: unknown): string[] => {
     if (typeof value === "string") {

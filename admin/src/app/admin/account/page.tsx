@@ -17,6 +17,7 @@ import { Staff } from "@/lib/services/staff";
 import stateAndLgasData from "@/lib/jsons/state_and_lgas.json";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
+import withAuth from "../../../components/withAuth";
 
 type StateLgaMap = Record<string, string[]>;
 const stateLgaMap = stateAndLgasData as StateLgaMap;
@@ -50,7 +51,7 @@ const mapAdminToForm = (admin: any): Admin => ({
 
 import { getLocation } from "@/lib/services/location";
 
-export default function AccountPage() {
+function AccountPage() {
     const router = useRouter();
     const { user, role, update, logout, refresh } = useAuth();
     const { addToast } = useToast();
@@ -63,7 +64,7 @@ export default function AccountPage() {
     const [suggestions, setSuggestions] = useState([]);
     const [adminSuggestions, setAdminSuggestions] = useState([]);
 
-    const isAdmin = role === "ADMIN";
+    const isAdmin = role === "ADMIN" || role === "IT";
 
     const states = useMemo(
         () => Object.keys(stateLgaMap).sort((a, b) => a.localeCompare(b)),
@@ -113,16 +114,9 @@ export default function AccountPage() {
         } catch (error) {
             addToast("error", "Failed to fetch account details");
         } finally {
-
             setLoading(false);
         }
     }, [user, isAdmin, addToast]);
-
-    useEffect(() => {
-        if (!loading && !hasProfile) {
-            router.replace("/");
-        }
-    }, [hasProfile, loading, router]);
 
     type StringField = Exclude<keyof Admin, "location">;
 
@@ -728,3 +722,5 @@ export default function AccountPage() {
         </div>
     );
 }
+
+export default withAuth(AccountPage);

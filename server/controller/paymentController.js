@@ -9,6 +9,7 @@ import { customAlphabet } from "nanoid";
 import { initiateTransfer as nombaTransfer } from "../service/wallet.js";
 import { generateTransactionReference } from "./paymentTransactionController.js";
 import argon2 from "argon2";
+import { createAccount, getAccount } from "../service/wallet.js";
 
 const paymentReferenceSuffix = customAlphabet(
   "0123456789",
@@ -499,7 +500,6 @@ const makePayment = async (req, res) => {
 
     const member = await prisma.member.findUnique({
       where: { uid: userId },
-      select: { uid: true, secureToken: true },
     });
 
     if (!member) {
@@ -664,7 +664,7 @@ const makePayment = async (req, res) => {
     };
 
     const grossAmount = Number(amount);
-    const feePercentage = 0.02; // 5% fee
+    const feePercentage = 0.015; // 1.5% fee
     const fee = grossAmount * feePercentage;
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
@@ -1077,20 +1077,19 @@ const getPaymentForUser = async (req, res) => {
           { phone: id },
         ],
       },
-      select: { uid: true },
     });
 
     if (member) {
       const payments = await prisma.payment.findMany({
         where: { userId: member.uid },
-        include: { member: true, pricing: true },
+        include: { member: true, pricing: true, demandNotices: true },
         orderBy: { createdAt: "desc" },
       });
 
       const agentUid = member.agent;
 
       if (!agentUid) {
-        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+        return res.status(500).json({ ok: false, message: "Please Contact Support to assign an agent" });
       }
 
       const agent = await prisma.agent.findFirst({
@@ -1098,32 +1097,87 @@ const getPaymentForUser = async (req, res) => {
       });
 
       if (!agent) {
-        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+        return res.status(500).json({ ok: false, message: "Please Contact Support to assign an agent" });
       }
 
-      let wallet;
+      const paymentList = await Promise.all(
+        payments.map(async (payment) => {
+          const demand = payment.demandNotices[0];
+          let wallet;
 
-      wallet = await prisma.wallet.findFirst({
-        where: { userId: member.uid, role: "MEMBER" },
-      });
+          if (demand) {
+            wallet = await prisma.wallet.findFirst({
+              where: { userId: demand.reference, role: "MEMBER" },
+            });
+            return { payment, wallet: wallet || null };
+          }
 
-      if (!wallet) {
-        wallet = await prisma.wallet.findFirst({
-          where: { userId: agentUid, role: "AGENT" },
-        });
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: payment.reference, role: "CHECKOUT" },
+          });
 
-        if (!wallet) {
-          return res.status(500).json({ ok: false, message: "Please contact support" });
-        }
-      }
+          if (wallet) {
+            return { payment, wallet };
+          }
 
-      return res.status(200).json({ ok: true, data: { payments, member, wallet, agent } });
-    }
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + 1);
+          const expiry = expiryDate.toISOString();
 
-    if (!member) {
+          let acc = await createAccount(
+            `${payment.pricing.code} ${member.businessName || member.fullname || "N/A"}`,
+            payment.reference,
+            null,
+            expiry
+          );
+
+          console.log('Account creation response:', acc);
+
+          if (acc?.data?.status === false) {
+            if (acc?.data?.description?.includes('already exists')) {
+              acc = await getAccount(payment.reference);
+            } else {
+              return { payment, wallet: null, error: acc?.data?.description || "Failed to create payment account" };
+            }
+          }
+
+          if (!acc?.data?.bankAccountNumber) {
+            return { payment, wallet: null, error: "Unable to retrieve account details" };
+          }
+
+          try {
+            wallet = await prisma.wallet.create({
+              data: {
+                userId: payment.reference,
+                accountNo: acc.data.bankAccountNumber,
+                role: "CHECKOUT",
+                bank: {
+                  name: acc.data.bankName,
+                  id: acc.data.accountRef || payment.reference,
+                  code: 110028,
+                },
+                balance: 0.0,
+                status: acc.data.expired,
+                accountName: acc.data.bankAccountName,
+                currency: acc.data.currency,
+                accountHolderId: acc.data.accountHolderId,
+              },
+            });
+            return { payment, wallet };
+          } catch (createErr) {
+            if (createErr?.code === "P2002") {
+              return { payment, wallet: null, error: "Wallet account number already exists." };
+            }
+            return { payment, wallet: null, error: createErr?.message || "Wallet creation failed" };
+          }
+        })
+      );
+
+      return res.status(200).json({ ok: true, data: { payments: paymentList, member, agent } });
+    } else {
       const payment = await prisma.payment.findFirst({
         where: { reference: id },
-        include: { member: true, pricing: true },
+        include: { member: true, pricing: true, demandNotices: true },
       });
 
       if (!payment) {
@@ -1133,7 +1187,7 @@ const getPaymentForUser = async (req, res) => {
       const agentUid = payment?.member?.agent;
 
       if (!agentUid) {
-        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+        return res.status(500).json({ ok: false, message: "Please Contact Support to assign an agent | not member" });
       }
 
       const agent = await prisma.agent.findFirst({
@@ -1141,34 +1195,88 @@ const getPaymentForUser = async (req, res) => {
       });
 
       if (!agent) {
-        return res.status(500).json({ ok: false, message: "Please Contact Support" });
+        return res.status(500).json({ ok: false, message: "Please Contact Support to assign an agent | not member" });
       }
 
       member = await prisma.member.findFirst({
         where: { uid: payment?.userId }
       });
 
-      let wallet = await prisma.wallet.findFirst({
-        where: { userId: payment.userId, role: "MEMBER" },
-      });
+      const demand = payment.demandNotices[0];
 
-      if (!wallet) {
+      let wallet;
+
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 1);
+      const expiry = expiryDate.toISOString();
+
+      if (demand) {
+        const demandWallet = await prisma.wallet.findFirst({
+          where: { userId: demand.reference, role: "MEMBER" },
+        });
+        wallet = demandWallet || null;
+      } else {
         wallet = await prisma.wallet.findFirst({
-          where: { userId: agentUid, role: "AGENT" },
+          where: { userId: payment.reference, role: "CHECKOUT" },
         });
 
         if (!wallet) {
-          return res.status(500).json({ ok: false, message: "Please contact support" });
+          let acc = await createAccount(
+            `${payment.pricing.code} ${member.businessName || member.fullname || "N/A"}`,
+            payment.reference,
+            null,
+            expiry
+          );
+
+          if (acc?.data?.status === false) {
+            if (acc?.data?.description?.includes('already exists')) {
+              acc = await getAccount(payment.reference);
+            } else {
+              return res.status(400).json({
+                ok: false,
+                message: acc?.data?.description || "Failed to create payment account",
+              });
+            }
+          }
+
+          if (!acc?.data?.bankAccountNumber) {
+            return res.status(500).json({
+              ok: false,
+              message: "Unable to retrieve account details",
+            });
+          }
+
+          try {
+            wallet = await prisma.wallet.create({
+              data: {
+                userId: payment.reference,
+                accountNo: acc.data.bankAccountNumber,
+                role: "CHECKOUT",
+                bank: {
+                  name: acc.data.bankName,
+                  id: acc.data.accountRef || payment.reference,
+                  code: 110028,
+                },
+                balance: 0.0,
+                status: acc.data.expired,
+                accountName: acc.data.bankAccountName,
+                currency: acc.data.currency,
+                accountHolderId: acc.data.accountHolderId,
+              },
+            });
+          } catch (createErr) {
+            if (createErr?.code === "P2002") {
+              return res.status(409).json({
+                ok: false,
+                message: "Wallet account number already exists. Please retry wallet creation.",
+              });
+            }
+            throw createErr;
+          }
         }
       }
 
-      const payments = await prisma.payment.findMany({
-        where: { userId: member.uid },
-        include: { member: true, pricing: true },
-        orderBy: { createdAt: "desc" },
-      });
-
-      return res.status(200).json({ ok: true, data: { payments, wallet, agent, member } });
+      return res.status(200).json({ ok: true, data: { payments: [{ payment, wallet }], agent, member } });
     }
 
   } catch (err) {
@@ -1177,6 +1285,500 @@ const getPaymentForUser = async (req, res) => {
       .json({ ok: false, message: err?.message || "Server error" });
   }
 }
+
+const confirmPayment = async (req, res) => {
+  try {
+
+    const { error, value } = makePaymentSchema.validate(req.body, {
+      abortEarly: false,
+    });
+
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return res.status(400).json({
+        ok: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
+    const { amount: pAmount, center, company } = value;
+    const { userId, paymentId } = req.params;
+
+    let amount = Number(pAmount);
+
+    const member = await prisma.member.findFirst({
+      where: { uid: userId },
+    });
+
+    if (!member) {
+      return res.status(404).json({ ok: false, message: "Member not found" });
+    }
+
+    const [paymentRecord, main, mainWallet, agentWallet, technologyWallet] =
+      await Promise.all([
+        prisma.payment.findFirst({
+          where: { id: paymentId },
+          select: {
+            id: true,
+            reference: true,
+            userId: true,
+            frequency: true,
+            sessions: true,
+            debt: true,
+            due: true,
+            amount: true,
+            payment: true,
+            status: true,
+            isVerify: true,
+            createdAt: true,
+            updatedAt: true,
+            paid: true,
+            demandNotices: true,
+          },
+        }),
+        prisma.admin.findFirst({
+          where: { uid: center },
+          select: {
+            id: true,
+            uid: true,
+            center: true,
+            email: true,
+            password: true,
+            avatar: true,
+            role: true,
+            paymentConfig: true,
+            createdAt: true,
+            updatedAt: true,
+            location: true,
+            state: true,
+            address: true,
+            lga: true,
+            country: true,
+            status: true,
+            phone: true,
+            adminName: true,
+            adminEmail: true,
+            adminLocation: true,
+            adminPhone: true,
+          },
+        }),
+        prisma.wallet.findFirst({
+          where: { userId: center, role: "ADMIN" },
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            role: true,
+            accountHolderId: true,
+            createdAt: true,
+            updatedAt: true,
+            balance: true,
+            accountNo: true,
+            accountName: true,
+            currency: true,
+            bank: true,
+            identification: true,
+            verify: true,
+          },
+        }),
+        prisma.wallet.findFirst({
+          where: { userId: company, role: "COMPANY" },
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            role: true,
+            createdAt: true,
+            updatedAt: true,
+            balance: true,
+            accountNo: true,
+            accountHolderId: true,
+            accountName: true,
+            currency: true,
+            bank: true,
+            identification: true,
+            verify: true,
+          },
+        }),
+        prisma.wallet.findFirst({
+          where: { role: "IT" },
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            role: true,
+            createdAt: true,
+            updatedAt: true,
+            balance: true,
+            accountNo: true,
+            accountName: true,
+            currency: true,
+            accountHolderId: true,
+            bank: true,
+            identification: true,
+            verify: true,
+          },
+        }),
+      ]);
+
+    if (!paymentRecord) {
+      return res.status(404).json({ ok: false, message: "Payment record not found" });
+    }
+
+    if (paymentRecord.paid) {
+      return res.status(201).json({ ok: true, message: "Payment has already been made for this record" });
+    }
+
+    if (!main) {
+      return res.status(500).json({ ok: false, message: "Main admin not found" });
+    }
+
+    if (!main.paymentConfig) {
+      return res.status(500).json({ ok: false, message: "Payment configuration is incomplete" });
+    }
+
+    const paymentWallet = await prisma.wallet.findFirst({
+      where: { userId: paymentRecord.reference, role: "CHECKOUT" },
+    });
+
+    if (paymentWallet) {
+      amount = Number(paymentWallet.balance);
+    }
+
+     if (paymentWallet && Number(paymentWallet.balance) == 0) {
+      return res.status(400).json({ ok: false, message: "Insufficient balance in sender wallet" });
+    }
+
+    const paymentConfig = main.paymentConfig || {
+      main: 65,
+      agent: 25,
+      technology: 10,
+    };
+
+    const principal = Number(amount);
+    const vat = principal * 0.075;
+    const fee = principal * 0.015;
+    const subtotal = principal + vat + fee;
+
+    const paymentDate = new Date(paymentRecord.due);
+    const currentDate = new Date();
+
+    let daysOverdue = 0;
+    if (currentDate > paymentDate) {
+      const diffTime = currentDate - paymentDate;
+      daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    const penaltyRatePerDay = 0.00005; // 0.005% per day
+    const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+    const grossAmount = Number(subtotal + penalty);
+    const totalAmount = grossAmount - fee;
+    const receiptReference = generateTransactionReference();
+
+    if (paymentWallet && Number(paymentWallet.balance) < grossAmount) {
+      return res.status(400).json({ ok: false, message: "Insufficient balance in sender wallet" });
+    }
+
+    const mainShare = Number(paymentConfig.main ?? 0);
+    const agentShare = Number(paymentConfig.agent ?? 0);
+    const technologyShare = Number(paymentConfig.technology ?? 0);
+
+    const mainAmount = (totalAmount * mainShare) / 100;
+    const agentAmount = (totalAmount * agentShare) / 100;
+    const technologyAmount = (totalAmount * technologyShare) / 100;
+
+    const senderDetails = getWalletBankDetails(paymentWallet);
+    const receipt = generateReceipt({
+      reference: receiptReference,
+      paymentRecord,
+      grossAmount,
+      fee,
+      netAmount: totalAmount,
+      mainAmount, 
+      agentAmount,
+      technologyAmount,
+      senderWallet: paymentWallet,
+      mainWallet,
+      agentWallet,
+    });
+
+    const paymentResult = await prisma.$transaction(async (tx) => {
+      const existingDebt = Number(paymentRecord.debt || 0);
+      const currentAmount = Number(paymentRecord.amount || 0);
+
+      let remainingPayment = grossAmount;
+      let updatedDebt = existingDebt;
+
+      if (existingDebt > 0) {
+        if (remainingPayment >= existingDebt) {
+          remainingPayment -= existingDebt;
+          updatedDebt = 0;
+        } else {
+          updatedDebt = existingDebt - remainingPayment;
+          remainingPayment = 0;
+        }
+      }
+
+      if (remainingPayment > 0) {
+        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
+        updatedDebt += outstandingForCurrentCycle;
+      }
+
+      const isFullyPaid = updatedDebt <= 0;
+
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentRecord.id },
+        data: {
+          paid: (paymentRecord.paid || 0) + grossAmount,
+          debt: updatedDebt,
+          status: isFullyPaid ? "COMPLETED" : "PENDING",
+        },
+      });
+
+      if (mainWallet) {
+        await tx.wallet.update({
+          where: { id: mainWallet.id },
+          data: { balance: { increment: mainAmount } },
+        });
+      }
+
+      if (agentWallet) {
+        await tx.wallet.update({
+          where: { id: agentWallet.id },
+          data: { balance: { increment: agentAmount } },
+        });
+      }
+
+      if (technologyWallet) {
+        await tx.wallet.update({
+          where: { id: technologyWallet.id },
+          data: { balance: { increment: technologyAmount + fee } },
+        });
+      }
+
+      if (paymentWallet) {
+        if (Number(paymentWallet.balance) === grossAmount) {
+          await deleteAccount(paymentWallet.accountHolderId);
+          await tx.wallet.delete({ where: { id: paymentWallet.id } });
+        } else {
+          await tx.wallet.update({
+            where: { id: paymentWallet.id },
+            data: { balance: { decrement: grossAmount } },
+          });
+        }
+      }
+
+      await tx.admin.update({
+        where: { id: main.id },
+        data: { ledger: { increment: totalAmount } },
+      });
+
+      await Promise.all([
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-ADMIN`,
+            merchantTxRef: main.uid,
+            event: "payment.admin.credit",
+            status: "SUCCESS",
+            amount: mainAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Admin wallet credited",
+            customerEmail: main.adminEmail || main.email || null,
+            paymentId: paymentRecord.id,
+            userId: main.uid,
+            metadata: {
+              receipt,
+              role: "ADMIN",
+              transactionType: "CREDIT",
+              creditedAmount: mainAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-AGENT`,
+            merchantTxRef: company,
+            event: "payment.agent.credit",
+            status: "SUCCESS",
+            amount: agentAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Agent wallet credited",
+            customerEmail: agentWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: company,
+            metadata: {
+              receipt,
+              role: "AGENT",
+              transactionType: "CREDIT",
+              creditedAmount: agentAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-SENDER`,
+            merchantTxRef: userId,
+            event: "payment.sender.debit",
+            status: "SUCCESS",
+            amount: grossAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Sender wallet debited",
+            customerEmail: member.email || null,
+            paymentId: paymentRecord.id,
+            userId: paymentWallet?.userId || userId,
+            metadata: {
+              receipt,
+              role: "SENDER",
+              transactionType: "DEBIT",
+              debitedAmount: grossAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-IT`,
+            merchantTxRef: technologyWallet?.userId || "URMSAD-8485HB5SQ3",
+            event: "payment.it.debit",
+            status: "SUCCESS",
+            amount: technologyAmount + fee,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "IT wallet credited",
+            customerEmail: member.email || null,
+            paymentId: paymentRecord.id,
+            userId: "URMSAD-ZWKN67CO79",
+            metadata: {
+              receipt,
+              role: "IT",
+              transactionType: "CREDIT",
+              creditedAmount: technologyAmount + fee,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+      ]);
+
+      const paymentTransaction = await tx.paymentTransaction.create({
+        data: {
+          reference: `${receiptReference}-PAYMENT`,
+          userId,
+          pricingId: paymentRecord.payment,
+          companyId: company || null,
+          centerId: center || main.uid,
+          amount: grossAmount,
+          currency: "NGN",
+          paymentId: paymentRecord.id,
+          date: new Date(),
+          type: Number(updatedPayment.debt) > 0 ? "PART_PAYMENT" : "COMPLETE",
+          billing: paymentRecord.frequency || "MONTHLY",
+          status: "SUCCESS",
+          metadata: {
+            receipt,
+            paymentReference: paymentRecord.reference,
+            split: { mainAmount, agentAmount, technologyAmount, fee },
+          },
+        },
+      });
+
+      return { payment: updatedPayment, paymentTransaction };
+    });
+
+    if (agentWallet && agentWallet.accountNo && agentWallet.bank?.code) {
+      try {
+        const agentTransfer = await nombaTransfer(
+          agentAmount,
+          agentWallet.accountNo,
+          agentWallet.accountName || "Agent",
+          agentWallet.bank.code,
+          `${receiptReference}-AGENT-TRANSFER`,
+          `${senderDetails.accountName || " - Payment Split"}`,
+          "Agent wallet payout"
+        );
+
+        if (!agentTransfer?.status) {
+          console.error("Agent Nomba transfer failed:", agentTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error("Agent Nomba transfer error:", transferError?.message || transferError);
+      }
+    }
+
+    if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
+      const payout = await prisma.payout.findFirst({
+        where: { userId: center },
+      });
+
+      try {
+        const adminTransfer = await nombaTransfer(
+          mainAmount,
+          payout?.accountNumber || mainWallet.accountNo,
+          payout?.accountName || "Admin",
+          payout?.bankCode || mainWallet.bank?.code,
+          `${receiptReference}-ADMIN-TRANSFER`,
+          `${senderDetails.accountName || " - Payment Split"}`,
+          "Admin wallet payout"
+        );
+
+        if (!adminTransfer?.status) {
+          console.error("Admin Nomba transfer failed:", adminTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error("Admin Nomba transfer error:", transferError?.message || transferError);
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: "Payment initiated, split and transfers initialized successfully",
+      data: {
+        payment: paymentResult.payment,
+        paymentTransaction: paymentResult.paymentTransaction,
+        amountBreakdown: {
+          grossAmount,
+          fee,
+          netAmount: totalAmount,
+        },
+        split: {
+          mainWallet: mainAmount,
+          agentWallet: agentAmount,
+          technologyWallet: technologyAmount + fee,
+          breakdown: {
+            main: mainAmount,
+            agent: agentAmount,
+            technology: technologyAmount,
+          },
+        },
+        receipt
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
 
 export {
   createPayment,
@@ -1193,5 +1795,6 @@ export {
   getNextDueDate,
   getPaymentsByPartnerId,
   getPaymentsByCenterId,
-  getPaymentForUser
+  getPaymentForUser,
+  confirmPayment
 };

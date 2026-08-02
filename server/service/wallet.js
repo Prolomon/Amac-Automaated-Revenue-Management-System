@@ -101,7 +101,7 @@ export const getManagedAccessToken = async () => {
     return t.access_token;
 };
 
-export const createAccount = async (name, bvn, id) => {
+export const createAccount = async (name, id, bvn, expire) => {
     if (!process.env.NOMBA_PRIVATE_SECRET || !process.env.NOMBA_ACCOUNT_ID || !process.env.NOMBA_API_BASE_URL) {
         return {
             status: false,
@@ -117,8 +117,8 @@ export const createAccount = async (name, bvn, id) => {
             // include both camelCase and snake_case keys for compatibility with differing API docs
             accountRef: id || nanoid(),
             accountName: name,
-            bvn: bvn,
-            expiryDate: "2026-10-10 12:15:00",
+            ...(bvn && { bvn }),
+            ...(expire && { expiryDate: expire }), // default to 5 year from now
         };
 
         const token = await getManagedAccessToken();
@@ -143,8 +143,9 @@ export const createAccount = async (name, bvn, id) => {
             console.log('Nomba createAccount error', { data });
             return {
                 status: false,
-                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                message: data?.description || data?.message || `NOMBA request failed with status ${response.status}`,
                 data: data?.data || null,
+                code: data?.code || null,
             };
         }
 
@@ -153,8 +154,9 @@ export const createAccount = async (name, bvn, id) => {
         console.log('Nomba createAccount exception', { error });
         return {
             status: false,
-            message: error?.message || 'Unable to reach NOMBA',
+            message: error?.description || error?.message || 'Unable to reach NOMBA',
             data: null,
+            code: error?.code || null,
         };
     }
 };
@@ -192,7 +194,7 @@ export const deleteAccount = async (id) => {
             console.log('Nomba createAccount error', { data });
             return {
                 status: false,
-                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                message: data?.description || data?.message || `NOMBA request failed with status ${response.status}`,
                 data: data?.data || null,
             };
         }
@@ -202,7 +204,7 @@ export const deleteAccount = async (id) => {
         console.log('Nomba createAccount exception', { error });
         return {
             status: false,
-            message: error?.message || 'Unable to reach NOMBA',
+            message: error?.description || error?.message || 'Unable to reach NOMBA',
             data: null,
         };
     }
@@ -467,6 +469,52 @@ export const checkBalance = async () => {
             method: 'GET',
             headers,
             body: JSON.stringify({ accountId: process.env.NOMBA_ACCOUNT_ID }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.status) {
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
+};
+
+export const getAccount = async (id) => {
+    if (!process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_API_BASE_URL is not configured',
+            data: null,
+        };
+    }
+
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/virtual/${id}`;
+
+    try {   
+
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers,
         });
 
         const data = await response.json();

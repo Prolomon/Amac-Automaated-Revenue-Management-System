@@ -4,6 +4,7 @@ import { TransactionStatus } from "./wallet";
 import { Member } from "./member";
 import { Wallet } from "./wallet";
 import { Agent } from "./agent";
+import { Demand } from "./demand";
 
 export type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "QUARTERLY";
 
@@ -15,7 +16,13 @@ export type Payment = {
   date: string;
   amount: number;
   payment: string;
-  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED" | "COMPLETED";
+  status:
+    | "PENDING"
+    | "SUCCESS"
+    | "FAILED"
+    | "CANCELLED"
+    | "REFUNDED"
+    | "COMPLETED";
   due: Date | null;
   member?: Member;
   isVerified: boolean;
@@ -164,9 +171,7 @@ export async function getRecords(
   return data;
 }
 
-export async function getRecord(
-  id: string,
-): Promise<{
+export async function getRecord(id: string): Promise<{
   ok: boolean;
   transaction?: PaymentTransaction;
   message?: string;
@@ -220,7 +225,65 @@ export async function verifyPayment(
   return data;
 }
 
-export async function payNow (id: string): Promise<{ ok: boolean; message?: string; data?: { payments?: Payment[], member: Member, wallet?: Wallet, agent?: Agent } }> {
+export type DataType = {
+  payment: Payment;
+  paymentTransaction: PaymentTransaction;
+  amountBreakdown: {
+    grossAmount: string;
+    fee: string;
+    netAmount: string;
+  };
+  split: {
+    mainWallet: Wallet;
+    agentWallet: Wallet;
+    technologyWallet: Wallet;
+    breakdown: {
+      main: string;
+      agent: string;
+      technology: string;
+    };
+  };
+  demand: Demand;
+};
+
+export async function confirmPayment(
+  userId?: string,
+  paymentId?: string,
+  amount?: number,
+  center?: string,
+  company?: string,
+): Promise<{ ok: boolean; message?: string; data: DataType }> {
+  console.log("Confirming payment with details:", { userId, paymentId, amount, center, company });
+  if (!userId || !paymentId || !amount || !center || !company) {
+    throw new Error("Missing required parameters for confirming payment");
+  }
+  const response = await fetch(`${API_URL}/payment/confirm/${userId}/${paymentId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ amount, center, company }),
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to confirm payment");
+  }
+
+  return data;
+}
+
+export async function payNow(
+  id: string,
+): Promise<{
+  ok: boolean;
+  message?: string;
+  data?: {
+    payments?: { wallet: Wallet; payment: Payment }[];
+    member: Member;
+    agent?: Agent;
+  };
+}> {
   const response = await fetch(`${API_URL}/payment/pay-now/${id}`, {
     method: "GET",
   });

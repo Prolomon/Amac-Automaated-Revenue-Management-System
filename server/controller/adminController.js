@@ -455,23 +455,23 @@ const loginAdmin = async (req, res) => {
     const token = await generateAuthToken({
       uid: admin.uid,
       role: admin.role,
-      type: "admin",
+      type: admin.role === "ADMIN" ? "admin" : "it",
     });
 
-    void sendEmail(
-      admin.email,
-      "Login Alert from URMS",
-      await loginAlert(
-        admin.adminName || admin.center || "Admin",
-        new Date().toLocaleString(),
-        ip,
-      ),
-    ).catch((emailErr) => {
-      console.error(
-        "Admin login alert email failed:",
-        emailErr?.message || emailErr,
-      );
-    });
+    // void sendEmail(
+    //   admin.email,
+    //   "Login Alert from URMS",
+    //   await loginAlert(
+    //     admin.adminName || admin.center || "Admin",
+    //     new Date().toLocaleString(),
+    //     ip,
+    //   ),
+    // ).catch((emailErr) => {
+    //   console.error(
+    //     "Admin login alert email failed:",
+    //     emailErr?.message || emailErr,
+    //   );
+    // });
 
     return res.status(200).json({
       ok: true,

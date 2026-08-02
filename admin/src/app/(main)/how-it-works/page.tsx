@@ -520,6 +520,15 @@ export default function HowItWorksPage() {
                     </div>
                 </div>
             </section>
+
+            <section className="mx-auto w-full max-w-7xl px-4 pb-14 md:px-6">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 md:p-8">
+                    <h2 className="text-lg font-semibold text-amber-900">A quick safety reminder</h2>
+                    <p className="mt-2 max-w-3xl text-sm text-amber-900">
+                        Every step above happens on this website or through our verified agents and official channels. We never ask for payment through personal bank accounts, and every successful payment always produces a receipt you can verify. If anything feels off, stop and call our support line before proceeding.
+                    </p>
+                </div>
+            </section>
         </main>
     );
 }

@@ -104,9 +104,6 @@ const createPaymentSchema = Joi.object({
     company: Joi.string().trim().optional().messages({
       'string.base': 'Company must be a string',
     }),
-    pin: Joi.string().trim().optional().messages({
-      'string.base': 'PIN must be a string',
-    }),
   });
 
   export { createPaymentSchema, verifyPaymentSchema, updatePaymentScheduleSchema, makePaymentSchema };

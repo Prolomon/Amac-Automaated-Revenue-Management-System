@@ -51,7 +51,7 @@ function TransactionDetailPage() {
     const transactionId = params.id as string;
     const { wallet, getTransaction } = useWallet();
     const { user, role } = useAuth();
-    const centerId = role === "ADMIN" ? user?.uid : user?.center;
+    const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
     const { addToast } = useToast();
     
     const [transaction, setTransaction] = useState<Transaction | null>(null);

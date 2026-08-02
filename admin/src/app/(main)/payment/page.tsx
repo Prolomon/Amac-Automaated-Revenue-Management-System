@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Phone, User, CreditCard, CheckCircle, Shield, Wallet, ArrowRight, Search, Mail, Clock, X, FileText, Calendar, Hash, RefreshCw } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { verifyPayment, Payment, payNow } from "@/lib/services/payments";
 import { useRouter } from "next/navigation";
 
-function PaymentContent() {
+export default function PaymentPage() {
     const router = useRouter();
     const [identifier, setIdentifier] = useState("");
     const [showPayButton, setShowPayButton] = useState(false);
@@ -155,8 +155,8 @@ function PaymentContent() {
                                 </div>
 
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-100/50 p-3">
-                                    <p className="text-xs font-medium text-emerald-900">
-                                        💳 Your payment is protected with bank-level security encryption
+                                    <p className="text-xs font-medium text-emerald-900 inline-flex items-center gap-1">
+                                        <CreditCard className="h-5 w-5 text-emerald-600 fill-amber-600" /> Your payment is protected with bank-level security encryption
                                     </p>
                                 </div>
                             </div>
@@ -221,7 +221,7 @@ function PaymentContent() {
                                         </div>
                                     </div>)}
                                     {status && (
-                                        <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900" onClick={handlePayNow}>
+                                        <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 cursor-pointer" onClick={handlePayNow}>
                                             <CreditCard className="h-4 w-4" />
                                             Pay Now
                                         </button>
@@ -230,6 +230,34 @@ function PaymentContent() {
                             )}
                         </div>
                     </div>
+                </div>
+            </section>
+
+            {/* Section 2b: Accepted Channels & Anti-fraud */}
+            <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <CreditCard className="h-6 w-6 text-emerald-800" />
+                        <h3 className="mt-2 text-sm font-semibold text-slate-900">Card & Bank Transfer</h3>
+                        <p className="mt-1 text-xs text-slate-600">Pay directly on this page using your debit card or bank transfer through our secure gateway.</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <Phone className="h-6 w-6 text-emerald-800" />
+                        <h3 className="mt-2 text-sm font-semibold text-slate-900">USSD & Mobile Money</h3>
+                        <p className="mt-1 text-xs text-slate-600">Prefer offline? Dial the USSD code on your receipt or use supported mobile money channels.</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <User className="h-6 w-6 text-emerald-800" />
+                        <h3 className="mt-2 text-sm font-semibold text-slate-900">Verified Field Agents</h3>
+                        <p className="mt-1 text-xs text-slate-600">Paying an agent in person? Ask for their agent ID and confirm it with our support line first.</p>
+                    </div>
+                </div>
+
+                <div className="mt-4 flex flex-col items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center">
+                    <Shield className="h-6 w-6 shrink-0 text-amber-600" />
+                    <p className="text-sm text-amber-900">
+                        <span className="font-semibold">Protect yourself:</span> Only make payments through this website, our official USSD/bank channels, or an agent whose ID you have verified. We will never ask you to send money to a personal account, and every genuine payment gets you an official digital receipt.
+                    </p>
                 </div>
             </section>
 
@@ -270,7 +298,7 @@ function PaymentContent() {
                                 <button
                                     onClick={handleVerifyPayment}
                                     disabled={loading}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {loading ? <RefreshCw className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                                     {loading ? "Verifying..." : "Verify Payment"}
@@ -298,7 +326,7 @@ function PaymentContent() {
                         </div>
                         <button
                             onClick={() => setShowNotFoundModal(false)}
-                            className="w-full rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+                            className="w-full rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900 cursor-pointer"
                         >
                             Close
                         </button>
@@ -312,7 +340,7 @@ function PaymentContent() {
                     <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-md my-8 max-h-[90vh] flex flex-col overflow-hidden">
                         <div className="mb-4 flex items-center justify-between shrink-0">
                             <h3 className="text-lg font-bold text-slate-900">Payment Details</h3>
-                            <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
+                            <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
@@ -622,12 +650,4 @@ function PaymentContent() {
             </section>
         </main>
     );
-}
-
-export default function PaymentPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <PaymentContent />
-    </Suspense>
-  );
 }

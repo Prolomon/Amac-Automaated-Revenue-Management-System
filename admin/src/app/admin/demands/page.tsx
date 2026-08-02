@@ -14,7 +14,7 @@ function DemandsListPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const { user, role } = useAuth();
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
   const [meta, setMeta] = useState<{ total: string; page: string; limit: string; totalPages: number }>({
     total: "0",
     page: "0",

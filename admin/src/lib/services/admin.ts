@@ -52,15 +52,6 @@ export async function login( email: string, password: string ): Promise<{ ok: bo
     throw new Error(data.message || "Login failed");
   }
 
-  // persist cookie client-side (server should also set cookie via Set-Cookie)
-  if (typeof window !== "undefined" && data.admin?.uid) {
-    try {
-      document.cookie = `arums_uid=${encodeURIComponent(data.admin.uid)}; path=/; max-age=${60 * 60 * 24}; SameSite=Lax`;
-    } catch (e) {
-      console.warn("Failed to set cookie client-side", e);
-    }
-  }
-
   return data;
 }
 

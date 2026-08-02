@@ -37,7 +37,7 @@ const generateAuthToken = async (payload) => {
     .setIssuedAt()
     .setExpirationTime(jwtExpiresIn)
     .sign(new TextEncoder().encode(jwtSecret));
-}; 
+};
 
 const looksLikeJwt = (value) =>
   typeof value === "string" && value.split(".").length === 3;
@@ -266,7 +266,7 @@ const getAllAgentsByCompany = async (req, res) => {
           batchNo: true,
           center: true,
           company: true,
-          gender: true, 
+          gender: true,
           fullname: true,
           email: true,
           phone: true,
@@ -436,6 +436,22 @@ const deleteAgent = async (req, res) => {
     const agent = await prisma.agent.delete({ where: { uid: req.params.uid } });
     if (!agent)
       return res.status(404).json({ ok: false, message: "Agent not found" });
+
+    const isWallet = await prisma.wallet.findFirst({
+      where: { userId: req.params.uid },
+    })
+
+    if (isWallet) {
+      await deleteAccount(isWallet?.accountHolderId);
+      await prisma.wallet.delete({
+        where: { id: isWallet.id }
+      })
+    }
+
+    await prisma.wallet.delete({
+      where: { userId: req.params.uid }
+    })
+
     res.status(200).json({ ok: true, message: "Agent deleted successfully" });
   } catch (err) {
     console.error(err);
@@ -497,10 +513,10 @@ const loginAgent = async (req, res) => {
     }
 
     const ip = req.headers['cf-connecting-ip'] ||
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress 
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.connection.remoteAddress ||
+      req.socket.remoteAddress
 
     // Return agent data
     const { password: pwd, ...agentWithoutPassword } = agent;
@@ -533,7 +549,7 @@ const loginAgent = async (req, res) => {
         uid: agent.uid,
         email: agent.email,
         role: agent.role,
-      }), 
+      }),
     });
   } catch (err) {
     console.error(err);

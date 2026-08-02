@@ -31,7 +31,7 @@ export default function EntitiesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [statusFilter, setStatusFilter] = useState("All");
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
   const fetchData = useCallback(async () => {
     setLoading(true);

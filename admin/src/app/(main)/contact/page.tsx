@@ -131,7 +131,21 @@ export default function ContactPage() {
           </div>
         </div>
 
-        <div className="mt-14 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="mt-14 rounded-lg border border-amber-200 bg-amber-50 p-6 md:p-8">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+              <CheckCircle className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-semibold text-amber-900">Only trust our official channels</h3>
+              <p className="mt-2 text-sm text-amber-900">
+                All correspondence about your payments or account should come from the phone number, email address, and office listed on this page. If you receive a call or message from another number asking for payment or personal information, do not respond — instead, call us on the number above to confirm.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <p className="text-xs uppercase tracking-wide text-slate-500">Need help?</p>
           <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Talk to the Amac Revenue team</h2>
           <p className="mt-3 text-sm text-slate-600 md:text-base">Send inquiries on onboarding, operations, and system access.</p>

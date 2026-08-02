@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Wallet, CreditCard, TrendingUp, Users, Settings, BarChart3, FileText, Mail, Phone } from "lucide-react";
+import { Wallet, CreditCard, TrendingUp, Users, Settings, BarChart3, FileText, Mail, Phone, ShieldCheck, BadgeCheck, Receipt, UserCheck, AlertTriangle } from "lucide-react";
 
 export default function LandingPage() {
 
@@ -181,6 +181,90 @@ export default function LandingPage() {
             </div>
             <p className="mt-2 text-sm text-slate-600">Generate payment reports and monitor trend performance across categories.</p>
           </div>
+        </div>
+      </section>
+
+      <section id="trust" className="border-y border-emerald-100 bg-emerald-50/60">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-6 text-center">
+            <p className="text-xs uppercase tracking-wide text-emerald-800">Why you can trust this portal</p>
+            <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Built for accountability and safety</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
+              This is the official revenue platform of the Abuja Municipal Area Council. Here is how we keep your data and payments safe.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">Encrypted transactions</h3>
+              <p className="mt-1 text-xs text-slate-600">All payments are transmitted over encrypted connections and never stored in plain text.</p>
+            </div>
+            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
+                <BadgeCheck className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">Official AMAC platform</h3>
+              <p className="mt-1 text-xs text-slate-600">Operated on behalf of the Abuja Municipal Area Council for tenement and business rate collection.</p>
+            </div>
+            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
+                <Receipt className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">Instant digital receipts</h3>
+              <p className="mt-1 text-xs text-slate-600">Every payment generates a verifiable receipt tied to your account, no matter which channel you use.</p>
+            </div>
+            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
+                <UserCheck className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">Verified field agents</h3>
+              <p className="mt-1 text-xs text-slate-600">Every agent is registered on the system and can be confirmed by our support team on request.</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <p className="text-sm text-amber-900">
+              <span className="font-semibold">Stay alert:</span> Only pay through this website, our official USSD/bank channels, or a field agent who can be verified by calling our support line. AMAC staff will never ask you to pay directly into a personal account.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+        <div className="mb-6">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Frequently Asked Questions</p>
+          <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Common questions from residents and businesses</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[
+            {
+              q: "Is this the official AMAC payment platform?",
+              a: "Yes. This portal is used by the Abuja Municipal Area Council to manage tenement rates, business permits, and related revenue collection.",
+            },
+            {
+              q: "How do I know a field agent is genuine?",
+              a: "Every registered agent carries an ID and can be verified by calling our support line with their name or agent code before you hand over any payment.",
+            },
+            {
+              q: "What payment methods are accepted?",
+              a: "You can pay by card, bank transfer, or USSD through our secure payment gateway. Cash should only be paid to a verified agent against an official receipt.",
+            },
+            {
+              q: "I lost my receipt. Can I get another one?",
+              a: "Yes. Contact support with your payment reference or phone number used at the time of payment, and we will resend your digital receipt.",
+            },
+          ].map((item) => (
+            <div key={item.q} className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">{item.q}</h3>
+              <p className="mt-2 text-sm text-slate-600">{item.a}</p>
+            </div>
+          ))}
         </div>
       </section>
 

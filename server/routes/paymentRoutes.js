@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPayment, getPaymentsByUserId, getPaymentByReference, getPaymentById, getAllPayments, verifyPayment, updatePaymentSchedule, makePayment, getPaymentsByPartnerId, getPaymentsByCenterId, getPaymentForUser } from '../controller/paymentController.js';
+import { createPayment, getPaymentsByUserId, getPaymentByReference, getPaymentById, getAllPayments, verifyPayment, updatePaymentSchedule, makePayment, getPaymentsByPartnerId, getPaymentsByCenterId, getPaymentForUser, confirmPayment } from '../controller/paymentController.js';
 import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
 
@@ -8,6 +8,8 @@ const router = express.Router();
 router.post('/', authMiddleware, roleMiddleware(['user', "admin"]), createPayment);
 
 router.post('/make/:userId/:paymentId', authMiddleware, roleMiddleware(['user', "admin"]), makePayment);
+
+router.post('/confirm/:userId/:paymentId', confirmPayment);
 
 router.get('/', authMiddleware, roleMiddleware(['admin']), getAllPayments);
 
@@ -28,4 +30,4 @@ router.get('/partner/:partnerId', authMiddleware, roleMiddleware(['admin']), get
 router.get('/center/:centerId', authMiddleware, roleMiddleware(['admin']), getPaymentsByCenterId);
 
 export {router as paymentRouter};
-  
+   

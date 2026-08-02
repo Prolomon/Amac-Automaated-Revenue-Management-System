@@ -15,7 +15,7 @@ import { getCompanies } from "@/lib/services/company";
 function Home() {
   const { user, role } = useAuth();
   const { wallet } = useWallet();
-  const userId = role === "ADMIN" ? user?.uid : user?.center;
+  const userId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
   const [isLive, setIsLive] = useState(true);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -34,7 +34,7 @@ function Home() {
     const loadData = async () => {
       try {
         // fetch members (get a larger page so we can build distribution)
-        const memberData = await getMembers(1, 1000, userId);
+        const memberData = await getMembers(1, 1000, userId || "");
         if (isCancelled) return;
         const membersList = memberData?.data || [];
         const totalEntities = memberData?.meta?.total ?? membersList.length;
@@ -45,7 +45,7 @@ function Home() {
         const allPayments = paymentsData?.payments || paymentsData?.data || [];
 
         // fetch companies
-        const companiesData = await getCompanies(userId);
+        const companiesData = await getCompanies(userId || "");
         if (isCancelled) return;
         const companyList = companiesData?.data || [];
         const totalCompanies = companiesData?.meta?.total ?? companyList.length;

@@ -84,6 +84,34 @@ export default function AboutPage() {
                 </div>
             </section>
 
+            <section className="mx-auto w-full max-w-7xl px-4 pb-10 md:px-6">
+                <div className="grid gap-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-2">
+                    <div className="relative min-h-[260px]">
+                        <Image
+                            src="/amac.jpg"
+                            alt="Abuja Municipal Area Council Secretariat building"
+                            fill
+                            className="object-cover"
+                        />
+                    </div>
+                    <div className="flex flex-col justify-center p-6 md:p-8">
+                        <div className="flex items-center gap-3">
+                            <Image src="/icon1.png" alt="AMAC official seal" width={44} height={44} className="rounded-full" />
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Official Verification</p>
+                                <p className="text-sm font-semibold text-slate-900">This is the recognized digital platform of AMAC</p>
+                            </div>
+                        </div>
+                        <p className="mt-4 text-sm text-slate-600">
+                            This platform is operated on behalf of the Abuja Municipal Area Council Secretariat, pictured here, for the collection of tenement rates, business permits, and related council revenue.
+                        </p>
+                        <p className="mt-3 text-sm text-slate-600">
+                            If you are ever unsure whether a message, agent, or payment request is genuine, contact our support team directly using the details on our <Link href="/contact" className="font-semibold text-emerald-800 hover:text-emerald-900">Contact page</Link> before you pay or share any information.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
             <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
                     <div className="mb-6">
