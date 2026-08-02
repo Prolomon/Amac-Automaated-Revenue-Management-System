@@ -36,10 +36,15 @@ export const useToast = () => {
   return context;
 };
 
-const TOAST_STYLES: Record
-  ToastType,
-  { bg: string; border: string; iconBg: string; iconColor: string; Icon: any }
-> = {
+type ToastStyleConfig = {
+  bg: string;
+  border: string;
+  iconBg: string;
+  iconColor: string;
+  Icon: any;
+};
+
+const TOAST_STYLES: Record<ToastType, ToastStyleConfig> = {
   success: {
     bg: '#ffffff',
     border: '#bbf7d0',
