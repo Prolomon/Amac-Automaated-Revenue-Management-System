@@ -317,15 +317,14 @@ const getMembers = async (req, res) => {
 
     const [members, total] = await Promise.all([
       prisma.member.findMany({
-        where: {
-          center: id,
-        },
         skip,
         take: limit,
         select: memberSafeSelect,
       }),
       prisma.member.count(),
     ]);
+
+    console.log(members)
 
     return res.status(200).json({
       ok: true,

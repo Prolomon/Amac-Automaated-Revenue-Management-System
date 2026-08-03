@@ -50,6 +50,8 @@ export default function EntitiesPage() {
     }
   }, [centerId, page, limit, addToast]);
 
+  console.log(members)
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);

@@ -1,34 +1,34 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { RelativePathString, useRouter } from "expo-router";
+import { ArrowRight } from "lucide-react-native";
 import { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowRight } from "lucide-react-native";
 
 const ONBOARDING_STEPS = [
   {
-    title: "AMAC Unified Revenue",
-    subtitle: "Welcome to AURMS",
+    title: "AMAC Automated Revenue",
+    subtitle: "Welcome to AMAC",
     description: "Streamline and coordinate all municipal revenue collections and activities in one unified secure portal.",
-    image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=80",
+    image: require("../assets/images/image-1.jpg"),
   },
   {
     title: "Secure Digital Wallets",
     subtitle: "Instant Settlements",
     description: "Receive payments instantly, verify payers directly, and monitor your collections history with zero hassle.",
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&auto=format&fit=crop&q=80",
+    image: require("../assets/images/image-2.jpg"),
   },
   {
     title: "Payment with Card",
     subtitle: "Seamless Card Terminals",
     description: "Accept and verify high-speed card payments from Visa, Mastercard, and Verve seamlessly on-the-go.",
-    image: "https://images.unsplash.com/photo-1563013544-824ae1d704d3?w=500&auto=format&fit=crop&q=80",
+    image: require("../assets/images/image-3.jpg"),
   },
   {
     title: "Agent Field Tools",
     subtitle: "Coordinate Effortlessly",
     description: "Utilize built-in QR code scanning and manual billing tools to maximize field revenue collection efficiency.",
-    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=500&auto=format&fit=crop&q=80",
+    image: require("../assets/images/image-4.jpg"),
   },
 ];
 
@@ -42,12 +42,12 @@ export default function WelcomeScreen() {
     if (step < ONBOARDING_STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
-      router.push("/login");
+      router.push("login" as RelativePathString);
     }
   };
 
   const handleSkip = () => {
-    router.push("/login");
+    router.push("login" as RelativePathString);
   };
 
   return (
@@ -88,7 +88,7 @@ export default function WelcomeScreen() {
         {/* High-quality Onboarding Graphic Centerpiece */}
         <View style={styles.graphicContainer}>
           <Image
-            source={{ uri: currentStepData.image }}
+            source={currentStepData.image}
             style={styles.graphicImage}
             resizeMode="cover"
           />

@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LinearGradient } from "expo-linear-gradient";
 import { RelativePathString, useRouter } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -16,13 +16,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
+  const { currentUser, loading: authLoading, login } = useAuth();
   const [entityId, setEntityId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { login } = useAuth();
   const { success, failed } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -32,12 +33,12 @@ export default function LoginScreen() {
         try {
           const pin = await AsyncStorage.getItem("urms_agent_pin");
           if (pin) {
-            router.replace("/lock");
+            router.replace("lock" as RelativePathString);
           } else {
-            router.replace("/(pages)");
+            router.replace("(pages)" as RelativePathString);
           }
         } catch {
-          router.replace("/lock");
+          router.replace("lock" as RelativePathString);
         }
       }
     };
