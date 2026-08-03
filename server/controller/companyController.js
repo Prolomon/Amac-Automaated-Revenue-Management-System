@@ -225,17 +225,15 @@ const getCompaniesByCenter = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
-    const where = { center: String(req.params.center) };
 
     const [companies, total] = await Promise.all([
       prisma.company.findMany({
-        where,
         skip,
         take: limit,
         select: companySafeSelect,
         orderBy: { createdAt: "desc" },
       }),
-      prisma.company.count({ where }),
+      prisma.company.count(),
     ]);
 
     return res.status(200).json({

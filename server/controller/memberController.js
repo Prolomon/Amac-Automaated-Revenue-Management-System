@@ -324,8 +324,6 @@ const getMembers = async (req, res) => {
       prisma.member.count(),
     ]);
 
-    console.log(members)
-
     return res.status(200).json({
       ok: true,
       data: members,

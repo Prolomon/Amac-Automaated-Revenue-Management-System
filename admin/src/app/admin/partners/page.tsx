@@ -31,12 +31,6 @@ export default function OrganizationsPage() {
   const pageRef = useRef(meta.page);
   const limitRef = useRef(meta.limit);
 
-  useEffect(() => {
-    if (user?.permission?.canViewPartner === false) {
-      router.push("/admin");
-    }
-  }, [user, router]);
-
   const fetchData = useCallback(async (page?: number, limit?: number) => {
     const p = page ?? pageRef.current;
     const l = limit ?? limitRef.current;
