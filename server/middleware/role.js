@@ -2,7 +2,7 @@ const roleMiddleware = (roles) => {
   return (req, res, next) => {
     // This is a placeholder for role-based access control.
     // In a real application, you would get the user's roles from the request object (e.g., from a JWT).
-    const userRoles = ['MEMBER', 'ADMIN', 'STAFF']; // Example user roles
+    const userRoles = ['MEMBER', 'ADMIN', 'STAFF', 'AGENT', 'PARTNER', 'IT']; // Example user roles
 
     const hasRole = roles.some(role => userRoles.includes(role.toUpperCase()));
 

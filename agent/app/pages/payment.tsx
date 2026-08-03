@@ -13,8 +13,6 @@ import {
   ShieldCheck,
   AlertCircle,
   Building,
-  User,
-  Calendar,
   FileText,
   CheckCircle2,
 } from "lucide-react-native";
@@ -35,7 +33,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CheckoutPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { currentUser, token } = useAuth();
+  const { token } = useAuth();
   const { success, failed } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -123,7 +121,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const { member, payments, agent } = checkoutData;
+  const { member, payments } = checkoutData;
 
   // Find the exact matched payment or default to the first one
   const matchedWrap =
@@ -163,7 +161,7 @@ export default function CheckoutPage() {
   }
 
   // Calculate pricing summary details
-  const principal = Number(payment.amount || 0);
+  const principal = Number(payment.debt ? payment.debt : payment.amount || 0);
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
@@ -179,19 +177,6 @@ export default function CheckoutPage() {
   const penalty = subtotal * 0.00005 * daysOverdue;
   const totalAmount = subtotal + penalty;
   const debt = payment.debt;
-
-  const formatDate = (val?: string) => {
-    if (!val) return "N/A";
-    try {
-      return new Date(val).toLocaleDateString("en-NG", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return val;
-    }
-  };
 
   const handleConfirmPayment = async () => {
     setConfirming(true);
@@ -332,7 +317,7 @@ export default function CheckoutPage() {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Due</Text>
-              <Text style={styles.totalValue}>{formatCurrency(debt)}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(totalAmount)}</Text>
             </View>
           </View>
 

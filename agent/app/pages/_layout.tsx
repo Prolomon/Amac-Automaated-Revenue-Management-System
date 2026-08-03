@@ -13,10 +13,10 @@ export default function RootLayout() {
     <WalletProvider>
       <Stack>
         <Stack.Screen name="(pages)" options={{ headerShown: false }} />
-        <Stack.Screen name="transfer" options={{ headerShown: false }} />
         <Stack.Screen name="history" options={{ headerShown: false }} />
         <Stack.Screen name="complete" options={{ headerShown: false }} />
         <Stack.Screen name="payment" options={{ headerShown: false }} />
+        <Stack.Screen name="verify" options={{ headerShown: false }} />
         <Stack.Screen name="member/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
       </Stack>

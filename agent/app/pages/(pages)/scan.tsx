@@ -88,7 +88,7 @@ export default function ScanPage() {
         <View style={styles.qrBox}>
           <CameraView
             ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             enableTorch={flash}
             onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
             barcodeScannerSettings={{

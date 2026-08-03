@@ -3,9 +3,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { getMember } from "@/lib/services/member";
 import { getPayments, getRecords } from "@/lib/services/payment";
-import { Member } from "@/lib/types";
+import { Member, Payment } from "@/lib/types";
 import { useLocalSearchParams, useRouter, RelativePathString } from "expo-router";
-import { ArrowLeft, User, Mail, Phone, MapPin, CreditCard, History, Clock, FileText, X, ChevronRight, Briefcase, AlertCircle } from "lucide-react-native";
+import { ArrowLeft, Mail, Phone, MapPin, CreditCard, History, FileText, X, ChevronRight, Briefcase, AlertCircle } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,18 +23,20 @@ export default function MemberDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { failed } = useToast();
+  const { token } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [member, setMember] = useState<Member | null>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
 
   // Tab view toggler: "payments" | "history"
   const [activeTab, setActiveTab] = useState<"payments" | "history">("payments");
 
   // Payment detail modal states
-  const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<{ payment: Payment, principal: number, vat: number, charges: number, subtotal: number, daysOverdue: number, penalty: number, totalAmount: number } | null>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   const loadData = useCallback(async (isSilent = false) => {
@@ -43,41 +45,42 @@ export default function MemberDetailScreen() {
 
     try {
       // 1. Fetch member profile
-      const memRes = await getMember(id);
-      setMember(memRes);
+      const memRes = await getMember(id, token as string);
+      setMember(memRes?.data || null);
 
       // 2. Fetch payments
       try {
-        const payRes = await getPayments(id);
-        if (Array.isArray(payRes)) {
-          setPayments(payRes);
-        } else if (payRes && Array.isArray(payRes.payments)) {
-          setPayments(payRes.payments);
-        } else if (payRes && Array.isArray(payRes.data)) {
-          setPayments(payRes.data);
+        const payRes = await getPayments(id, token as string);
+
+        if (!payRes.ok) {
+          throw new Error("Failed to fetch payments");
         }
-      } catch (payErr) {
+
+        setPayments(payRes.payments);
+      } catch (payErr: any) {
+        failed(payErr.message || "Failed to load member payments");
         setPayments([]);
       }
 
       // 3. Fetch transactions
       try {
-        const txRes = await getRecords(id);
+        const txRes = await getRecords(id, token as string);
         if (txRes && Array.isArray(txRes.transactions)) {
           setTransactions(txRes.transactions);
         } else if (Array.isArray(txRes)) {
           setTransactions(txRes);
         }
-      } catch (txErr) {
+      } catch (txErr: any) {
+        failed(txErr.message || "Failed to load member transactions");
         setTransactions([]);
       }
 
     } catch (err: any) {
-      failed("Failed to load member profile details");
+      failed(err.message || "Failed to load member profile details");
     } finally {
       if (!isSilent) setLoading(false);
     }
-  }, [id, failed]);
+  }, [id, token, failed]);
 
   useEffect(() => {
     loadData();
@@ -106,6 +109,36 @@ export default function MemberDetailScreen() {
     }
     return { badge: styles.statusFailed, text: styles.statusTextFailed };
   };
+
+  useEffect(() => {
+    if (selectedPaymentId) {
+      const payment = payments.find((p) => p.reference === selectedPaymentId || p.id === selectedPaymentId);
+
+      const principal = Number(payment?.debt ? payment.debt : payment?.amount);
+      const vat = principal * 0.075;
+      const charges = principal * 0.015;
+      const subtotal = principal + vat + charges;
+
+      // Get payment date and current date
+      const paymentDate = new Date(payment?.due || payment?.date || new Date());
+      const currentDate = new Date();
+
+      // Calculate days overdue
+      let daysOverdue = 0;
+      if (currentDate > paymentDate) {
+        const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+        daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+      }
+
+      // Penalty: 0.005% per day overdue
+      const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+      const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+      const totalAmount = subtotal + penalty;
+
+      setSelectedPayment(payment ? { payment, principal, vat, charges, subtotal, daysOverdue, penalty, totalAmount } : null);
+    }
+  }, [selectedPaymentId, payments]);
 
   if (loading) {
     return (
@@ -244,36 +277,58 @@ export default function MemberDetailScreen() {
             ) : (
               <View style={styles.listWrap}>
                 {payments.map((p, index) => {
-                  const item = p.payment || p;
-                  const statusStyle = getStatusStyle(item.status);
+                  const statusStyle = getStatusStyle(p.status);
+
+                  const principal = Number(p.debt ? p.debt : p.amount);
+                  const vat = principal * 0.075;
+                  const charges = principal * 0.015;
+                  const subtotal = principal + vat + charges;
+
+                  // Get payment date and current date
+                  const paymentDate = new Date(p.date);
+                  const currentDate = new Date();
+
+                  // Calculate days overdue
+                  let daysOverdue = 0;
+                  if (currentDate > paymentDate) {
+                    const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+                    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+                  }
+
+                  // Penalty: 0.005% per day overdue
+                  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+                  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+                  const totalAmount = subtotal + penalty;
+
                   return (
                     <TouchableOpacity
-                      key={item.id || item.reference || index}
+                      key={p.id || p.reference || index}
                       style={styles.listItem}
                       activeOpacity={0.7}
                       onPress={() => {
-                        setSelectedPayment(item);
+                        setSelectedPaymentId(p.reference || p.id || null);
                         setModalVisible(true);
                       }}
                     >
                       <View style={styles.listItemHeader}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.listItemTitle}>{item.pricing?.title || "Bill Payment"}</Text>
-                          <Text style={styles.listItemSub}>Ref: {item.reference}</Text>
+                          <Text style={styles.listItemTitle}>{p.pricing?.title || "Bill Payment"}</Text>
+                          <Text style={styles.listItemSub}>Ref: {p.reference}</Text>
                         </View>
                         <View style={[styles.statusBadge, statusStyle.badge]}>
-                          <Text style={[styles.statusText, statusStyle.text]}>{String(item.status).toUpperCase()}</Text>
+                          <Text style={[styles.statusText, statusStyle.text]}>{String(p.status).toUpperCase()}</Text>
                         </View>
                       </View>
                       <View style={styles.listItemBody}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.amountLabel}>Total Amount</Text>
-                          <Text style={styles.amountVal}>{formatCurrency(item.amount)}</Text>
+                          <Text style={styles.amountVal}>{formatCurrency(totalAmount)}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.amountLabel}>Outstanding Debt</Text>
                           <Text style={[styles.amountVal, { color: "#ef4444" }]}>
-                            {formatCurrency(item.debt !== undefined ? item.debt : (item.amount - (item.paid || 0)))}
+                            {formatCurrency(p.debt !== undefined ? p.debt : (p.amount - (p.paid || 0)))}
                           </Text>
                         </View>
                         <ChevronRight size={16} color="#cbd5e1" style={{ alignSelf: "center" }} />
@@ -354,48 +409,57 @@ export default function MemberDetailScreen() {
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Pricing Title</Text>
                     <Text style={styles.modalFieldValueHighlight}>
-                      {selectedPayment.pricing?.title || "Payment Reference Details"}
+                      {selectedPayment.payment.pricing?.title || "Payment Reference Details"}
                     </Text>
                   </View>
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Reference ID</Text>
-                    <Text style={styles.modalFieldValue}>{selectedPayment.reference}</Text>
+                    <Text style={styles.modalFieldValue}>{selectedPayment.payment.reference}</Text>
                   </View>
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Total Amount Due</Text>
-                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.amount)}</Text>
+                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.totalAmount)}</Text>
                   </View>
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Amount Paid</Text>
                     <Text style={[styles.modalFieldValue, { color: "#0ea360" }]}>
-                      {formatCurrency(selectedPayment.paid || 0)}
+                      {formatCurrency(selectedPayment.payment.paid || 0)}
                     </Text>
                   </View>
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Remaining Debt</Text>
                     <Text style={[styles.modalFieldValue, { color: "#ef4444" }]}>
-                      {formatCurrency(selectedPayment.debt !== undefined ? selectedPayment.debt : (selectedPayment.amount - (selectedPayment.paid || 0)))}
+                      {formatCurrency(selectedPayment.payment.debt !== undefined ? selectedPayment.payment.debt : (selectedPayment.payment.amount - (selectedPayment.payment.paid || 0)))}
                     </Text>
                   </View>
+
+                  {selectedPayment.penalty !== undefined && (
+                    <View style={styles.modalFieldRow}>
+                      <Text style={styles.modalFieldLabel}>Penalty</Text>
+                      <Text style={[styles.modalFieldValue, { color: "#ef4444" }]}>
+                        {formatCurrency(selectedPayment.payment.debt !== undefined ? selectedPayment.penalty : 0)}
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Status</Text>
                     <Text style={[styles.modalFieldValue, { fontWeight: "bold" }]}>
-                      {selectedPayment.status}
+                      {selectedPayment.payment.status}
                     </Text>
                   </View>
 
                   {/* Associated Transaction sessions */}
                   <Text style={styles.modalSubheading}>Payment Transaction Sessions</Text>
-                  {!selectedPayment.sessions || selectedPayment.sessions.length === 0 ? (
+                  {!selectedPayment.payment.sessions || selectedPayment.payment.sessions.length === 0 ? (
                     <Text style={styles.modalEmptyText}>No transaction sessions recorded yet.</Text>
                   ) : (
                     <View style={styles.sessionsBox}>
-                      {selectedPayment.sessions.map((sessionId: string, index: number) => (
+                      {selectedPayment.payment.sessions.map((sessionId: string, index: number) => (
                         <TouchableOpacity
                           key={sessionId || index}
                           style={styles.sessionItemRow}
@@ -417,6 +481,12 @@ export default function MemberDetailScreen() {
                 </View>
               )}
             </ScrollView>
+
+            {selectedPayment && (
+              <TouchableOpacity style={[styles.modalOutlineBtn, { marginBottom: 16 }]} onPress={() => router.push(`/pages/payment?id=${selectedPayment.payment.reference || selectedPayment.payment.id}` as RelativePathString)}>
+                <Text style={styles.modalOutlineBtnText}>Pay Now</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCloseBtnText}>Close</Text>
@@ -565,4 +635,14 @@ const styles = StyleSheet.create({
   sessionItemText: { flex: 1, fontSize: 12, color: "#334155" },
   modalCloseBtn: { height: 48, backgroundColor: "#0ea360", borderRadius: 10, justifyContent: "center", alignItems: "center" },
   modalCloseBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "bold" },
+  modalOutlineBtn: {
+    height: 48,
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#0ea360",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalOutlineBtnText: { color: "#0ea360", fontSize: 15, fontWeight: "bold" },
 });

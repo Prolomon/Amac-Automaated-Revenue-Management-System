@@ -12,7 +12,8 @@ import {
   EyeOff,
   History,
   ScanBarcode,
-  CreditCard
+  CreditCard,
+  ShieldCheck
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -22,12 +23,16 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  TextInput
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const router = useRouter();
   const { currentUser, code, createCode } = useAuth();
+  const { success, failed } = useToast();
 
   const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
   const [accountCopied, setAccountCopied] = useState(false);
@@ -40,7 +45,7 @@ export default function Dashboard() {
   const walletBank = wallet?.bank?.name || "-";
 
   //Security Code
-  const [securityVisible, setSecurityVisible] = useState(false);
+  const [pinVisible, setPinVisible] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [confirmCode, setConfirmCode] = useState("");
   const [showCode, setShowCode] = useState(false);
@@ -100,7 +105,6 @@ export default function Dashboard() {
   const handleCreateSecurityCode = async () => {
     if (!currentUser?.uid) return failed("User not found");
 
-    console.log("Changing security code with values:", { oldCode, newCode, confirmCode });
 
     if (!newCode.trim() || !confirmCode.trim())
       return failed("Code required");
@@ -116,9 +120,15 @@ export default function Dashboard() {
     if (!res.ok) return failed(res.message ?? "Could not change code");
 
     success(res.message ?? "Code updated");
-    setSecurityVisible(false);
+    setPinVisible(false);
 
   };
+
+  useEffect(() => {
+    if (!code) {
+      setPinVisible(true);
+    }
+  }, [code]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -254,6 +264,14 @@ export default function Dashboard() {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            style={styles.modalVerifyBtn}
+            onPress={() => router.push("/pages/verify" as RelativePathString)}
+          >
+            <ShieldCheck size={18} color="#0ea360" style={{ marginRight: 6 }} />
+            <Text style={styles.modalVerifyBtnText}>Verify Payment</Text>
+          </TouchableOpacity>
+
           {/*  transaction history section */}
           <Text style={{ fontSize: 16, fontWeight: "bold", color: "#000", marginVertical: 12 }}>Transaction History</Text>
           <View style={styles.historyWrap}>
@@ -288,87 +306,87 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <Modal transparent visible={securityVisible} animationType="slide">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Change Security Code</Text>
+        <Modal transparent visible={pinVisible} animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Create Security pin</Text>
 
-                <Text style={styles.label}>New code</Text>
-                {/* New Code */}
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    value={newCode}
-                    onChangeText={setNewCode}
-                    placeholder="New code"
-                    placeholderTextColor="#c7cbd0"
-                    style={[styles.input, { paddingRight: 44 }]}
-                    secureTextEntry={!showCode}
-                    maxLength={6}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeToggle}
-                    onPress={() => setShowCode((v) => !v)}
-                    accessibilityLabel={
-                      showCode ? "Hide code" : "Show code"
-                    }
-                  >
-                    {showCode ? (
-                      <EyeOff color="#5b6b73" />
-                    ) : (
-                      <Eye color="#5b6b73" />
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.label}>Confirm code</Text>
-                {/* Confirm Code */}
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    value={confirmCode}
-                    onChangeText={setConfirmCode}
-                    placeholder="Confirm code"
-                    placeholderTextColor="#c7cbd0"
-                    style={[styles.input, { paddingRight: 44 }]}
-                    secureTextEntry={!showCode}
-                    maxLength={6}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeToggle}
-                    onPress={() => setShowCode((v) => !v)}
-                    accessibilityLabel={
-                      showCode ? "Hide code" : "Show code"
-                    }
-                  >
-                    {showCode ? (
-                      <EyeOff color="#5b6b73" />
-                    ) : (
-                      <Eye color="#5b6b73" />
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* modal buttons */}
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.secondaryBtn}
-                    activeOpacity={0.85}
-                    onPress={() => setSecurityVisible(false)}
-                  >
-                    <Text style={styles.secondaryText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.primaryBtn, { flex: 1, marginLeft: 8 }]}
-                    activeOpacity={0.85}
-                    onPress={handleCreateSecurityCode}
-                    disabled={confirmCode.length < 6 || newCode.length < 6 || oldCode.length < 6 || saving}
-                  >
-                    <Text style={styles.primaryText}>Create</Text>
-                  </TouchableOpacity>
-                </View>
-
+              <Text style={styles.label}>Pin</Text>
+              {/* New Code */}
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={newCode}
+                  onChangeText={setNewCode}
+                  placeholder="New code"
+                  placeholderTextColor="#c7cbd0"
+                  style={[styles.input, { paddingRight: 44 }]}
+                  secureTextEntry={!showCode}
+                  maxLength={6}
+                />
+                <TouchableOpacity
+                  style={styles.eyeToggle}
+                  onPress={() => setShowCode((v) => !v)}
+                  accessibilityLabel={
+                    showCode ? "Hide code" : "Show code"
+                  }
+                >
+                  {showCode ? (
+                    <EyeOff color="#5b6b73" />
+                  ) : (
+                    <Eye color="#5b6b73" />
+                  )}
+                </TouchableOpacity>
               </View>
+
+              <Text style={styles.label}>Confirm pin</Text>
+              {/* Confirm Code */}
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={confirmCode}
+                  onChangeText={setConfirmCode}
+                  placeholder="Confirm code"
+                  placeholderTextColor="#c7cbd0"
+                  style={[styles.input, { paddingRight: 44 }]}
+                  secureTextEntry={!showCode}
+                  maxLength={6}
+                />
+                <TouchableOpacity
+                  style={styles.eyeToggle}
+                  onPress={() => setShowCode((v) => !v)}
+                  accessibilityLabel={
+                    showCode ? "Hide code" : "Show code"
+                  }
+                >
+                  {showCode ? (
+                    <EyeOff color="#5b6b73" />
+                  ) : (
+                    <Eye color="#5b6b73" />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* modal buttons */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  activeOpacity={0.85}
+                  onPress={() => setPinVisible(false)}
+                >
+                  <Text style={styles.secondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { flex: 1, marginLeft: 8 }]}
+                  activeOpacity={0.85}
+                  onPress={handleCreateSecurityCode}
+                  disabled={confirmCode.length < 6 || newCode.length < 6}
+                >
+                  <Text style={styles.primaryText}>Create</Text>
+                </TouchableOpacity>
+              </View>
+
             </View>
-          </Modal>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -690,4 +708,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   secondaryText: { color: "#0ea360" },
+  modalVerifyBtn: {
+    height: 48,
+    flexDirection: "row",
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#0ea360",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+  },
+  modalVerifyBtnText: {
+    color: "#0ea360",
+    fontSize: 15,
+    fontWeight: "bold"
+  },
 });

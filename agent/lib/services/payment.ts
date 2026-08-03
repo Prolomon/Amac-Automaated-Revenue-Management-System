@@ -1,4 +1,5 @@
 import { API_URL, buildHeaders } from "../api";
+import { Payment } from "../types";
 
 export async function getPayment(id: string) {
   const response = await fetch(`${API_URL}/payment/reference/${id}`, {
@@ -11,9 +12,9 @@ export async function getPayment(id: string) {
   return data;
 }
 
-export async function getPayments(userId: string) {
+export async function getPayments(userId: string, token?: string): Promise<{ ok: boolean, payments:Payment[] }> {
   const response = await fetch(`${API_URL}/payment/user/${userId}`, {
-    headers: buildHeaders(false),
+    headers: buildHeaders(false, token),
   });
   const data = await response.json();
   if (!response.ok) {
@@ -57,12 +58,12 @@ export async function confirmPayment(
   return data;
 }
 
-export async function getRecord(id: string) {
+export async function getRecord(id: string, token?: string) {
   if (!id) {
     throw new Error("No record ID found");
   }
   const response = await fetch(`${API_URL}/payment-transaction/reference/${id}`, {
-    headers: buildHeaders(false),
+    headers: buildHeaders(false, token),
   });
   const data = await response.json();
   if (!response.ok) {
@@ -73,6 +74,7 @@ export async function getRecord(id: string) {
 
 export async function getRecords(
   id: string,
+  token?: string,
   fromDate?: string,
   toDate?: string,
   query?: string,
@@ -89,12 +91,27 @@ export async function getRecords(
   const response = await fetch(
     `${API_URL}/payment-transaction/user/company/${id}${queryString ? `?${queryString}` : ""}`,
     {
-      headers: buildHeaders(false),
+      headers: buildHeaders(false, token),
     },
   );
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.message || "Failed to fetch payments");
   }
+  return data;
+}
+
+export async function verifyPayment(
+  id: string,
+): Promise<{ ok: boolean; message?: string; payment: Payment }> {
+  const response = await fetch(`${API_URL}/payment/verify/${id}`, {
+    method: "GET",
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to verify payment");
+  }
+
   return data;
 }

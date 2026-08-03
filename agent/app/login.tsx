@@ -33,12 +33,12 @@ export default function LoginScreen() {
         try {
           const pin = await AsyncStorage.getItem("urms_agent_pin");
           if (pin) {
-            router.replace("lock" as RelativePathString);
+            router.replace("/lock");
           } else {
-            router.replace("(pages)" as RelativePathString);
+            router.replace("/pages/(pages)");
           }
         } catch {
-          router.replace("lock" as RelativePathString);
+          router.replace("/lock");
         }
       }
     };

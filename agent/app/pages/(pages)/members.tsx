@@ -1,4 +1,4 @@
-import { User, Search, MapPin, Mail, Phone, ChevronRight } from "lucide-react-native";
+import { User, Search, MapPin, Mail, ChevronRight } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,30 +13,34 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../hooks/use-auth";
 import { useRouter, RelativePathString } from "expo-router";
+import { getMembers } from "@/lib/services/member";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MembersScreen() {
   const router = useRouter();
-  const { members } = useAuth();
+  const { token, currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const { failed } = useToast();
 
   const fetchMembers = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setLoading(true);
     }
     try {
-      const res = await members();
-      setData(res || []);
-    } catch (e) {
+      const res = await getMembers(1, 100, currentUser?.uid || "", token as string);
+      setData(res.data || []);
+    } catch (e: any) {
+      failed(e.message || "Failed to load members list");
       setData([]);
     } finally {
       if (!options?.silent) {
         setLoading(false);
       }
     }
-  }, [members]);
+  }, [currentUser?.uid, failed, token]);
 
   useEffect(() => {
     fetchMembers();

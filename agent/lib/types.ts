@@ -52,7 +52,13 @@ export type Payment = {
   date: string;
   amount: number;
   payment: string;
-  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED" | "COMPLETED";
+  status:
+    | "PENDING"
+    | "SUCCESS"
+    | "FAILED"
+    | "CANCELLED"
+    | "REFUNDED"
+    | "COMPLETED";
   due: Date | null;
   member?: Member;
   isVerified: boolean;
@@ -152,6 +158,7 @@ export type AuthContextValue = {
   verifyCode: (
     secureToken: string,
   ) => Promise<{ ok: boolean; message?: string; error?: string }>;
+  code: string | null;
 };
 
 export type Pricing = {

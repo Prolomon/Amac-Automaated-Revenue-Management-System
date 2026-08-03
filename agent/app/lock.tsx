@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useWallet } from "@/hooks/use-wallet";
 import { RelativePathString, useRouter } from "expo-router";
 import { Lock, Delete, LogOut } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -16,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function LockScreen() {
     const router = useRouter();
     const { currentUser, logout, loading: authLoading, verifyCode } = useAuth();
-    const { refresh } = useWallet();
     const { failed, success } = useToast();
     const [loading, setLoading] = useState(false);
     const [pin, setPin] = useState<string>("")
@@ -26,7 +24,7 @@ export default function LockScreen() {
         if (!authLoading && !currentUser) {
             router.replace("/");
         }
-    }, [currentUser, authLoading]);
+    }, [currentUser, authLoading, router]);
 
     const handlePressNumber = (num: number) => {
         if (pin.length < 6) {
@@ -46,7 +44,7 @@ export default function LockScreen() {
         const res = await verifyCode(pin);
         if (res.ok) {
             success("Pin Verified successfully")
-            router.replace("(pages)" as RelativePathString);
+            router.replace("/pages/(pages)" as RelativePathString);
         } else {
             failed(res.message || "An error occurred validating pin")
             setPin("");
