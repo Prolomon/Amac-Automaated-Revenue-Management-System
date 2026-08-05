@@ -230,4 +230,6 @@ export type Transaction = {
   transactionCategory: string;
   narration: string;
   receiptTerminalId: string;
+  createdAt: Date;
+  updatedAt: Date;
 };

@@ -31,7 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser, code, createCode } = useAuth();
+  const { currentUser, code, createCode, loading } = useAuth();
   const { success, failed } = useToast();
 
   const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
@@ -45,10 +45,18 @@ export default function Dashboard() {
   const walletBank = wallet?.bank?.name || "-";
 
   //Security Code
-  const [pinVisible, setPinVisible] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [confirmCode, setConfirmCode] = useState("");
   const [showCode, setShowCode] = useState(false);
+
+  // Derived — shows automatically when there's no code
+  const shouldShowForCode = !loading && (code === "" || code === null);
+
+  // Manual override — lets you hide it after a successful PIN entry,
+  // even if `code` hasn't updated yet / the parent hasn't re-rendered with new code
+  const [manuallyHidden, setManuallyHidden] = useState(false);
+
+  const pinVisible = shouldShowForCode && !manuallyHidden;
 
   const handleCopyAccountNumber = async () => {
     if (!wallet?.accountNo) return;
@@ -57,8 +65,8 @@ export default function Dashboard() {
     setTimeout(() => setAccountCopied(false), 1600);
   };
 
-  const loadTransactions = useCallback(async () => {
-    try {
+  const loadTransactions = useCallback(
+    async (signal?: { isActive: boolean }) => {
       const userId = currentUser?.id || currentUser?.uid;
       if (!userId || !wallet) {
         setTransactions([]);
@@ -66,23 +74,49 @@ export default function Dashboard() {
       }
 
       setHistoryLoading(true);
-      const startDate = new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const endDate = new Date().toISOString().split("T")[0];
-      const data = await getTransactions(wallet?.accountNo || "", startDate, endDate, wallet?.token || "");
-      const sorted = [...(data?.transactions || [])].sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      try {
+        const now = new Date();
+        const startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
+        const endDate = now.toISOString().split("T")[0];
 
-      setTransactions(sorted);
-    } catch {
-      setTransactions([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [currentUser?.id, currentUser?.uid, getTransactions, wallet]);
+        const data = await getTransactions(
+          wallet?.accountNo || "",
+          startDate,
+          endDate,
+          wallet?.token || ""
+        );
+
+        if (signal && !signal.isActive) return;
+
+        const sorted = [...(data?.transactions ?? [])].sort(
+          (a: Transaction, b: Transaction) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        setTransactions(sorted);
+      } catch (error) {
+        if (signal && !signal.isActive) return;
+        console.error("Failed to load transactions:", error);
+        setTransactions([]);
+      } finally {
+        if (!signal || signal.isActive) setHistoryLoading(false);
+      }
+    },
+    [currentUser?.id, currentUser?.uid, getTransactions, wallet]
+  );
 
   useEffect(() => {
-    loadTransactions();
+    const signal = { isActive: true };
+
+    Promise.resolve().then(() => {
+      if (signal.isActive) loadTransactions(signal);
+    });
+
+    return () => {
+      signal.isActive = false;
+    };
   }, [loadTransactions]);
 
   const handleRefresh = async () => {
@@ -120,15 +154,9 @@ export default function Dashboard() {
     if (!res.ok) return failed(res.message ?? "Could not change code");
 
     success(res.message ?? "Code updated");
-    setPinVisible(false);
+    setManuallyHidden(true);
 
   };
-
-  useEffect(() => {
-    if (!code) {
-      setPinVisible(true);
-    }
-  }, [code]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -370,7 +398,7 @@ export default function Dashboard() {
                 <TouchableOpacity
                   style={styles.secondaryBtn}
                   activeOpacity={0.85}
-                  onPress={() => setPinVisible(false)}
+                  onPress={() => setManuallyHidden(true)}
                 >
                   <Text style={styles.secondaryText}>Cancel</Text>
                 </TouchableOpacity>
@@ -394,7 +422,7 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "ghostwhite" },
-  content: { paddingBottom: 40 },
+  content: { paddingBottom: 20 },
   headerCard: {
     marginHorizontal: 18,
   },

@@ -6,16 +6,18 @@ import {
   User,
 } from "lucide-react-native";
 import "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function PagesTabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#0ea360",
         tabBarStyle: {
-          paddingTop: 10,
-          height: 85,
+          paddingTop: 10 + insets.top,
+          height: 85 + insets.bottom,
         },
       }}
     >

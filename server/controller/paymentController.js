@@ -1317,7 +1317,7 @@ const confirmPayment = async (req, res) => {
     }
 
     const paymentWallet = await prisma.wallet.findFirst({
-      where: { userId: paymentRecord.reference, role: "CHECKOUT" },
+      where: { userId },
     });
 
     if (!paymentWallet) {

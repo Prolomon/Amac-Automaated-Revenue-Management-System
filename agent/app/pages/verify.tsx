@@ -19,6 +19,7 @@ import {
   User,
   Search,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react-native";
 import { RelativePathString, useRouter } from "expo-router";
 
@@ -112,6 +113,17 @@ export default function PayScreen() {
         <Text style={styles.headerSubtitle}>
           Enter Payment ID to look up bills
         </Text>
+        <TouchableOpacity style={[{ position: "absolute", top: 15, right: 16 }, {
+          width: 48,
+          height: 48,
+          borderRadius: 8,
+          borderColor: "#0ea360",
+          borderWidth: 2,
+          justifyContent: "center",
+          alignItems: "center",
+        }]} onPress={() => router.back()}>
+          <ArrowLeft size={24} color="#0ea360" />
+        </TouchableOpacity>
       </View>
 
       {/* Input section at the top */}
@@ -464,6 +476,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderColor: "#e2e8f0",
+    position: "relative",
   },
   headerTitle: {
     fontSize: 24,
