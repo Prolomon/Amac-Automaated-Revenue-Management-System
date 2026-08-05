@@ -1075,6 +1075,7 @@ const getPaymentForUser = async (req, res) => {
         OR: [
           { uid: id },
           { phone: id },
+          { email: id }
         ],
       },
     });
@@ -1102,73 +1103,14 @@ const getPaymentForUser = async (req, res) => {
 
       const paymentList = await Promise.all(
         payments.map(async (payment) => {
-          const demand = payment.demandNotices[0];
           let wallet;
 
-          if (demand) {
-            wallet = await prisma.wallet.findFirst({
-              where: { userId: demand.reference, role: "MEMBER" },
-            });
-            return { payment, wallet: wallet || null };
-          }
-
           wallet = await prisma.wallet.findFirst({
-            where: { userId: payment.reference, role: "CHECKOUT" },
+            where: { userId: member.uid },
           });
 
           if (wallet) {
             return { payment, wallet };
-          }
-
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + 1);
-          const expiry = expiryDate.toISOString();
-
-          let acc = await createAccount(
-            `${payment.pricing.code} ${member.businessName || member.fullname || "N/A"}`,
-            payment.reference,
-            null,
-            expiry
-          );
-
-          console.log('Account creation response:', acc);
-
-          if (acc?.data?.status === false) {
-            if (acc?.data?.description?.includes('already exists')) {
-              acc = await getAccount(payment.reference);
-            } else {
-              return { payment, wallet: null, error: acc?.data?.description || "Failed to create payment account" };
-            }
-          }
-
-          if (!acc?.data?.bankAccountNumber) {
-            return { payment, wallet: null, error: "Unable to retrieve account details" };
-          }
-
-          try {
-            wallet = await prisma.wallet.create({
-              data: {
-                userId: payment.reference,
-                accountNo: acc.data.bankAccountNumber,
-                role: "CHECKOUT",
-                bank: {
-                  name: acc.data.bankName,
-                  id: acc.data.accountRef || payment.reference,
-                  code: 110028,
-                },
-                balance: 0.0,
-                status: acc.data.expired,
-                accountName: acc.data.bankAccountName,
-                currency: acc.data.currency,
-                accountHolderId: acc.data.accountHolderId,
-              },
-            });
-            return { payment, wallet };
-          } catch (createErr) {
-            if (createErr?.code === "P2002") {
-              return { payment, wallet: null, error: "Wallet account number already exists." };
-            }
-            return { payment, wallet: null, error: createErr?.message || "Wallet creation failed" };
           }
         })
       );
@@ -1204,76 +1146,12 @@ const getPaymentForUser = async (req, res) => {
 
       const demand = payment.demandNotices[0];
 
-      let wallet;
+      let wallet = await prisma.wallet.findFirst({
+        where: { userId: member.uid },
+      });
 
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 1);
-      const expiry = expiryDate.toISOString();
-
-      if (demand) {
-        const demandWallet = await prisma.wallet.findFirst({
-          where: { userId: demand.reference, role: "MEMBER" },
-        });
-        wallet = demandWallet || null;
-      } else {
-        wallet = await prisma.wallet.findFirst({
-          where: { userId: payment.reference, role: "CHECKOUT" },
-        });
-
-        if (!wallet) {
-          let acc = await createAccount(
-            `${payment.pricing.code} ${member.businessName || member.fullname || "N/A"}`,
-            payment.reference,
-            null,
-            expiry
-          );
-
-          if (acc?.data?.status === false) {
-            if (acc?.data?.description?.includes('already exists')) {
-              acc = await getAccount(payment.reference);
-            } else {
-              return res.status(400).json({
-                ok: false,
-                message: acc?.data?.description || "Failed to create payment account",
-              });
-            }
-          }
-
-          if (!acc?.data?.bankAccountNumber) {
-            return res.status(500).json({
-              ok: false,
-              message: "Unable to retrieve account details",
-            });
-          }
-
-          try {
-            wallet = await prisma.wallet.create({
-              data: {
-                userId: payment.reference,
-                accountNo: acc.data.bankAccountNumber,
-                role: "CHECKOUT",
-                bank: {
-                  name: acc.data.bankName,
-                  id: acc.data.accountRef || payment.reference,
-                  code: 110028,
-                },
-                balance: 0.0,
-                status: acc.data.expired,
-                accountName: acc.data.bankAccountName,
-                currency: acc.data.currency,
-                accountHolderId: acc.data.accountHolderId,
-              },
-            });
-          } catch (createErr) {
-            if (createErr?.code === "P2002") {
-              return res.status(409).json({
-                ok: false,
-                message: "Wallet account number already exists. Please retry wallet creation.",
-              });
-            }
-            throw createErr;
-          }
-        }
+      if (!wallet) {
+        return { payment, wallet: null, error: "Unable to retrieve account details" };
       }
 
       return res.status(200).json({ ok: true, data: { payments: [{ payment, wallet }], agent, member } });

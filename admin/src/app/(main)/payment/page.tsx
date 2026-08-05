@@ -21,7 +21,6 @@ export default function PaymentPage() {
 
     const handleInputChange = (value: string) => {
         setIdentifier(value);
-        setShowPayButton(value.trim().length > 0);
     };
 
     const handleVerifyPayment = async () => {
@@ -40,39 +39,37 @@ export default function PaymentPage() {
                 setShowNotFoundModal(true);
             }
         } catch (error) {
-            addToast("error", error instanceof Error ? error.message : "Failed to verify payment");
+            // addToast("error", error instanceof Error ? error.message : "Failed to verify payment");
+            console.log(error);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        const getPayNow = async () => {
-            if (!identifier.trim()) {
-                addToast("error", "Please enter a valid identifier");
-                return;
-            }
-
-            try {
-
-                const res = await payNow(identifier.trim());
-                if (res.ok) {
-                    setStatus(true);
-                    addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
-                } else {
-                    setStatus(false);
-                    addToast("error", res.message || "Failed to initiate payment");
-                }
-
-            } catch (error) {
-                addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
-            }
+    const getPayNow = async () => {
+        if (!identifier.trim()) {
+            addToast("error", "Please enter a valid identifier");
+            return;
         }
 
-        if (identifier.trim().length > 0) {
-            getPayNow();
+        try {
+
+            const res = await payNow(identifier.trim());
+            if (res.ok) {
+                setStatus(true);
+                // addToast("success", "Payment initiated successfully. Please check your email for further instructions.");
+            } else {
+                setStatus(false);
+                // addToast("error", res.message || "Failed to initiate payment");
+            }
+
+        } catch (error) {
+            // addToast("error", error instanceof Error ? error.message : "Failed to initiate payment");
+            setStatus(false);
+        } finally {
+            setShowPayButton(identifier.trim().length > 0);
         }
-    }, [addToast, identifier]);
+    }
 
     const handlePayNow = async () => {
         if (!identifier.trim()) {
@@ -182,18 +179,23 @@ export default function PaymentPage() {
                                 <label htmlFor="identifier" className="mb-2 block text-sm font-semibold text-slate-700">
                                     Phone Number / Member ID / Payment ID
                                 </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-4">
-                                        <Search className="h-5 w-5 text-slate-400" />
+                                <div className="w-full flex gap-2 items-center">
+                                    <div className="relative w-full">
+                                        <div className="absolute inset-y-0 left-0 flex items-center pl-4">
+                                            <Search className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input
+                                            id="identifier"
+                                            type="text"
+                                            value={identifier}
+                                            onChange={(e) => handleInputChange(e.target.value)}
+                                            placeholder="Enter your phone number, member ID, or payment ID"
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-12 text-sm outline-none appearance-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                                        />
                                     </div>
-                                    <input
-                                        id="identifier"
-                                        type="text"
-                                        value={identifier}
-                                        onChange={(e) => handleInputChange(e.target.value)}
-                                        placeholder="Enter your phone number, member ID, or payment ID"
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-12 text-sm outline-none appearance-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-                                    />
+                                    <button onClick={getPayNow} className="rounded-xl border px-3 cursor-pointer py-3 transition bg-emerald-600 focus:bg-emerald-500 focus:ring-2 text-white">
+                                        <Search className="h-5 w-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 

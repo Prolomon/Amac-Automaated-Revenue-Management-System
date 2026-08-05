@@ -198,7 +198,7 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.completeProfileBtn}
               activeOpacity={0.8}
-              onPress={() => router.push("complete" as RelativePathString)}
+              onPress={() => router.push("/complete" as RelativePathString)}
             >
               <Text style={styles.completeProfileBtnText}>Complete Profile</Text>
             </TouchableOpacity>

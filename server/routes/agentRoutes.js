@@ -25,7 +25,7 @@ router.get('/center/:id', authMiddleware, roleMiddleware(['admin']), getAllAgent
 router.get('/company/:company', authMiddleware, roleMiddleware(['admin']), getAllAgentsByCompany);
 router.get('/list', getAgentList);
 router.get('/id/:id', authMiddleware, roleMiddleware(['admin', "agent"]), getAgentById);
-router.get('/one/:uid', authMiddleware, roleMiddleware(['admin', "agent"]), getAgent);
+router.get('/one/:uid', authMiddleware, roleMiddleware(['admin', "agent", "member"]), getAgent);
 router.put('/:uid', authMiddleware, roleMiddleware(['admin', "agent"]), updateAgent);
 router.delete('/:uid', authMiddleware, roleMiddleware(['admin']), deleteAgent);
 
