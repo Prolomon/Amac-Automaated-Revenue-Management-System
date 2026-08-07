@@ -30,8 +30,6 @@ const nombaWebhook = async (req, res) => {
   try {
     const event = req.body;
 
-    console.log('Received Nomba webhook event:', JSON.stringify(event, null, 2));
-
     if (!event || typeof event !== 'object') {
       return res.status(400).json({ ok: false, message: 'Invalid payload' });
     }
@@ -57,8 +55,6 @@ const nombaWebhook = async (req, res) => {
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
     if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
-      console.log(`Processing purchase transaction: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
-      console.log(txn.type)
       const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)[1];
       const paymentRef = "PAY|" + txn.merchantTxRef.match(/PAY\|?(.*?)-/)[1];
 
@@ -137,16 +133,12 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      console.log("Started Split Here")
-
       try {
         const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
 
         if (!splitResult.ok) {
           return res.status(400).json({ ok: false, message: splitResult.message });
         }
-
-        console.log("Payment split successful:", splitResult.data);
 
         return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
 
@@ -156,19 +148,14 @@ const nombaWebhook = async (req, res) => {
       }
     } else {
 
-      console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
-
       if (!aliasRef) {
         return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
       }
-
-      console.log(`Received payment_success webhook for aliasRef: ${aliasRef}, amount: ${amount}, fee: ${fee}, merchantUserId: ${merchantUserId}, transactionReference: ${transactionReference}`);
 
       if (!Number.isFinite(amount) || amount <= 0) {
         return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
       }
 
-      console.log(`Looking for wallet with aliasRef: ${aliasRef}`);
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
         event: 'nomba.payment_success',
@@ -216,10 +203,7 @@ const nombaWebhook = async (req, res) => {
           where: { userId: aliasRef },
         });
 
-        console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
-
         if (!wallet) {
-          console.log('No wallet found for payment, recording as PENDING');
 
           await tx.transaction.create({
             data: {
@@ -246,8 +230,6 @@ const nombaWebhook = async (req, res) => {
         }
 
         const creditAmount = Number(amount - fee);
-
-        console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${creditAmount}`);
 
         const updatedWallet = await tx.wallet.update({
           where: { id: wallet.id },

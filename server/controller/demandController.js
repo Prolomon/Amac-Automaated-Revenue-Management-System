@@ -107,9 +107,10 @@ export const createDemandNotice = async (req, res) => {
         });
 
         if (!wallet) {
-          return res.status(404).json({
-            ok: false,
-            message: "Wallet not found for the member",
+          wallet = await prisma.wallet.findFirst({
+            where: {
+              userId: member.agent,
+            },
           });
         }
 
@@ -274,9 +275,10 @@ export const createMultipleDemandNotice = async (req, res) => {
             });
 
             if (!wallet) {
-              return res.status(404).json({
-                ok: false,
-                message: "Wallet not found for the member",
+              wallet = await prisma.wallet.findFirst({
+                where: {
+                  userId: member.agent,
+                },
               });
             }
 
@@ -415,9 +417,10 @@ export const createDemandNoticeByPayment = async (req, res) => {
     });
 
     if (!wallet) {
-      return res.status(404).json({
-        ok: false,
-        message: "Wallet not found for the member",
+      wallet = await prisma.wallet.findFirst({
+        where: {
+          userId: member.agent,
+        },
       });
     }
 

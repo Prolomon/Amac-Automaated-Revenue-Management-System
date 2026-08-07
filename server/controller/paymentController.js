@@ -669,8 +669,6 @@ const makePayment = async (req, res) => {
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
 
-    console.log(grossAmount, fee, totalAmount);
-
     if (senderWallet && Number(senderWallet.balance) < grossAmount) {
       return res
         .status(400)
@@ -702,40 +700,14 @@ const makePayment = async (req, res) => {
     });
 
     const paymentResult = await prisma.$transaction(async (tx) => {
-      // Calculate debt: first clear any existing debt (from paymentRecord.debt), then handle current cycle
-      // Use grossAmount (what the user actually paid) for debt calculation, not totalAmount (net after fee).
-      // The fee is a platform processing cost and should not reduce the amount credited toward the user's debt.
-      const existingDebt = Number(paymentRecord.debt || 0);
-      const currentAmount = Number(paymentRecord.amount || 0);
-
-      let remainingPayment = grossAmount;
-      let updatedDebt = existingDebt;
-
-      // If there is existing debt, pay it off first
-      if (existingDebt > 0) {
-        if (remainingPayment >= existingDebt) {
-          remainingPayment -= existingDebt;
-          updatedDebt = 0;
-        } else {
-          updatedDebt = existingDebt - remainingPayment;
-          remainingPayment = 0;
-        }
-      }
-
-      // Remaining amount goes toward current cycle's expected amount
-      if (remainingPayment > 0) {
-        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
-        updatedDebt += outstandingForCurrentCycle;
-      }
-
       const isFullyPaid = updatedDebt <= 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
         data: {
-          paid: (paymentRecord.paid || 0) + grossAmount,
-          debt: updatedDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
+          paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
+          debt: paymentRecord.debt > 0 ? paymentRecord.debt - totalAmount : Math.max(currentAmount - totalAmount, 0),
+          status: paymentRecord.debt - totalAmount === 0 ? "COMPLETED" : "PENDING",
         },
       });
 
@@ -1083,7 +1055,7 @@ const getPaymentForUser = async (req, res) => {
     if (member) {
       const payments = await prisma.payment.findMany({
         where: { userId: member.uid },
-        include: { member: true, pricing: true, demandNotices: true },
+        include: { member: true, pricing: true },
         orderBy: { createdAt: "desc" },
       });
 
@@ -1111,6 +1083,10 @@ const getPaymentForUser = async (req, res) => {
 
           if (wallet) {
             return { payment, wallet };
+          } else {
+            wallet = await prisma.wallet.findFirst({
+              where: { userId: member.agent },
+            });
           }
         })
       );
@@ -1119,7 +1095,7 @@ const getPaymentForUser = async (req, res) => {
     } else {
       const payment = await prisma.payment.findFirst({
         where: { reference: id },
-        include: { member: true, pricing: true, demandNotices: true },
+        include: { member: true, pricing: true },
       });
 
       if (!payment) {
@@ -1144,14 +1120,14 @@ const getPaymentForUser = async (req, res) => {
         where: { uid: payment?.userId }
       });
 
-      const demand = payment.demandNotices[0];
-
       let wallet = await prisma.wallet.findFirst({
         where: { userId: member.uid },
       });
 
       if (!wallet) {
-        return { payment, wallet: null, error: "Unable to retrieve account details" };
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: member.agent },
+        });
       }
 
       return res.status(200).json({ ok: true, data: { payments: [{ payment, wallet }], agent, member } });
@@ -1212,7 +1188,6 @@ const confirmPayment = async (req, res) => {
             createdAt: true,
             updatedAt: true,
             paid: true,
-            demandNotices: true,
           },
         }),
         prisma.admin.findFirst({
@@ -1316,9 +1291,17 @@ const confirmPayment = async (req, res) => {
       return res.status(500).json({ ok: false, message: "Payment configuration is incomplete" });
     }
 
-    const paymentWallet = await prisma.wallet.findFirst({
+    let paymentWallet = await prisma.wallet.findFirst({
       where: { userId },
     });
+
+    if (!paymentWallet) {
+      paymentWallet = await prisma.wallet.findFirst({
+        where: {
+          userId: member.agent,
+        },
+      });
+    }
 
     if (!paymentWallet) {
       return res.status(404).json({ ok: false, message: "Payment wallet not found for the user" });
@@ -1808,13 +1791,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
       }),
     ]);
 
-    console.log(paymentRecord,
-      main,
-      mainWallet,
-      agentWallet,
-      senderWallet,
-      technologyWallet,);
-
     if (!paymentRecord) {
       return { ok: false, message: "Payment record not found" };
     }
@@ -1839,8 +1815,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
     const fee = grossAmount * feePercentage;
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
-
-    console.log("Gross Amount:", grossAmount, "Fee:", fee, "Total Amount:", totalAmount);
 
     // Calculate split amounts
     const mainShare = Number(paymentConfig.main ?? 0);
@@ -1867,42 +1841,14 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
     });
 
     const paymentResult = await prisma.$transaction(async (tx) => {
-      // Calculate debt: first clear any existing debt (from paymentRecord.debt), then handle current cycle
-      // Use grossAmount (what the user actually paid) for debt calculation, not totalAmount (net after fee).
-      // The fee is a platform processing cost and should not reduce the amount credited toward the user's debt.
-      const existingDebt = Number(paymentRecord.debt || 0);
-      const currentAmount = Number(paymentRecord.amount || 0);
-
-      console.log("Payment Records: ", paymentRecord);
-
-      let remainingPayment = grossAmount;
-      let updatedDebt = existingDebt;
-
-      // If there is existing debt, pay it off first
-      if (existingDebt > 0) {
-        if (remainingPayment >= existingDebt) {
-          remainingPayment -= existingDebt;
-          updatedDebt = 0;
-        } else {
-          updatedDebt = existingDebt - remainingPayment;
-          remainingPayment = 0;
-        }
-      }
-
-      // Remaining amount goes toward current cycle's expected amount
-      if (remainingPayment > 0) {
-        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
-        updatedDebt += outstandingForCurrentCycle;
-      }
-
       const isFullyPaid = updatedDebt <= 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
         data: {
-          paid: (paymentRecord.paid || 0) + grossAmount,
-          debt: updatedDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
+          paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
+          debt: paymentRecord.debt > 0 ? paymentRecord.debt - totalAmount : Math.max(currentAmount - totalAmount, 0),
+          status: paymentRecord.debt - totalAmount === 0 ? "COMPLETED" : "PENDING",
         },
       });
 
