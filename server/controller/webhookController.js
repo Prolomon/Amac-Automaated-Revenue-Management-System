@@ -69,11 +69,17 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      console.log(payment, agentId, paymentRef)
-
       if (!payment) {
         return res.status(404).json({ ok: false, message: `Payment not found for reference ${paymentRef}` });
       }
+
+      const member = await prisma.member.findFirst({
+        where: {
+          uid: payment.uid,
+        },
+      });
+
+      console.log(payment, agentId, paymentRef, member)
 
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
@@ -130,7 +136,7 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      const splitResult = await paymentSplit(amount - fee, payment.centerId, payment.companyId, payment.userId, payment.reference);
+      const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference);
 
       if (!splitResult.ok) {
         return res.status(400).json({ ok: false, message: splitResult.message });

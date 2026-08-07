@@ -1310,6 +1310,13 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
       }),
     ]);
 
+    console.log(paymentRecord,
+      main,
+      mainWallet,
+      agentWallet,
+      senderWallet,
+      technologyWallet,);
+
     if (!paymentRecord) {
       return { ok: false, message: "Payment record not found" };
     }
@@ -1335,6 +1342,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
 
+    console.log("Gross Amount:", grossAmount, "Fee:", fee, "Total Amount:", totalAmount);
 
     if (senderWallet && Number(senderWallet.balance) < grossAmount) {
       return { ok: false, message: "Insufficient balance in sender wallet" };
