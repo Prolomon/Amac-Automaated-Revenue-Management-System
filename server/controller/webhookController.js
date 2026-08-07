@@ -53,9 +53,17 @@ const nombaWebhook = async (req, res) => {
     const walletId = merchant?.walletId || null;
     const senderDetails = txn?.customer || event.data?.customer || {};
     const customerEmail = senderDetails?.email || null;
+
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
+    console.log(txn)
+    console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
+    console.log(`Sender details: ${JSON.stringify(senderDetails)}`);
+    console.log(txn.type)
+
     if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
+      console.log(`Processing purchase transaction: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
+      console.log(txn.type)
       const str = "AGT-6089894298PAY|2026720849491798-1786117343380";
       const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)[1];
       const paymentRef = "PAY|" + txn.merchantTxRef.match(/PAY\|?(.*?)-/)[1];
