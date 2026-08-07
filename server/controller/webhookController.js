@@ -59,7 +59,6 @@ const nombaWebhook = async (req, res) => {
     if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
       console.log(`Processing purchase transaction: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
       console.log(txn.type)
-      const str = "AGT-6089894298PAY|2026720849491798-1786117343380";
       const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)[1];
       const paymentRef = "PAY|" + txn.merchantTxRef.match(/PAY\|?(.*?)-/)[1];
 
@@ -75,9 +74,13 @@ const nombaWebhook = async (req, res) => {
 
       const member = await prisma.member.findFirst({
         where: {
-          uid: payment.uid,
+          uid: payment.userId,
         },
       });
+
+      if (!member) {
+        return res.status(404).json({ ok: false, message: `Member not found for userId ${payment.userId}` });
+      }
 
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
@@ -87,7 +90,7 @@ const nombaWebhook = async (req, res) => {
         channel: 'card',
         customerEmail,
         paymentId: null,
-        userId: result,
+        userId: member.uid,
         metadata: {
           requestId: event.requestId || null,
           role: 'MERCHANT',
@@ -125,7 +128,7 @@ const nombaWebhook = async (req, res) => {
           channel: 'wallet',
           customerEmail,
           paymentId: null,
-          userId: merchantUserId,
+          userId: member.uid,
           metadata: {
             ...baseTransactionData.metadata,
             status: 'PENDING',
@@ -134,14 +137,23 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
+      console.log("Started Split Here")
 
-      if (!splitResult.ok) {
-        return res.status(400).json({ ok: false, message: splitResult.message });
+      try {
+        const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
+
+        if (!splitResult.ok) {
+          return res.status(400).json({ ok: false, message: splitResult.message });
+        }
+
+        console.log("Payment split successful:", splitResult.data);
+
+        return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
+
+      } catch (err) {
+        console.error('Error during payment split:', err);
+        return res.status(500).json({ ok: false, message: 'Error processing payment split' });
       }
-
-      return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
-
     } else {
 
       console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
