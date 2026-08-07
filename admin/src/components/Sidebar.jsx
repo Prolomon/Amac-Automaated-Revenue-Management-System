@@ -12,6 +12,7 @@ import {
   HandCoins,
   Search,
   Flag,
+  Monitor,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -63,6 +64,7 @@ export default function Sidebar({ onClose }) {
         icon: <Building2 size={18} />,
       },
       { href: "/admin/tiers", label: "Pricing", icon: <Tag size={18} /> },
+      { href: "/admin/terminal", label: "Terminals", icon: <Monitor size={18} /> },
       { href: "/admin/staffs", label: "Staffs", icon: <Users size={18} /> },
       {
         href: "/admin/demands",

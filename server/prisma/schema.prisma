@@ -60,6 +60,7 @@ model Company {
   updatedAt DateTime @updatedAt
 
   members   Member[]
+  terminals Terminal[]
 
   @@index([uid, email, center, zone, status, category])
 }
@@ -186,6 +187,7 @@ model Agent {
   updatedAt   DateTime @updatedAt
 
   members    Member[]
+  terminals  Terminal[]
 
   @@index([uid, email, center, id, status])
 }
@@ -380,4 +382,20 @@ enum PricingType {
 enum PaymentType {
   COMPLETE
   PART_PAYMENT
+}
+
+model Terminal {
+  id        String   @id @default(cuid())
+  uid       String   @unique
+  name      String
+  center    String
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  companyId   String?
+  agentId     String?
+  agent       Agent?    @relation(fields: [agentId], references: [uid], onDelete: Cascade)
+  company     Company?  @relation(fields: [companyId], references: [uid], onDelete: Cascade)
+
+  @@index([uid, center, status, agentId, companyId])
 }

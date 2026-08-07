@@ -44,6 +44,18 @@ export async function getCompanies(uid: string, page: number, limit: number): Pr
   return data;
 }
 
+export async function getAllCompanies(page = 1, limit = 100): Promise<{ ok: boolean; data?: Company[]; message?: string; meta?: { total: number; limit: number; page: number; totalPages: number } }> {
+  const response = await fetch(`${API_URL}/company?page=${page}&limit=${limit}`, {
+    headers: {...buildHeaders(false)},
+  });
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch companies");
+  }
+  return data;
+}
+
+
 export async function getCompany(uid: string): Promise<{ ok: boolean; company?: Company; message?: string }> {
   if (!uid) {
     throw new Error("No user ID found");

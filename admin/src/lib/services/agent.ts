@@ -48,6 +48,30 @@ export async function getAgents(uid: string): Promise<{ ok: boolean; data?: Agen
   return data;
 }
 
+export async function getAllAgents(page = 1, limit = 100): Promise<{ ok: boolean; data?: Agent[]; message?: string; meta?: { total: number; limit: number; page: number; totalPages: number } }> {
+  const response = await fetch(`${API_URL}/agent?page=${page}&limit=${limit}`, {
+    headers: {...buildHeaders(false)},
+  });
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch agents");
+  }
+  return data;
+}
+
+export async function getAgentsByCompany(companyId: string, page = 1, limit = 100): Promise<{ ok: boolean; data?: Agent[]; message?: string; meta?: { total: number; limit: number; page: number; totalPages: number } }> {
+  if (!companyId) return { ok: true, data: [] };
+  const response = await fetch(`${API_URL}/agent/company/${companyId}?page=${page}&limit=${limit}`, {
+    headers: {...buildHeaders(false)},
+  });
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch agents by company");
+  }
+  return data;
+}
+
+
 export async function getAgent(uid: string): Promise<{ ok: boolean; agent?: Agent; message?: string }> {
   if (!uid) {
     throw new Error("No user ID found");

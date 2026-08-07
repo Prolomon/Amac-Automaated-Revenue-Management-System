@@ -29,6 +29,8 @@ const nombaWebhook = async (req, res) => {
   try {
     const event = req.body;
 
+    console.log('Received Nomba webhook event:', JSON.stringify(event, null, 2));
+
     if (!event || typeof event !== 'object') {
       return res.status(400).json({ ok: false, message: 'Invalid payload' });
     }

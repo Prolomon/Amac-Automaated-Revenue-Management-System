@@ -16,7 +16,7 @@ import {
   FileText,
   CheckCircle2,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -42,29 +42,15 @@ export default function CheckoutPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutData, setCheckoutData] = useState<any>(null);
 
-  const handlePayWithCard = async () => {
-    try {
-      const result = await NombaPayment.triggerPayment('300', '1234567890'); // amount in kobo
-      console.log('Success:', result);
-    } catch (e) {
-      console.error('Payment failed:', e);
-    } finally {
-      setCardModal(false);
-    }
-  }
-
   // Success/Failure feedback modals
   const [successVisible, setSuccessVisible] = useState(false);
   const [failureVisible, setFailureVisible] = useState(false);
   const [failureMessage, setFailureMessage] = useState("");
   const [confirmDetails, setConfirmDetails] = useState<any>(null);
 
-  const [pinEntryVisible, setPinEntryVisible] = useState(false);
-  const [pin, setPin] = useState("");
-  const pinInputRef = useRef<TextInput>(null);
   //Payment with card
   const [cardModal, setCardModal] = useState(false);
-
+  const [paymentAmount, setPaymentAmount] = useState("");
 
   const fetchDetails = useCallback(async () => {
     await Promise.resolve(); // yield once — breaks the synchronous chain
@@ -101,42 +87,13 @@ export default function CheckoutPage() {
     setRefreshing(false);
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color="#0ea360" />
-          <Text style={styles.loadingText}>Loading checkout details...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!checkoutData || !checkoutData.member) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft color="#0f172a" size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Checkout</Text>
-          <View style={{ width: 44 }} />
-        </View>
-        <View style={styles.errorCenter}>
-          <AlertCircle size={48} color="#ef4444" />
-          <Text style={styles.errorTitle}>No Checkout Information</Text>
-          <Text style={styles.errorDesc}>
-            The payment reference or identifier is invalid or has expired.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const { member, payments } = checkoutData;
+  // ✅ FIX 1: read everything with optional chaining / safe defaults instead
+  // of destructuring straight off `checkoutData`. checkoutData starts as
+  // null (useState<any>(null)), so `const { member, payments } = checkoutData`
+  // used to crash with "Cannot destructure property 'member' of null" on the
+  // very first render, before any guard could run.
+  const member = checkoutData?.member;
+  const payments = checkoutData?.payments;
 
   // Find the exact matched payment or default to the first one
   const matchedWrap =
@@ -151,47 +108,42 @@ export default function CheckoutPage() {
   const payment = matchedWrap?.payment || matchedWrap;
   const wallet = matchedWrap?.wallet;
 
-  if (!payment) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft color="#0f172a" size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Checkout</Text>
-          <View style={{ width: 44 }} />
-        </View>
-        <View style={styles.errorCenter}>
-          <AlertCircle size={48} color="#ef4444" />
-          <Text style={styles.errorTitle}>No Active Payment Found</Text>
-          <Text style={styles.errorDesc}>
-            This member does not have an active payment for this checkout.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Calculate pricing summary details
-  const principal = Number(payment.debt ? payment.debt : payment.amount || 0);
+  // Calculate pricing summary details — safe defaults when payment isn't loaded yet
+  const principal = payment
+    ? Number(payment.debt ? payment.debt : payment.amount || 0)
+    : 0;
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
 
+  // ✅ FIX 2: this hook now runs unconditionally on every render, in the same
+  // position every time. Previously it sat AFTER the early-return guards, so
+  // on the render where checkoutData is still null, the component returned
+  // before this useEffect was ever registered — then on a later render (once
+  // checkoutData resolves) it WOULD be registered. That's a classic
+  // "Rendered fewer hooks than expected" Rules-of-Hooks violation. Guarding
+  // the logic *inside* the effect (rather than skipping the hook call itself)
+  // fixes it.
+  useEffect(() => {
+    (async () => {
+      await Promise.resolve(); // yield once — breaks the synchronous chain
+      if (checkoutData && payment) {
+        setPaymentAmount(subtotal.toString());
+      }
+    })();
+  }, [checkoutData, payment, subtotal]);
+
   // Days Overdue & Penalty Calculation
-  const paymentDate = new Date(payment.date || payment.due || new Date());
+  const paymentDate = new Date(payment?.date || payment?.due || new Date());
   const currentDate = new Date();
   let daysOverdue = 0;
-  if (currentDate > paymentDate) {
+  if (payment && currentDate > paymentDate) {
     const diffTime = currentDate.getTime() - paymentDate.getTime();
     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   }
   const penalty = subtotal * 0.00005 * daysOverdue;
   const totalAmount = subtotal + penalty;
-  const debt = payment.debt;
+  const debt = payment?.debt;
 
   const handleConfirmPayment = async () => {
     setConfirming(true);
@@ -222,6 +174,79 @@ export default function CheckoutPage() {
       setConfirming(false);
     }
   };
+
+  const handlePayWithCard = async () => {
+    try {
+      const result = await NombaPayment.triggerPayment(paymentAmount.toString().padEnd(paymentAmount.toString().length + 2, '0'), '1234567890'); // amount in kobo
+      console.log('Success:', result);
+    } catch (e) {
+      console.error('Payment failed:', e);
+    } finally {
+      setCardModal(false);
+    }
+  }
+
+  // ✅ All hooks above this line have now been called unconditionally, in a
+  // fixed order, on every render — safe to branch and return early from here on.
+
+  if (loading && !checkoutData) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color="#0ea360" />
+          <Text style={styles.loadingText}>Loading checkout details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!checkoutData || !member) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft color="#0f172a" size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.errorCenter}>
+          <AlertCircle size={48} color="#ef4444" />
+          <Text style={styles.errorTitle}>No Checkout Information</Text>
+          <Text style={styles.errorDesc}>
+            The payment reference or identifier is invalid or has expired.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!payment) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft color="#0f172a" size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.errorCenter}>
+          <AlertCircle size={48} color="#ef4444" />
+          <Text style={styles.errorTitle}>No Active Payment Found</Text>
+          <Text style={styles.errorDesc}>
+            This member does not have an active payment for this checkout.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -486,67 +511,18 @@ export default function CheckoutPage() {
 
             <Text style={styles.modalTitle}>Payment With Card</Text>
             <Text style={styles.modalDesc}>
-              {pinEntryVisible
-                ? "Enter your card PIN"
-                : "Insert, tap, or swipe your card to complete the payment"}
+              Insert, tap, or swipe your card to complete the payment.
             </Text>
 
-            {!pinEntryVisible && (
-              <View style={styles.pendingRow}>
-                <ActivityIndicator size="small" color="#0ea360" />
-                <Text style={styles.pendingText}>Waiting for card...</Text>
-              </View>
-            )}
-
-            {pinEntryVisible && (
-              <TouchableOpacity
-                activeOpacity={1}
-                style={styles.pinBoxRow}
-                onPress={() => pinInputRef.current?.focus()}
-              >
-                {[0, 1, 2, 3].map((i) => (
-                  <View key={i} style={styles.pinBox}>
-                    {pin.length > i && <View style={styles.pinDot} />}
-                  </View>
-                ))}
-
-                <TextInput
-                  ref={pinInputRef}
-                  value={pin}
-                  onChangeText={(text) =>
-                    setPin(text.replace(/[^0-9]/g, "").slice(0, 4))
-                  }
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  secureTextEntry
-                  autoFocus
-                  style={styles.hiddenInput}
-                />
-              </TouchableOpacity>
-            )}
-
-            {confirmDetails && confirmDetails.payment && (
-              <View style={styles.confirmDetailsBox}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Reference:</Text>
-                  <Text style={styles.detailVal}>
-                    {confirmDetails.payment.reference}
-                  </Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Amount:</Text>
-                  <Text style={styles.detailVal}>
-                    {formatCurrency(Number(totalAmount))}
-                  </Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Status:</Text>
-                  <Text style={styles.detailVal}>
-                    {confirmDetails.payment.status}
-                  </Text>
-                </View>
-              </View>
-            )}
+            <TextInput
+              value={paymentAmount}
+              onChangeText={(text) =>
+                setPaymentAmount(text)
+              }
+              keyboardType="number-pad"
+              autoFocus
+              style={styles.input}
+            />
 
             <TouchableOpacity
               style={styles.modalCloseBtn}
@@ -571,6 +547,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+  },
+  input: {
+    width: "100%",
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    backgroundColor: "ghostwhite",
+    fontSize: 15,
+    color: "#0f172a",
+    marginBottom: 16,
+    fontWeight: 900,
   },
   errorTitle: {
     fontSize: 18,

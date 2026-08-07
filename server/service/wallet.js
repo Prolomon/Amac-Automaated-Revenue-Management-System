@@ -216,7 +216,7 @@ export const initiateTransfer = async (amount, accountNumber, accountName, bankC
             status: false,
             message: 'NOMBA_PRIVATE_SECRET is not configured',
             data: null,
-        };  
+        };
     }
 
     const url = `${process.env.NOMBA_API_BASE_URL}/v2/transfers/bank`;
@@ -355,7 +355,7 @@ export const resolveBankAccount = async (accountNumber, bankCode) => {
             data: null,
         };
     }
-};  
+};
 
 export const verifyTransfer = async (merchantTxRef) => {
     if (!process.env.NOMBA_API_BASE_URL) {
@@ -403,7 +403,7 @@ export const verifyTransfer = async (merchantTxRef) => {
 
 export const getTransactions = async (accountNumber, fromDate, toDate) => {
     if (!process.env.NOMBA_API_BASE_URL) {
-        return {    
+        return {
             status: false,
             message: 'NOMBA_API_BASE_URL is not configured',
             data: null,
@@ -455,7 +455,7 @@ export const checkBalance = async () => {
 
     const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/virtual/balance`;
 
-    try {   
+    try {
 
         const token = await getManagedAccessToken();
         const headers = {
@@ -502,7 +502,7 @@ export const getAccount = async (id) => {
 
     const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/virtual/${id}`;
 
-    try {   
+    try {
 
         const token = await getManagedAccessToken();
         const headers = {
@@ -537,6 +537,152 @@ export const getAccount = async (id) => {
     }
 };
 
-export const checkout = async () => {
+export const assignTerminal = async (serialNumber, terminalLabel) => {
+    if (!process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_API_BASE_URL is not configured',
+            data: null,
+        };
+    }
 
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/terminals/assign`;
+
+    try {
+
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(
+                {
+                    "serialNumber": serialNumber,
+                    "terminalLabel": terminalLabel
+                }
+            )
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.status) {
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
 }
+
+export const unassignTerminal = async (serialNumber, terminalLabel) => {
+    if (!process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_API_BASE_URL is not configured',
+            data: null,
+        };
+    }
+
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/terminals/unassign`;
+
+    try {
+
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(
+                {
+                    "serialNumber": serialNumber,
+                    "terminalLabel": terminalLabel
+                }
+            )
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.status) {
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
+};
+
+export const getAccountTerminals = async (accountId = process.env.NOMBA_ACCOUNT_ID, page = 1, limit = 20) => {
+    if (!process.env.NOMBA_API_BASE_URL) {
+        return {
+            status: false,
+            message: 'NOMBA_API_BASE_URL is not configured',
+            data: null,
+        };
+    }
+
+    const targetAccountId = accountId || process.env.NOMBA_ACCOUNT_ID;
+    const url = `${process.env.NOMBA_API_BASE_URL}/v1/accounts/${targetAccountId}/terminals?page=${page}&limit=${limit}`;
+
+    try {
+        const token = await getManagedAccessToken();
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            accountId: process.env.NOMBA_ACCOUNT_ID,
+            'x-account-id': process.env.NOMBA_ACCOUNT_ID,
+        };
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.status) {
+            return {
+                status: false,
+                message: data?.message || `NOMBA request failed with status ${response.status}`,
+                data: data?.data || null,
+            };
+        }
+
+        return data;
+    } catch (error) {
+        return {
+            status: false,
+            message: error?.message || 'Unable to reach NOMBA',
+            data: null,
+        };
+    }
+};
