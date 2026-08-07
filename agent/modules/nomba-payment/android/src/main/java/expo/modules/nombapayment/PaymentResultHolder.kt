@@ -5,3 +5,4 @@ import expo.modules.kotlin.Promise
 object PaymentResultHolder {
   var pendingPromise: Promise? = null
 }
+
