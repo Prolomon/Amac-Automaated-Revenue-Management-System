@@ -1,6 +1,7 @@
 import crypto from "crypto";
 // import { recordWebhookTransaction } from "./transactionController.js";
 import { prisma } from "../config/db.js";
+import { paymentSplit } from "./paymentController.js";
 
 function verifySignature(secret, rawBody, signatureHeader) {
   const computedSignature = crypto
@@ -25,7 +26,7 @@ const nombaWebhook = async (req, res) => {
 
   // // ✅ Signature verified
   // console.log('Webhook verified');
-  
+
   try {
     const event = req.body;
 
@@ -41,8 +42,9 @@ const nombaWebhook = async (req, res) => {
     }
 
     const txn = event.data?.transaction || {};
+
     const merchant = txn?.merchant || {};
-    
+
     // Nomba structure varies: fields can be in txn root or nested in merchant
     const aliasRef = txn?.aliasAccountReference || merchant?.aliasAccountReference || txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null;
     const amount = Number(txn?.transactionAmount || merchant?.transactionAmount || 0);
@@ -53,137 +55,214 @@ const nombaWebhook = async (req, res) => {
     const customerEmail = senderDetails?.email || null;
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
+    if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
+      const str = "AGT-6089894298PAY|2026720849491798-1786117343380";
+      const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)[1];
+      const paymentRef = "PAY|" + txn.merchantTxRef.match(/PAY\|?(.*?)-/)[1];
 
-    if (!aliasRef) {
-      return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
-    }
-
-    console.log(`Received payment_success webhook for aliasRef: ${aliasRef}, amount: ${amount}, fee: ${fee}, merchantUserId: ${merchantUserId}, transactionReference: ${transactionReference}`);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
-    }
-
-    console.log(`Looking for wallet with aliasRef: ${aliasRef}`);
-    const baseTransactionData = {
-      merchantTxRef: merchantUserId,
-      event: 'nomba.payment_success',
-      amount,
-      currency: 'NGN',
-      channel: 'wallet',
-      customerEmail,
-      paymentId: null,
-      userId: merchantUserId,
-      metadata: {
-        requestId: event.requestId || null,
-        role: 'MERCHANT',
-        transactionType: 'CREDIT',
-        creditedAmount: amount,
-        senderAccountNumber: senderDetails.accountNumber || null,
-        senderBankName: senderDetails.bankName || null,
-        senderBankCode: senderDetails.bankCode || null,
-        senderName: senderDetails.senderName || null,
-        aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
-        aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
-        aliasAccountReference: aliasRef,
-        aliasAccountType: txn?.aliasAccountType || null,
-        sessionId: txn?.sessionId || null,
-        transactionId: txn?.transactionId || null,
-        transactionTypeName: txn?.type || null,
-        narration: txn?.narration || null,
-        time: txn?.time || null,
-        originatingFrom: txn?.originatingFrom || null,
-        merchant,
-        transaction: txn,
-      },
-      rawPayload: event,
-    };
-
-    const result = await prisma.$transaction(async (tx) => {
-      const existingTransaction = await tx.transaction.findUnique({
-        where: { reference: `${transactionReference}-MERCHANT` },
+      const payment = await prisma.payment.findFirst({
+        where: {
+          reference: paymentRef,
+        },
       });
 
-      if (existingTransaction) {
-        return { duplicate: true };
-      }
+      const baseTransactionData = {
+        merchantTxRef: merchantUserId,
+        event: 'nomba.payment_success',
+        amount,
+        currency: 'NGN',
+        channel: 'card',
+        customerEmail,
+        paymentId: null,
+        userId: result,
+        metadata: {
+          requestId: event.requestId || null,
+          role: 'MERCHANT',
+          transactionType: 'CREDIT',
+          creditedAmount: amount,
+          senderAccountNumber: senderDetails.accountNumber || null,
+          senderBankName: senderDetails.cardPan || null,
+          senderBankCode: senderDetails.productId || null,
+          senderName: senderDetails.cardPan || null,
+          aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
+          aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
+          aliasAccountReference: aliasRef,
+          aliasAccountType: txn?.aliasAccountType || null,
+          sessionId: txn?.sessionId || null,
+          transactionId: txn?.transactionId || null,
+          transactionTypeName: txn?.type || null,
+          narration: txn?.narration || null,
+          time: txn?.time || null,
+          originatingFrom: txn?.originatingFrom || null,
+          merchant,
+          transaction: txn,
+        },
+        rawPayload: event,
+      };
 
-      const wallet = await tx.wallet.findFirst({
-        where: { userId: aliasRef },
-      });
-
-      console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
-
-      if (!wallet) {
-        console.log('No wallet found for payment, recording as PENDING');
-
-        await tx.transaction.create({
-          data: {
-            reference: `${transactionReference}-MERCHANT-PENDING`,
-            status: 'PENDING',
-            gatewayResponse: 'Wallet credit pending',
-            merchantTxRef: merchantUserId,
-            event: 'nomba.payment_success',
-            amount,
-            currency: 'NGN',
-            channel: 'wallet',
-            customerEmail,
-            paymentId: null,
-            userId: merchantUserId,
-            metadata: {
-              ...baseTransactionData.metadata,
-              status: 'PENDING',
-            },
-            rawPayload: event,
-          },
-        });
-
-        return { pending: true };
-      }
-
-      const creditAmount = Number(amount - fee);
-
-      console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${creditAmount}`);
-
-      const updatedWallet = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { increment: creditAmount } },
-      });
-
-      await tx.transaction.create({
+      await prisma.transaction.create({
         data: {
-          reference: `${transactionReference}-MERCHANT`,
-          status: 'SUCCESS',
-          gatewayResponse: 'Wallet credited',
-          merchantTxRef: wallet.userId,
-          event: 'nomba.payment.credit',
+          reference: `${transactionReference}-MERCHANT-PENDING`,
+          status: 'PENDING',
+          gatewayResponse: 'Wallet credit pending',
+          merchantTxRef: merchantUserId,
+          event: 'nomba.payment_success',
           amount,
           currency: 'NGN',
           channel: 'wallet',
           customerEmail,
           paymentId: null,
-          userId: wallet.userId,
+          userId: merchantUserId,
           metadata: {
             ...baseTransactionData.metadata,
-            status: 'SUCCESS',
+            status: 'PENDING',
           },
           rawPayload: event,
         },
       });
 
-      return { wallet: updatedWallet };
-    });
+      const res = await paymentSplit(amount - fee, payment.centerId, payment.companyId, payment.userId, payment.reference);
 
-    if (result?.duplicate) {
-      return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+      if (!res.ok) {
+        return res.status(400).json({ ok: false, message: res.message });
+      }
+
+      return res.status(200).json({ ok: true, message: "Payment processed successfully", data: res.data });
+
+    } else {
+
+      console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
+
+      if (!aliasRef) {
+        return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
+      }
+
+      console.log(`Received payment_success webhook for aliasRef: ${aliasRef}, amount: ${amount}, fee: ${fee}, merchantUserId: ${merchantUserId}, transactionReference: ${transactionReference}`);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
+      }
+
+      console.log(`Looking for wallet with aliasRef: ${aliasRef}`);
+      const baseTransactionData = {
+        merchantTxRef: merchantUserId,
+        event: 'nomba.payment_success',
+        amount,
+        currency: 'NGN',
+        channel: 'wallet',
+        customerEmail,
+        paymentId: null,
+        userId: merchantUserId,
+        metadata: {
+          requestId: event.requestId || null,
+          role: 'MERCHANT',
+          transactionType: 'CREDIT',
+          creditedAmount: amount,
+          senderAccountNumber: senderDetails.accountNumber || null,
+          senderBankName: senderDetails.bankName || null,
+          senderBankCode: senderDetails.bankCode || null,
+          senderName: senderDetails.senderName || null,
+          aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
+          aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
+          aliasAccountReference: aliasRef,
+          aliasAccountType: txn?.aliasAccountType || null,
+          sessionId: txn?.sessionId || null,
+          transactionId: txn?.transactionId || null,
+          transactionTypeName: txn?.type || null,
+          narration: txn?.narration || null,
+          time: txn?.time || null,
+          originatingFrom: txn?.originatingFrom || null,
+          merchant,
+          transaction: txn,
+        },
+        rawPayload: event,
+      };
+
+      const result = await prisma.$transaction(async (tx) => {
+        const existingTransaction = await tx.transaction.findUnique({
+          where: { reference: `${transactionReference}-MERCHANT` },
+        });
+
+        if (existingTransaction) {
+          return { duplicate: true };
+        }
+
+        const wallet = await tx.wallet.findFirst({
+          where: { userId: aliasRef },
+        });
+
+        console.log(wallet ? `Found wallet for aliasRef ${aliasRef}` : `No wallet found for aliasRef ${aliasRef}`);
+
+        if (!wallet) {
+          console.log('No wallet found for payment, recording as PENDING');
+
+          await tx.transaction.create({
+            data: {
+              reference: `${transactionReference}-MERCHANT-PENDING`,
+              status: 'PENDING',
+              gatewayResponse: 'Wallet credit pending',
+              merchantTxRef: merchantUserId,
+              event: 'nomba.payment_success',
+              amount,
+              currency: 'NGN',
+              channel: 'wallet',
+              customerEmail,
+              paymentId: null,
+              userId: merchantUserId,
+              metadata: {
+                ...baseTransactionData.metadata,
+                status: 'PENDING',
+              },
+              rawPayload: event,
+            },
+          });
+
+          return { pending: true };
+        }
+
+        const creditAmount = Number(amount - fee);
+
+        console.log(`Crediting wallet ${wallet.id} (userId: ${wallet.userId}) with amount: ${creditAmount}`);
+
+        const updatedWallet = await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: { increment: creditAmount } },
+        });
+
+        await tx.transaction.create({
+          data: {
+            reference: `${transactionReference}-MERCHANT`,
+            status: 'SUCCESS',
+            gatewayResponse: 'Wallet credited',
+            merchantTxRef: wallet.userId,
+            event: 'nomba.payment.credit',
+            amount,
+            currency: 'NGN',
+            channel: 'wallet',
+            customerEmail,
+            paymentId: null,
+            userId: wallet.userId,
+            metadata: {
+              ...baseTransactionData.metadata,
+              status: 'SUCCESS',
+            },
+            rawPayload: event,
+          },
+        });
+
+        return { wallet: updatedWallet };
+      });
+
+      if (result?.duplicate) {
+        return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+      }
+
+      if (result?.pending) {
+        return res.status(200).json({ ok: false, message: 'No matching wallet found', data: { aliasRef } });
+      }
+
+      return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: result.wallet.id, balance: result.wallet.balance } });
     }
-
-    if (result?.pending) {
-      return res.status(200).json({ ok: false, message: 'No matching wallet found', data: { aliasRef } });
-    }
-
-    return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: result.wallet.id, balance: result.wallet.balance } });
   } catch (err) {
     if (err?.code === 'P2002') {
       return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });

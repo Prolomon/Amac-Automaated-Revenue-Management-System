@@ -34,7 +34,7 @@ import NombaPayment from '@/modules/nomba-payment';
 export default function CheckoutPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { token } = useAuth();
+  const { token, currentUser } = useAuth();
   const { success, failed } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -87,11 +87,6 @@ export default function CheckoutPage() {
     setRefreshing(false);
   };
 
-  // ✅ FIX 1: read everything with optional chaining / safe defaults instead
-  // of destructuring straight off `checkoutData`. checkoutData starts as
-  // null (useState<any>(null)), so `const { member, payments } = checkoutData`
-  // used to crash with "Cannot destructure property 'member' of null" on the
-  // very first render, before any guard could run.
   const member = checkoutData?.member;
   const payments = checkoutData?.payments;
 
@@ -116,14 +111,6 @@ export default function CheckoutPage() {
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
 
-  // ✅ FIX 2: this hook now runs unconditionally on every render, in the same
-  // position every time. Previously it sat AFTER the early-return guards, so
-  // on the render where checkoutData is still null, the component returned
-  // before this useEffect was ever registered — then on a later render (once
-  // checkoutData resolves) it WOULD be registered. That's a classic
-  // "Rendered fewer hooks than expected" Rules-of-Hooks violation. Guarding
-  // the logic *inside* the effect (rather than skipping the hook call itself)
-  // fixes it.
   useEffect(() => {
     (async () => {
       await Promise.resolve(); // yield once — breaks the synchronous chain
@@ -177,7 +164,7 @@ export default function CheckoutPage() {
 
   const handlePayWithCard = async () => {
     try {
-      const result = await NombaPayment.triggerPayment(paymentAmount.toString().padEnd(paymentAmount.toString().length + 2, '0'), '1234567890'); // amount in kobo
+      const result = await NombaPayment.triggerPayment(paymentAmount.toString().padEnd(paymentAmount.toString().length + 2, '0'), currentUser?.uid + payment.reference + "-" + new Date().getTime()); // amount in kobo
       console.log('Success:', result);
     } catch (e) {
       console.error('Payment failed:', e);
@@ -185,9 +172,6 @@ export default function CheckoutPage() {
       setCardModal(false);
     }
   }
-
-  // ✅ All hooks above this line have now been called unconditionally, in a
-  // fixed order, on every render — safe to branch and return early from here on.
 
   if (loading && !checkoutData) {
     return (

@@ -498,511 +498,13 @@ const makePayment = async (req, res) => {
     const { amount, center, company } = value;
     const { userId, paymentId } = req.params;
 
-    const member = await prisma.member.findUnique({
-      where: { uid: userId },
-    });
+    const res = await paymentSplit(amount, center, company, userId, paymentId);
 
-    if (!member) {
-      return res.status(404).json({ ok: false, message: "Member not found" });
+    if (!res.ok) {
+      return res.status(400).json({ ok: false, message: res.message });
     }
 
-    const [
-      paymentRecord,
-      main,
-      mainWallet,
-      agentWallet,
-      senderWallet,
-      technologyWallet,
-    ] = await Promise.all([
-      prisma.payment.findFirst({
-        where: { payment: paymentId },
-        select: {
-          id: true,
-          reference: true,
-          userId: true,
-          frequency: true,
-          sessions: true,
-          debt: true,
-          due: true,
-          amount: true,
-          payment: true,
-          status: true,
-          isVerify: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      prisma.admin.findFirst({
-        where: { uid: center },
-        select: {
-          id: true,
-          uid: true,
-          center: true,
-          email: true,
-          password: true,
-          avatar: true,
-          role: true,
-          paymentConfig: true,
-          createdAt: true,
-          updatedAt: true,
-          location: true,
-          state: true,
-          address: true,
-          lga: true,
-          country: true,
-          status: true,
-          phone: true,
-          adminName: true,
-          adminEmail: true,
-          adminLocation: true,
-          adminPhone: true,
-        },
-      }),
-      prisma.wallet.findFirst({
-        where: { userId: center, role: "ADMIN" },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          role: true,
-          accountHolderId: true,
-          createdAt: true,
-          updatedAt: true,
-          balance: true,
-          accountNo: true,
-          accountName: true,
-          currency: true,
-          bank: true,
-          identification: true,
-          verify: true,
-        },
-      }),
-      prisma.wallet.findFirst({
-        where: { userId: company, role: "COMPANY" },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-          balance: true,
-          accountNo: true,
-          accountHolderId: true,
-          accountName: true,
-          currency: true,
-          bank: true,
-          identification: true,
-          verify: true,
-        },
-      }),
-      prisma.wallet.findFirst({
-        where: { userId, role: "MEMBER" },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-          balance: true,
-          accountNo: true,
-          accountHolderId: true,
-          accountName: true,
-          currency: true,
-          bank: true,
-          identification: true,
-          verify: true,
-        },
-      }),
-      prisma.wallet.findFirst({
-        where: {
-          role: "IT",
-        },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-          balance: true,
-          accountNo: true,
-          accountName: true,
-          currency: true,
-          accountHolderId: true,
-          bank: true,
-          identification: true,
-          verify: true,
-        },
-      }),
-    ]);
-
-    if (!paymentRecord) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Payment record not found" });
-    }
-
-    if (!main) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Main admin not found" });
-    }
-
-    if (!main.paymentConfig) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Payment configuration is incomplete" });
-    }
-
-    // Parse payment config for split percentages
-    const paymentConfig = main.paymentConfig || {
-      main: 65,
-      agent: 25,
-      technology: 10,
-    };
-
-    const grossAmount = Number(amount);
-    const feePercentage = 0.015; // 1.5% fee
-    const fee = grossAmount * feePercentage;
-    const totalAmount = grossAmount - fee;
-    const receiptReference = generateTransactionReference();
-
-    console.log(grossAmount, fee, totalAmount);
-
-    if (senderWallet && Number(senderWallet.balance) < grossAmount) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Insufficient balance in sender wallet" });
-    }
-
-    // Calculate split amounts
-    const mainShare = Number(paymentConfig.main ?? 0);
-    const agentShare = Number(paymentConfig.agent ?? 0);
-    const technologyShare = Number(paymentConfig.technology ?? 0);
-
-    const mainAmount = (totalAmount * mainShare) / 100;
-    const agentAmount = (totalAmount * agentShare) / 100;
-    const technologyAmount = (totalAmount * technologyShare) / 100;
-
-    const senderDetails = getWalletBankDetails(senderWallet);
-    const receipt = generateReceipt({
-      reference: receiptReference,
-      paymentRecord,
-      grossAmount,
-      fee,
-      netAmount: totalAmount,
-      mainAmount,
-      agentAmount,
-      technologyAmount,
-      senderWallet,
-      mainWallet,
-      agentWallet,
-    });
-
-    const paymentResult = await prisma.$transaction(async (tx) => {
-      // Calculate debt: first clear any existing debt (from paymentRecord.debt), then handle current cycle
-      // Use grossAmount (what the user actually paid) for debt calculation, not totalAmount (net after fee).
-      // The fee is a platform processing cost and should not reduce the amount credited toward the user's debt.
-      const existingDebt = Number(paymentRecord.debt || 0);
-      const currentAmount = Number(paymentRecord.amount || 0);
-
-      let remainingPayment = grossAmount;
-      let updatedDebt = existingDebt;
-
-      // If there is existing debt, pay it off first
-      if (existingDebt > 0) {
-        if (remainingPayment >= existingDebt) {
-          remainingPayment -= existingDebt;
-          updatedDebt = 0;
-        } else {
-          updatedDebt = existingDebt - remainingPayment;
-          remainingPayment = 0;
-        }
-      }
-
-      // Remaining amount goes toward current cycle's expected amount
-      if (remainingPayment > 0) {
-        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
-        updatedDebt += outstandingForCurrentCycle;
-      }
-
-      const isFullyPaid = updatedDebt <= 0;
-
-      const updatedPayment = await tx.payment.update({
-        where: { id: paymentRecord.id },
-        data: {
-          paid: (paymentRecord.paid || 0) + grossAmount,
-          debt: updatedDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
-        },
-      });
-
-      if (mainWallet) {
-        await tx.wallet.update({
-          where: { id: mainWallet.id },
-          data: {
-            balance: {
-              increment: mainAmount,
-            },
-          },
-        });
-      }
-
-      if (agentWallet) {
-        await tx.wallet.update({
-          where: { id: agentWallet.id },
-          data: {
-            balance: {
-              increment: agentAmount,
-            },
-          },
-        });
-      }
-
-      if (technologyWallet) {
-        await tx.wallet.update({
-          where: { id: technologyWallet.id },
-          data: {
-            balance: {
-              increment: technologyAmount + fee,
-            },
-          },
-        });
-      }
-
-      if (senderWallet) {
-        await tx.wallet.update({
-          where: { id: senderWallet.id },
-          data: {
-            balance: {
-              decrement: grossAmount,
-            },
-          },
-        });
-      }
-
-      if (main) {
-        await tx.admin.update({
-          where: { id: main.id },
-          data: {
-            ledger: {
-              increment: totalAmount,
-            },
-          },
-        });
-      }
-
-      await Promise.all([
-        tx.transaction.create({
-          data: {
-            reference: `${receiptReference}-ADMIN`,
-            merchantTxRef: main.uid,
-            event: "payment.admin.credit",
-            status: "SUCCESS",
-            amount: mainAmount,
-            currency: "NGN",
-            channel: "wallet",
-            gatewayResponse: "Admin wallet credited",
-            customerEmail: main.adminEmail || main.email || null,
-            paymentId: paymentRecord.id,
-            userId: main.uid,
-            metadata: {
-              receipt,
-              role: "ADMIN",
-              transactionType: "CREDIT",
-              creditedAmount: mainAmount,
-              senderAccountNumber: senderDetails.accountNumber,
-              senderBankName: senderDetails.bankName,
-              senderBankCode: senderDetails.bankCode,
-              senderName: senderDetails.accountName,
-            },
-          },
-        }),
-        tx.transaction.create({
-          data: {
-            reference: `${receiptReference}-AGENT`,
-            merchantTxRef: company,
-            event: "payment.agent.credit",
-            status: "SUCCESS",
-            amount: agentAmount,
-            currency: "NGN",
-            channel: "wallet",
-            gatewayResponse: "Agent wallet credited",
-            customerEmail: agentWallet?.accountName || null,
-            paymentId: paymentRecord.id,
-            userId: company,
-            metadata: {
-              receipt,
-              role: "AGENT",
-              transactionType: "CREDIT",
-              creditedAmount: agentAmount,
-              senderAccountNumber: senderDetails.accountNumber,
-              senderBankName: senderDetails.bankName,
-              senderBankCode: senderDetails.bankCode,
-              senderName: senderDetails.accountName,
-            },
-          },
-        }),
-        tx.transaction.create({
-          data: {
-            reference: `${receiptReference}-SENDER`,
-            merchantTxRef: userId,
-            event: "payment.sender.debit",
-            status: "SUCCESS",
-            amount: grossAmount,
-            currency: "NGN",
-            channel: "wallet",
-            gatewayResponse: "Sender wallet debited",
-            customerEmail: senderWallet?.accountName || null,
-            paymentId: paymentRecord.id,
-            userId: senderWallet?.userId || userId,
-            metadata: {
-              receipt,
-              role: "SENDER",
-              transactionType: "DEBIT",
-              debitedAmount: grossAmount,
-              senderAccountNumber: senderDetails.accountNumber,
-              senderBankName: senderDetails.bankName,
-              senderBankCode: senderDetails.bankCode,
-              senderName: senderDetails.accountName,
-            },
-          },
-        }),
-        tx.transaction.create({
-          data: {
-            reference: `${receiptReference}-IT`,
-            merchantTxRef: technologyWallet?.userId || "URMSAD-8485HB5SQ3",
-            event: "payment.it.debit",
-            status: "SUCCESS",
-            amount: technologyAmount + fee,
-            currency: "NGN",
-            channel: "wallet",
-            gatewayResponse: "IT wallet credited",
-            customerEmail: senderWallet?.accountName || null,
-            paymentId: paymentRecord.id,
-            userId: "URMSAD-ZWKN67CO79",
-            metadata: {
-              receipt,
-              role: "IT",
-              transactionType: "CREDIT",
-              creditedAmount: technologyAmount + fee,
-              senderAccountNumber: senderDetails.accountNumber,
-              senderBankName: senderDetails.bankName,
-              senderBankCode: senderDetails.bankCode,
-              senderName: senderDetails.accountName,
-            },
-          },
-        }),
-      ]);
-
-      const paymentTransaction = await tx.paymentTransaction.create({
-        data: {
-          reference: `${receiptReference}-PAYMENT`,
-          userId,
-          pricingId: paymentRecord.payment,
-          companyId: company || null,
-          centerId: center || main.uid,
-          amount: grossAmount,
-          currency: "NGN",
-          paymentId: paymentRecord.id,
-          date: new Date(),
-          type: Number(updatedPayment.debt) > 0 ? "PART_PAYMENT" : "COMPLETE",
-          billing: paymentRecord.frequency || "MONTHLY",
-          status: "SUCCESS",
-          metadata: {
-            receipt,
-            paymentReference: paymentRecord.reference,
-            split: {
-              mainAmount,
-              agentAmount,
-              technologyAmount,
-              fee,
-            },
-          },
-        },
-      });
-
-      return { payment: updatedPayment, paymentTransaction };
-    });
-
-    // Initiate Nomba transfer to agent's bank account if agent wallet exists
-    if (agentWallet && agentWallet.accountNo && agentWallet.bank?.code) {
-      try {
-        const agentTransfer = await nombaTransfer(
-          agentAmount,
-          agentWallet.accountNo,
-          agentWallet.accountName || 'Agent',
-          agentWallet.bank.code,
-          `${receiptReference}-AGENT-TRANSFER`,
-          `${senderDetails.accountName || ' - Payment Split'}`,
-          'Agent wallet payout'
-        );
-
-        if (!agentTransfer?.status) {
-          console.error('Agent Nomba transfer failed:', agentTransfer?.message);
-        }
-      } catch (transferError) {
-        console.error('Agent Nomba transfer error:', transferError?.message || transferError);
-      }
-    }
-
-    // Initiate Nomba transfer to admin's bank account if main wallet exists
-    if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
-
-      const payout = await prisma.payout.findFirst({
-        where: {
-          userId: center,
-        },
-      })
-
-      try {
-        const adminTransfer = await nombaTransfer(
-          mainAmount,
-          payout.accountNumber || mainWallet.accountNo,
-          payout.accountName || 'Admin',
-          payout.bankCode || mainWallet.bank?.code,
-          `${receiptReference}-ADMIN-TRANSFER`,
-          `${senderDetails.accountName || ' - Payment Split'}`,
-          'Admin wallet payout'
-        );
-
-        if (!adminTransfer?.status) {
-          console.error('Admin Nomba transfer failed:', adminTransfer?.message);
-        }
-      } catch (transferError) {
-        console.error('Admin Nomba transfer error:', transferError?.message || transferError);
-      }
-    }
-
-    return res.status(201).json({
-      ok: true,
-      message:
-        "Payment initiated, split and transfers initialized successfully",
-      data: {
-        payment: paymentResult.payment,
-        paymentTransaction: paymentResult.paymentTransaction,
-        amountBreakdown: {
-          grossAmount,
-          fee,
-          netAmount: totalAmount,
-        },
-        split: {
-          mainWallet: mainAmount,
-          agentWallet: agentAmount,
-          technologyWallet: technologyAmount + fee,
-          breakdown: {
-            main: mainAmount,
-            agent: agentAmount,
-            technology: technologyAmount,
-          },
-        },
-        receipt,
-      },
-    });
-
-
+    return res.status(200).json({ ok: true, message: "Payment processed successfully", data: res.data });
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -1666,6 +1168,522 @@ const confirmPayment = async (req, res) => {
   }
 };
 
+const paymentSplit = async (amount, center, company, userId, paymentId) => {
+  try {
+    const member = await prisma.member.findUnique({
+      where: { uid: userId },
+    });
+
+    if (!member) {
+      return res.status(404).json({ ok: false, message: "Member not found" });
+    }
+
+    const [
+      paymentRecord,
+      main,
+      mainWallet,
+      agentWallet,
+      senderWallet,
+      technologyWallet,
+    ] = await Promise.all([
+      prisma.payment.findFirst({
+        where: { reference: paymentId },
+        select: {
+          id: true,
+          reference: true,
+          userId: true,
+          frequency: true,
+          sessions: true,
+          debt: true,
+          due: true,
+          amount: true,
+          payment: true,
+          status: true,
+          isVerify: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.admin.findFirst({
+        where: { uid: center },
+        select: {
+          id: true,
+          uid: true,
+          center: true,
+          email: true,
+          password: true,
+          avatar: true,
+          role: true,
+          paymentConfig: true,
+          createdAt: true,
+          updatedAt: true,
+          location: true,
+          state: true,
+          address: true,
+          lga: true,
+          country: true,
+          status: true,
+          phone: true,
+          adminName: true,
+          adminEmail: true,
+          adminLocation: true,
+          adminPhone: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId: center, role: "ADMIN" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          accountHolderId: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId: company, role: "COMPANY" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountHolderId: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: { userId, role: "MEMBER" },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountHolderId: true,
+          accountName: true,
+          currency: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+      prisma.wallet.findFirst({
+        where: {
+          role: "IT",
+        },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          balance: true,
+          accountNo: true,
+          accountName: true,
+          currency: true,
+          accountHolderId: true,
+          bank: true,
+          identification: true,
+          verify: true,
+        },
+      }),
+    ]);
+
+    if (!paymentRecord) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Payment record not found" });
+    }
+
+    if (!main) {
+      return res
+        .status(500)
+        .json({ ok: false, message: "Main admin not found" });
+    }
+
+    if (!main.paymentConfig) {
+      return res
+        .status(500)
+        .json({ ok: false, message: "Payment configuration is incomplete" });
+    }
+
+    // Parse payment config for split percentages
+    const paymentConfig = main.paymentConfig || {
+      main: 65,
+      agent: 25,
+      technology: 10,
+    };
+
+    const grossAmount = Number(amount);
+    const feePercentage = 0.015; // 1.5% fee
+    const fee = grossAmount * feePercentage;
+    const totalAmount = grossAmount - fee;
+    const receiptReference = generateTransactionReference();
+
+    console.log(grossAmount, fee, totalAmount);
+
+    if (senderWallet && Number(senderWallet.balance) < grossAmount) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Insufficient balance in sender wallet" });
+    }
+
+    // Calculate split amounts
+    const mainShare = Number(paymentConfig.main ?? 0);
+    const agentShare = Number(paymentConfig.agent ?? 0);
+    const technologyShare = Number(paymentConfig.technology ?? 0);
+
+    const mainAmount = (totalAmount * mainShare) / 100;
+    const agentAmount = (totalAmount * agentShare) / 100;
+    const technologyAmount = (totalAmount * technologyShare) / 100;
+
+    const senderDetails = getWalletBankDetails(senderWallet);
+    const receipt = generateReceipt({
+      reference: receiptReference,
+      paymentRecord,
+      grossAmount,
+      fee,
+      netAmount: totalAmount,
+      mainAmount,
+      agentAmount,
+      technologyAmount,
+      senderWallet,
+      mainWallet,
+      agentWallet,
+    });
+
+    const paymentResult = await prisma.$transaction(async (tx) => {
+      // Calculate debt: first clear any existing debt (from paymentRecord.debt), then handle current cycle
+      // Use grossAmount (what the user actually paid) for debt calculation, not totalAmount (net after fee).
+      // The fee is a platform processing cost and should not reduce the amount credited toward the user's debt.
+      const existingDebt = Number(paymentRecord.debt || 0);
+      const currentAmount = Number(paymentRecord.amount || 0);
+
+      let remainingPayment = grossAmount;
+      let updatedDebt = existingDebt;
+
+      // If there is existing debt, pay it off first
+      if (existingDebt > 0) {
+        if (remainingPayment >= existingDebt) {
+          remainingPayment -= existingDebt;
+          updatedDebt = 0;
+        } else {
+          updatedDebt = existingDebt - remainingPayment;
+          remainingPayment = 0;
+        }
+      }
+
+      // Remaining amount goes toward current cycle's expected amount
+      if (remainingPayment > 0) {
+        const outstandingForCurrentCycle = Math.max(currentAmount - remainingPayment, 0);
+        updatedDebt += outstandingForCurrentCycle;
+      }
+
+      const isFullyPaid = updatedDebt <= 0;
+
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentRecord.id },
+        data: {
+          paid: (paymentRecord.paid || 0) + grossAmount,
+          debt: updatedDebt,
+          status: isFullyPaid ? "COMPLETED" : "PENDING",
+        },
+      });
+
+      if (mainWallet) {
+        await tx.wallet.update({
+          where: { id: mainWallet.id },
+          data: {
+            balance: {
+              increment: mainAmount,
+            },
+          },
+        });
+      }
+
+      if (agentWallet) {
+        await tx.wallet.update({
+          where: { id: agentWallet.id },
+          data: {
+            balance: {
+              increment: agentAmount,
+            },
+          },
+        });
+      }
+
+      if (technologyWallet) {
+        await tx.wallet.update({
+          where: { id: technologyWallet.id },
+          data: {
+            balance: {
+              increment: technologyAmount + fee,
+            },
+          },
+        });
+      }
+
+      if (senderWallet) {
+        await tx.wallet.update({
+          where: { id: senderWallet.id },
+          data: {
+            balance: {
+              decrement: grossAmount,
+            },
+          },
+        });
+      }
+
+      if (main) {
+        await tx.admin.update({
+          where: { id: main.id },
+          data: {
+            ledger: {
+              increment: totalAmount,
+            },
+          },
+        });
+      }
+
+      await Promise.all([
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-ADMIN`,
+            merchantTxRef: main.uid,
+            event: "payment.admin.credit",
+            status: "SUCCESS",
+            amount: mainAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Admin wallet credited",
+            customerEmail: main.adminEmail || main.email || null,
+            paymentId: paymentRecord.id,
+            userId: main.uid,
+            metadata: {
+              receipt,
+              role: "ADMIN",
+              transactionType: "CREDIT",
+              creditedAmount: mainAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-AGENT`,
+            merchantTxRef: company,
+            event: "payment.agent.credit",
+            status: "SUCCESS",
+            amount: agentAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Agent wallet credited",
+            customerEmail: agentWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: company,
+            metadata: {
+              receipt,
+              role: "AGENT",
+              transactionType: "CREDIT",
+              creditedAmount: agentAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-SENDER`,
+            merchantTxRef: userId,
+            event: "payment.sender.debit",
+            status: "SUCCESS",
+            amount: grossAmount,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "Sender wallet debited",
+            customerEmail: senderWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: senderWallet?.userId || userId,
+            metadata: {
+              receipt,
+              role: "SENDER",
+              transactionType: "DEBIT",
+              debitedAmount: grossAmount,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+        tx.transaction.create({
+          data: {
+            reference: `${receiptReference}-IT`,
+            merchantTxRef: technologyWallet?.userId || "URMSAD-8485HB5SQ3",
+            event: "payment.it.debit",
+            status: "SUCCESS",
+            amount: technologyAmount + fee,
+            currency: "NGN",
+            channel: "wallet",
+            gatewayResponse: "IT wallet credited",
+            customerEmail: senderWallet?.accountName || null,
+            paymentId: paymentRecord.id,
+            userId: "URMSAD-ZWKN67CO79",
+            metadata: {
+              receipt,
+              role: "IT",
+              transactionType: "CREDIT",
+              creditedAmount: technologyAmount + fee,
+              senderAccountNumber: senderDetails.accountNumber,
+              senderBankName: senderDetails.bankName,
+              senderBankCode: senderDetails.bankCode,
+              senderName: senderDetails.accountName,
+            },
+          },
+        }),
+      ]);
+
+      const paymentTransaction = await tx.paymentTransaction.create({
+        data: {
+          reference: `${receiptReference}-PAYMENT`,
+          userId,
+          pricingId: paymentRecord.payment,
+          companyId: company || null,
+          centerId: center || main.uid,
+          amount: grossAmount,
+          currency: "NGN",
+          paymentId: paymentRecord.id,
+          date: new Date(),
+          type: Number(updatedPayment.debt) > 0 ? "PART_PAYMENT" : "COMPLETE",
+          billing: paymentRecord.frequency || "MONTHLY",
+          status: "SUCCESS",
+          metadata: {
+            receipt,
+            paymentReference: paymentRecord.reference,
+            split: {
+              mainAmount,
+              agentAmount,
+              technologyAmount,
+              fee,
+            },
+          },
+        },
+      });
+
+      return { payment: updatedPayment, paymentTransaction };
+    });
+
+    // Initiate Nomba transfer to agent's bank account if agent wallet exists
+    if (agentWallet && agentWallet.accountNo && agentWallet.bank?.code) {
+      try {
+        const agentTransfer = await nombaTransfer(
+          agentAmount,
+          agentWallet.accountNo,
+          agentWallet.accountName || 'Agent',
+          agentWallet.bank.code,
+          `${receiptReference}-AGENT-TRANSFER`,
+          `${senderDetails.accountName || ' - Payment Split'}`,
+          'Agent wallet payout'
+        );
+
+        if (!agentTransfer?.status) {
+          console.error('Agent Nomba transfer failed:', agentTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error('Agent Nomba transfer error:', transferError?.message || transferError);
+      }
+    }
+
+    // Initiate Nomba transfer to admin's bank account if main wallet exists
+    if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
+
+      const payout = await prisma.payout.findFirst({
+        where: {
+          userId: center,
+        },
+      })
+
+      try {
+        const adminTransfer = await nombaTransfer(
+          mainAmount,
+          payout.accountNumber || mainWallet.accountNo,
+          payout.accountName || 'Admin',
+          payout.bankCode || mainWallet.bank?.code,
+          `${receiptReference}-ADMIN-TRANSFER`,
+          `${senderDetails.accountName || ' - Payment Split'}`,
+          'Admin wallet payout'
+        );
+
+        if (!adminTransfer?.status) {
+          console.error('Admin Nomba transfer failed:', adminTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error('Admin Nomba transfer error:', transferError?.message || transferError);
+      }
+    }
+
+    return res.status(201).json({
+      ok: true,
+      message:
+        "Payment initiated, split and transfers initialized successfully",
+      data: {
+        payment: paymentResult.payment,
+        paymentTransaction: paymentResult.paymentTransaction,
+        amountBreakdown: {
+          grossAmount,
+          fee,
+          netAmount: totalAmount,
+        },
+        split: {
+          mainWallet: mainAmount,
+          agentWallet: agentAmount,
+          technologyWallet: technologyAmount + fee,
+          breakdown: {
+            main: mainAmount,
+            agent: agentAmount,
+            technology: technologyAmount,
+          },
+        },
+        receipt,
+      },
+    });
+
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
 export {
   createPayment,
   getPaymentsByUserId,
@@ -1682,5 +1700,6 @@ export {
   getPaymentsByPartnerId,
   getPaymentsByCenterId,
   getPaymentForUser,
-  confirmPayment
+  confirmPayment,
+  paymentSplit
 };
