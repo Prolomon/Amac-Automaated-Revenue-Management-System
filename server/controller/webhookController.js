@@ -79,8 +79,6 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      console.log(payment, agentId, paymentRef, member)
-
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
         event: 'nomba.payment_success',
@@ -136,7 +134,7 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference);
+      const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
 
       if (!splitResult.ok) {
         return res.status(400).json({ ok: false, message: splitResult.message });
