@@ -31,7 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser, code, createCode, loading } = useAuth();
+  const { currentUser, code, createCode, loading, token } = useAuth();
   const { success, failed } = useToast();
 
   const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   const loadTransactions = useCallback(
     async (signal?: { isActive: boolean }) => {
-      const userId = currentUser?.id || currentUser?.uid;
+      const userId = currentUser?.uid || currentUser?.id;
       if (!userId || !wallet) {
         setTransactions([]);
         return;
@@ -82,15 +82,15 @@ export default function Dashboard() {
         const endDate = now.toISOString().split("T")[0];
 
         const data = await getTransactions(
-          wallet?.accountNo || "",
+          userId|| "",
           startDate,
           endDate,
-          wallet?.token || ""
+          token as string
         );
 
         if (signal && !signal.isActive) return;
 
-        const sorted = [...(data?.transactions ?? [])].sort(
+        const sorted = [...(data?.data ?? [])].sort(
           (a: Transaction, b: Transaction) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
@@ -104,7 +104,7 @@ export default function Dashboard() {
         if (!signal || signal.isActive) setHistoryLoading(false);
       }
     },
-    [currentUser?.id, currentUser?.uid, getTransactions, wallet]
+    [currentUser?.id, currentUser?.uid, getTransactions, token, wallet]
   );
 
   useEffect(() => {
@@ -316,10 +316,10 @@ export default function Dashboard() {
                   onPress={() => router.push(`/pages/transaction/${tx.id}` as RelativePathString)}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.historyTitle}>{tx.type || tx.transactionCategory || "Transaction"}</Text>
-                    <Text style={styles.historySub}>{tx.narration || tx.source}</Text>
+                    <Text style={styles.historyTitle}>{tx.event || tx.channel || "Transaction"}</Text>
+                    <Text style={styles.historySub}>{tx.gatewayResponse || tx.customerEmail}</Text>
                     <Text style={styles.historyDate}>
-                      {tx.timeCreated ? new Date(tx.timeCreated).toLocaleDateString() : "-"}
+                      {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : "-"}
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>

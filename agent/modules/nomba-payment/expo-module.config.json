@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["NombaPaymentModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.nombapayment.NombaPaymentModule"]
+  }
+}

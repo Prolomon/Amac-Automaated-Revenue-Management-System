@@ -1,5 +1,5 @@
 import { API_URL, buildHeaders } from "@/lib/api";
-import { Wallet, } from "../types";
+import { Wallet, Transaction } from "../types";
 
 export async function createWallet(
   name: string,
@@ -10,7 +10,7 @@ export async function createWallet(
 ): Promise<{ ok: boolean; admin?: Wallet; message?: string }> {
   const response = await fetch(`${API_URL}/wallet`, {
     method: "POST",
-    headers: { ...buildHeaders(true, token  ) },
+    headers: { ...buildHeaders(true, token) },
     body: JSON.stringify({ name, bvn, role, id }),
   });
 
@@ -34,7 +34,7 @@ export async function getWallet(
   isExist?: boolean;
 }> {
   const response = await fetch(`${API_URL}/wallet/${id}/${role}`, {
-    headers: { ...buildHeaders(true, token  ) },
+    headers: { ...buildHeaders(true, token) },
   });
   const data = await response.json();
   return data;
@@ -48,11 +48,11 @@ export async function initiateTransfer(
   merchantTxRef: string,
   senderName: string,
   narration: string,
-  token: string
+  token: string,
 ) {
   const response = await fetch(`${API_URL}/wallet/transfer/initiate`, {
     method: "POST",
-    headers: { ...buildHeaders(true, token  ) },
+    headers: { ...buildHeaders(true, token) },
     body: JSON.stringify({
       amount,
       accountNumber,
@@ -75,11 +75,11 @@ export async function initiateTransfer(
 export async function resolveBankAccount(
   accountNumber: string,
   bankCode: string,
-  token: string
+  token: string,
 ): Promise<{ accountName: string; accountNumber: string }> {
   const response = await fetch(`${API_URL}/wallet/resolve-bank-account`, {
     method: "POST",
-    headers: { ...buildHeaders(true, token  ) },
+    headers: { ...buildHeaders(true, token) },
     body: JSON.stringify({ accountNumber, bankCode }),
   });
 
@@ -91,26 +91,38 @@ export async function resolveBankAccount(
   return data;
 }
 
-export async function getBanks(token: string): Promise<{ ok: boolean; banks?: { code: string, data: [] }; message?: string }> {
+export async function getBanks(
+  token: string,
+): Promise<{
+  ok: boolean;
+  banks?: { code: string; data: [] };
+  message?: string;
+}> {
   const response = await fetch(`${API_URL}/wallet/banks`, {
-    headers: { ...buildHeaders(true, token  ) },
+    headers: { ...buildHeaders(true, token) },
   });
   const data = await response.json();
   return data;
 }
 
-
 export async function getTransactions(
-  accountNumber: string,
+  id: string,
   fromDate: string,
   toDate: string,
-  token: string
-): Promise<{ ok: boolean; transactions?: Wallet; message?: string }> {
-  const response = await fetch(`${API_URL}/wallet/transactions`, {
-    method: "POST",
-    headers: { ...buildHeaders(true, token ) },
-    body: JSON.stringify({ accountNumber, fromDate, toDate }),
-  });
+  token: string,
+  page?: 1,
+  limit?: 10,
+  reference?: string,
+  event?: string,
+  status?: string,
+): Promise<{ ok: boolean; data?: Transaction[]; message?: string }> {
+  const response = await fetch(
+    `${API_URL}/transaction/user/${id}${page || limit || fromDate || toDate || reference || event || status ? '?' : ''}${page ? `page=${page}&` : ''}${limit ? `limit=${limit}&` : ''}${fromDate ? `fromDate=${fromDate}&` : ''}${toDate ? `toDate=${toDate}&` : ''}${reference ? `reference=${reference}&` : ''}${event ? `event=${event}&` : ''}${status ? `status=${status}` : ''}`,
+    {
+      method: "GET",
+      headers: { ...buildHeaders(true, token) },
+    },
+  );
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -120,4 +132,3 @@ export async function getTransactions(
   const data = await response.json();
   return data;
 }
-

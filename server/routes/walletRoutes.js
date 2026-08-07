@@ -6,7 +6,6 @@ import {
   initiateTransferController,
   resolveBankAccountController,
   getBanksList,
-  getTransaction,
   verifyTransfer,
   updateWallet,
 } from "../controller/walletController.js";
@@ -21,7 +20,6 @@ router.get("/:userId/:role", authMiddleware, roleMiddleware(["member", "admin", 
 router.get("/banks", getBanksList);
 router.post("/transfer/initiate", authMiddleware, roleMiddleware(["admin", "agent", "member"]), initiateTransferController);
 router.post("/resolve-bank-account", authMiddleware, roleMiddleware(["admin", "agent", "member"]), resolveBankAccountController);
-router.post("/transactions", authMiddleware, roleMiddleware(["admin", "member", "agent"]), getTransaction);
 router.post("/transfer/verify", authMiddleware, roleMiddleware(["admin", "member", "agent"]), verifyTransfer);
 router.put("/:userId/:role", authMiddleware, roleMiddleware(["admin", "agent", "company", "member"]), updateWallet);
 

@@ -1,7 +1,6 @@
-"use client";
-import { AUTH_AGENT, AUTH_AGENT_TOKEN, AUTH_AGENT_WALLET, AUTH_AGENT_WALLET_STATE } from "@/lib/api";
+import { AUTH_AGENT, AUTH_AGENT_TOKEN, AUTH_AGENT_WALLET_STATE } from "@/lib/api";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { getWallet, createWallet, initiateTransfer, resolveBankAccount, getBanks, getTransactions } from "@/lib/services/wallet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Wallet } from "@/lib/types";
@@ -26,15 +25,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const [token, setToken] = useState<string | undefined>(undefined);
     const [hide, setHide] = useState(false);
 
-    const toggleHide = async (toggle: boolean) => {
-        if (toggle) {
-            await AsyncStorage.setItem(AUTH_AGENT_WALLET_STATE, JSON.stringify({ hidden: false }));
-            setHide(false);
-        } else {
-            await AsyncStorage.setItem(AUTH_AGENT_WALLET_STATE, JSON.stringify({ hidden: true }));
-            setHide(true);
-        }
-    }
+    const toggleHide = useCallback(async (toggle: boolean) => {
+        // toggle === true  -> user wants the balance hidden
+        // toggle === false -> user wants the balance visible
+        await AsyncStorage.setItem(AUTH_AGENT_WALLET_STATE, JSON.stringify({ hidden: toggle }));
+        setHide(toggle);
+    }, []);
 
     // Get CustomerCode from session storage on initial load
     useEffect(() => {
@@ -50,10 +46,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
             const tok = await AsyncStorage.getItem(AUTH_AGENT_TOKEN);
 
-            const walletState = (await AsyncStorage.getItem(AUTH_AGENT_WALLET_STATE)) ? JSON.parse(await AsyncStorage.getItem(AUTH_AGENT_WALLET_STATE) as string) : null;
+            const rawWalletState = await AsyncStorage.getItem(AUTH_AGENT_WALLET_STATE);
+            const walletState = rawWalletState ? JSON.parse(rawWalletState) : null;
 
             if (walletState) {
-                setHide(walletState?.hidden);
+                setHide(walletState?.hidden ?? false);
             }
 
             if (tok) {
@@ -64,17 +61,18 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Fetch wallet data when customerCode is available
     const fetchWallet = useCallback(async () => {
+        await Promise.resolve()
         setLoading(true);
         setError(null);
         try {
-            if (!uid) {
+            if (!uid || !token) {
                 setIsWallet(false);
                 setWallet(null);
-                setMessage("No customer code found for this account.");
+                setMessage(!uid ? "No customer code found for this account." : "Not authenticated.");
                 return;
             }
 
-            const { ok, wallet, message } = await getWallet(uid, "AGENT", token as string);
+            const { ok, wallet, message } = await getWallet(uid, "AGENT", token);
 
             if (ok && wallet) {
                 setIsWallet(true);
@@ -103,7 +101,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         fetchWallet();
     }, [fetchWallet]);
 
-    const value = {
+    const value = useMemo(() => ({
         toggleHide,
         hide,
         wallet,
@@ -118,7 +116,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         getBanks,
         getTransactions,
         createWallet
-    };
+    }), [toggleHide, hide, wallet, isWallet, loading, error, message, refresh]);
 
     return (
         <walletContext.Provider value={value}>{children}</walletContext.Provider>

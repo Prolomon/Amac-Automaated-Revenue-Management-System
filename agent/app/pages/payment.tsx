@@ -29,6 +29,7 @@ import {
   TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import NombaPayment from '@/modules/nomba-payment';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -40,6 +41,17 @@ export default function CheckoutPage() {
   const [confirming, setConfirming] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutData, setCheckoutData] = useState<any>(null);
+
+  const handlePayWithCard = async () => {
+    try {
+      const result = await NombaPayment.triggerPayment('300', '1234567890'); // amount in kobo
+      console.log('Success:', result);
+    } catch (e) {
+      console.error('Payment failed:', e);
+    } finally {
+      setCardModal(false);
+    }
+  }
 
   // Success/Failure feedback modals
   const [successVisible, setSuccessVisible] = useState(false);
@@ -55,6 +67,8 @@ export default function CheckoutPage() {
 
 
   const fetchDetails = useCallback(async () => {
+    await Promise.resolve(); // yield once — breaks the synchronous chain
+
     const rawId = Array.isArray(id) ? id[0] : id;
     const trimmedId = (rawId ?? "").trim();
     if (!trimmedId) {
@@ -77,7 +91,8 @@ export default function CheckoutPage() {
   }, [id, failed]);
 
   useEffect(() => {
-    fetchDetails();
+    const id = setTimeout(fetchDetails, 0);
+    return () => clearTimeout(id);
   }, [fetchDetails]);
 
   const onRefresh = async () => {
@@ -184,7 +199,7 @@ export default function CheckoutPage() {
       const res = await confirmPayment(
         member.uid || member.id,
         payment.id,
-        debt,
+        debt ? debt : totalAmount,
         member.center,
         member.company,
         token
@@ -535,11 +550,9 @@ export default function CheckoutPage() {
 
             <TouchableOpacity
               style={styles.modalCloseBtn}
-              onPress={() => {
-                setCardModal(false);
-              }}
+              onPress={handlePayWithCard}
             >
-              <Text style={styles.modalCloseText}>Done</Text>
+              <Text style={styles.modalCloseText}>Pay Now</Text>
             </TouchableOpacity>
           </View>
         </View>

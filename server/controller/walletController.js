@@ -410,40 +410,6 @@ const resolveBankAccountController = async (req, res) => {
   }
 };
 
-const getTransaction = async (req, res) => {
-  try {
-    const { error, value } = getTransactionSchema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true,
-    });
-
-    if (error) {
-      return validationErrorResponse(res, error);
-    }
-
-    const { accountNumber, fromDate, toDate } = value;
-
-    const transactions = await getTransactions(accountNumber, fromDate, toDate);
-
-    if (!transactions || transactions.length === 0) {
-      return res.status(404).json({
-        ok: false,
-        message: "Transaction not found",
-      });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      message: "Transaction retrieved successfully",
-      transactions,
-    });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, message: err?.message || "Server error" });
-  }
-};
-
 const verifyTransfer = async (req, res) => {
   try {
     const { error, value } = verifyTransferSchema.validate(req.body, {
@@ -498,7 +464,6 @@ export {
   getBanksList,
   initiateTransferController,
   resolveBankAccountController,
-  getTransaction,
   verifyTransfer,
   updateWallet,
 };
