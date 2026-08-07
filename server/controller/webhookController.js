@@ -56,11 +56,6 @@ const nombaWebhook = async (req, res) => {
 
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    console.log(txn)
-    console.log(`Processing payment_success webhook: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
-    console.log(`Sender details: ${JSON.stringify(senderDetails)}`);
-    console.log(txn.type)
-
     if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
       console.log(`Processing purchase transaction: aliasRef=${aliasRef}, amount=${amount}, fee=${fee}, merchantUserId=${merchantUserId}, transactionReference=${transactionReference}`);
       console.log(txn.type)
@@ -73,6 +68,12 @@ const nombaWebhook = async (req, res) => {
           reference: paymentRef,
         },
       });
+
+      console.log(payment, agentId, paymentRef)
+
+      if (!payment) {
+        return res.status(404).json({ ok: false, message: `Payment not found for reference ${paymentRef}` });
+      }
 
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
@@ -129,13 +130,13 @@ const nombaWebhook = async (req, res) => {
         },
       });
 
-      const res = await paymentSplit(amount - fee, payment.centerId, payment.companyId, payment.userId, payment.reference);
+      const splitResult = await paymentSplit(amount - fee, payment.centerId, payment.companyId, payment.userId, payment.reference);
 
-      if (!res.ok) {
-        return res.status(400).json({ ok: false, message: res.message });
+      if (!splitResult.ok) {
+        return res.status(400).json({ ok: false, message: splitResult.message });
       }
 
-      return res.status(200).json({ ok: true, message: "Payment processed successfully", data: res.data });
+      return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
 
     } else {
 
