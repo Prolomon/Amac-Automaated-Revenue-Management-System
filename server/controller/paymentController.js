@@ -1175,7 +1175,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
     });
 
     if (!member) {
-      return res.status(404).json({ ok: false, message: "Member not found" });
+      return { ok: false, message: "Member not found" }
     }
 
     const [
@@ -1311,21 +1311,15 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
     ]);
 
     if (!paymentRecord) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Payment record not found" });
+      return { ok: false, message: "Payment record not found" };
     }
 
     if (!main) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Main admin not found" });
+      return { ok: false, message: "Main admin not found" };
     }
 
     if (!main.paymentConfig) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Payment configuration is incomplete" });
+      return { ok: false, message: "Payment configuration is incomplete" };
     }
 
     // Parse payment config for split percentages
@@ -1341,12 +1335,9 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
 
-    console.log(grossAmount, fee, totalAmount);
 
     if (senderWallet && Number(senderWallet.balance) < grossAmount) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Insufficient balance in sender wallet" });
+      return { ok: false, message: "Insufficient balance in sender wallet" };
     }
 
     // Calculate split amounts
@@ -1648,7 +1639,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
       }
     }
 
-    return res.status(201).json({
+    return {
       ok: true,
       message:
         "Payment initiated, split and transfers initialized successfully",
@@ -1672,15 +1663,12 @@ const paymentSplit = async (amount, center, company, userId, paymentId) => {
         },
         receipt,
       },
-    });
+    };
 
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      ok: false,
-      message: err?.message || "Server error",
-    });
+    return { ok: false, message: err?.message || "Server error" };
   }
 };
 
