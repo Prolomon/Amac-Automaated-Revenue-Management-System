@@ -55,13 +55,16 @@ class MainActivity : ReactActivity() {
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
     super.onActivityResult(requestCode, resultCode, data)
     if (requestCode == NombaPaymentModule.PAYMENT_REQUEST_CODE) {
-      val result = data?.getStringExtra("txnResultData")
-      if (resultCode == Activity.RESULT_OK) {
-        PaymentResultHolder.pendingPromise?.resolve(result)
-      } else {
-        PaymentResultHolder.pendingPromise?.reject("PAYMENT_FAILED", "Payment was not completed", null)
+      val promise = PaymentResultHolder.pendingPromise
+      if (promise != null) {
+        val result = data?.getStringExtra("txnResultData")
+        if (resultCode == Activity.RESULT_OK) {
+          promise.resolve(result ?: "SUCCESS")
+        } else {
+          promise.reject("PAYMENT_FAILED", "Payment was not completed", null)
+        }
+        PaymentResultHolder.pendingPromise = null
       }
-      PaymentResultHolder.pendingPromise = null
     }
   }
 }

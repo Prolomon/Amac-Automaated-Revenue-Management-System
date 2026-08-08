@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { LinearGradient } from "expo-linear-gradient";
 import { RelativePathString, useRouter } from "expo-router";
-import { Eye, EyeOff, Hash } from "lucide-react-native";
+import { Eye, EyeOff, Lock } from "lucide-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -225,33 +225,46 @@ export default function Profile() {
                 onPress={() => setPinModalVisible(false)}
               />
               <View style={styles.pinModalCard}>
-                <View style={styles.pinModalHeader}>
-                  <Text style={styles.pinModalTitle}>Change Security Code</Text>
-                  <TouchableOpacity
-                    onPress={() => setPinModalVisible(false)}
-                    style={styles.pinModalCloseBtn}
-                  >
-                    <Text style={styles.pinModalCloseText}>✕</Text>
-                  </TouchableOpacity>
+                <View style={styles.cardHeadRow}>
+                  <View style={styles.iconWrap}>
+                    <Lock size={20} color="#0ea360" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>Create Security Code</Text>
+                    <Text style={styles.cardSub}>Create a code for transfer and sensitive actions.</Text>
+                  </View>
                 </View>
-                <TextInput
-                  style={styles.pinInput}
-                  placeholder="Enter 6-digit code"
-                  value={pinData.pin}
-                  onChangeText={(text) => setPinData({ ...pinData, pin: text })}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  secureTextEntry
-                />
-                <TextInput
-                  style={styles.pinInput}
-                  placeholder="Confirm code"
-                  value={pinData.confirm}
-                  onChangeText={(text) => setPinData({ ...pinData, confirm: text })}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  secureTextEntry
-                />
+
+                <Text style={styles.label}>Security Code</Text>
+                <View style={styles.inputWrap}>
+                  <Lock size={16} color="#64748b" style={{ marginLeft: 8 }} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter code"
+                    value={pinData.pin}
+                    onChangeText={(text) => setPinData({ ...pinData, pin: text })}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    secureTextEntry
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+
+                <Text style={styles.label}>Confirm Security Code</Text>
+                <View style={styles.inputWrap}>
+                  <Lock size={16} color="#64748b" style={{ marginLeft: 8 }} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Confirm code"
+                    value={pinData.confirm}
+                    onChangeText={(text) => setPinData({ ...pinData, confirm: text })}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    secureTextEntry
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+
                 <TouchableOpacity style={styles.pinButton} onPress={handleCreateCode}>
                   <Text style={styles.pinButtonText}>Create Code</Text>
                 </TouchableOpacity>
@@ -278,7 +291,9 @@ const styles = StyleSheet.create({
   pinModalCard: {
     width: "88%",
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e6eaeb",
+    borderRadius: 16,
     padding: 24,
     alignItems: "center",
     elevation: 6,
@@ -287,59 +302,59 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
   },
-  pinModalHeader: {
-    width: "100%",
+  cardHeadRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
+    gap: 10,
+    marginBottom: 12,
   },
-  pinModalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0f172a",
-    textAlign: "center",
-    flex: 1,
-  },
-  pinModalCloseBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#f1f5f9",
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#e6f9f0",
+    borderWidth: 1,
+    borderColor: "#d4f5e6",
     alignItems: "center",
     justifyContent: "center",
   },
-  pinModalCloseText: {
-    color: "#64748b",
-    fontSize: 14,
-    fontWeight: "700",
+  cardTitle: { fontSize: 18, fontWeight: "800", color: "#0f172a" },
+  cardSub: { marginTop: 2, fontSize: 13, color: "#64748b" },
+  label: {
+    marginTop: 10,
+    marginBottom: 6,
+    fontSize: 13,
+    color: "#5b6b73",
+    fontWeight: "600",
   },
-  pinInput: {
-    width: "100%",
-    height: 52,
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-    fontSize: 16,
+  inputWrap: {
+    height: 46,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    color: "#0f172a",
+    borderColor: "#e6e9eb",
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    marginLeft: 8,
+    color: "#111827",
+    fontSize: 15,
   },
   pinButton: {
     width: "100%",
-    height: 52,
+    marginTop: 18,
     backgroundColor: "#0ea360",
-    borderRadius: 12,
-    justifyContent: "center",
+    borderRadius: 10,
+    height: 46,
     alignItems: "center",
-    marginTop: 6,
+    justifyContent: "center",
   },
   pinButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    fontSize: 15,
   },
   safe: { flex: 1, backgroundColor: "#fff" },
   container: { paddingBottom: 40, paddingHorizontal: 10, paddingVertical: 40, paddingTop: 60 },
@@ -471,16 +486,6 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12, color: "#7b8082", marginBottom: 6 },
   infoValue: { fontSize: 16 },
   price: { color: "#0ea360", fontSize: 15 },
-
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: "#e6e9eb",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#fff",
-    marginTop: 8,
-  },
   inputWrapper: {
     position: "relative",
     justifyContent: "center",
@@ -529,8 +534,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "600", marginBottom: 10 },
   modalButtons: { flexDirection: "row", marginTop: 14, alignItems: "center" },
-
-  label: { marginTop: 8, marginBottom: 6, color: "#5b6b73" },
   typeWrap: { marginBottom: 6 },
   typeItem: {
     flexDirection: "row",

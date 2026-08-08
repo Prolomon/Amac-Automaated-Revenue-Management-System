@@ -159,7 +159,7 @@ export default function HistoryScreen() {
 											<Text style={styles.itemTitle}>{tx.narration || tx.transactionCategory || "Transaction"}</Text>
 											<Text style={styles.itemSub}>{tx.paymentVendorReference || tx.billingVendorReference || tx.recipientAccountName || ""}</Text>
 											<Text style={styles.itemDate}>
-												{(tx.timeCreated || tx.timeUpdated) ? new Date(tx.timeCreated || tx.timeUpdated).toLocaleString() : "-"}
+												{tx.timeCreated ? new Date(tx.timeCreated).toLocaleString() : tx.timeUpdated ? new Date(tx.timeUpdated).toLocaleString() : "-"}
 											</Text>
 										</View>
 										<View style={{ alignItems: "flex-end" }}>

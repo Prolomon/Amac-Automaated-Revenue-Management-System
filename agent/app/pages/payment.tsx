@@ -15,6 +15,7 @@ import {
   Building,
   FileText,
   CheckCircle2,
+  Printer,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -30,6 +31,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import NombaPayment from '@/modules/nomba-payment';
+import { printReceipt } from "@/utils/receipt-printer";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -145,7 +147,10 @@ export default function CheckoutPage() {
       );
 
       if (res.ok) {
-        setConfirmDetails(res.data);
+        setConfirmDetails({
+          ...res.data,
+          paymentType: 'CASH / WALLET',
+        });
         setSuccessVisible(true);
         success("Payment confirmed successfully!");
       } else {
@@ -164,14 +169,69 @@ export default function CheckoutPage() {
 
   const handlePayWithCard = async () => {
     try {
-      const result = await NombaPayment.triggerPayment(paymentAmount.toString().padEnd(paymentAmount.toString().length + 2, '0'), currentUser?.uid + payment.reference + "-" + new Date().getTime()); // amount in kobo
-      console.log('Success:', result);
-    } catch (e) {
-      console.error('Payment failed:', e);
+      const numAmount = Number(paymentAmount) || 0;
+      const amountInKobo = Math.round(numAmount * 100).toString();
+      const txRef = `${currentUser?.uid || 'agent'}-${payment?.reference || 'ref'}-${new Date().getTime()}`;
+      const result = await NombaPayment.triggerPayment(amountInKobo, txRef);
+      console.log('Nomba Payment Success:', result);
+
+      let confData: any = null;
+      try {
+        const res = await confirmPayment(
+          member.uid || member.id,
+          payment.id,
+          numAmount,
+          member.center,
+          member.company,
+          token
+        );
+        if (res.ok && res.data) {
+          confData = res.data;
+        }
+      } catch (e) {
+        console.warn('Backend confirmation fallback:', e);
+      }
+
+      setConfirmDetails({
+        payment: confData?.payment || {
+          reference: txRef,
+          amount: numAmount,
+          status: 'SUCCESS',
+          date: new Date().toISOString(),
+        },
+        paymentType: 'CARD (NOMBA POS)',
+      });
+      setSuccessVisible(true);
+      success("Card payment completed successfully!");
+    } catch (e: any) {
+      console.error('Nomba Payment Failed:', e);
+      failed(e?.message || "Card payment failed or was cancelled");
     } finally {
       setCardModal(false);
     }
-  }
+  };
+
+  const handlePrintReceipt = async () => {
+    try {
+      const p = confirmDetails?.payment || payment;
+      await printReceipt({
+        reference: p?.reference || p?.id || 'REF-N/A',
+        amount: p?.amount || totalAmount,
+        paymentType: confirmDetails?.paymentType || 'CASH',
+        memberName: member?.fullname,
+        memberId: member?.uid || member?.id,
+        businessName: member?.businessName,
+        category: member?.category,
+        narration: payment?.payment || 'AMAC Revenue Fee',
+        date: p?.date || new Date().toISOString(),
+        status: p?.status || 'SUCCESS',
+        agentName: currentUser?.fullname || currentUser?.name,
+        center: member?.center || currentUser?.center,
+      });
+    } catch (err: any) {
+      failed("Could not print receipt: " + (err?.message || "Unknown error"));
+    }
+  };
 
   if (loading && !checkoutData) {
     return (
@@ -448,13 +508,21 @@ export default function CheckoutPage() {
             )}
 
             <TouchableOpacity
-              style={styles.modalCloseBtn}
+              style={[styles.modalCloseBtn, { backgroundColor: "#0ea360", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }]}
+              onPress={handlePrintReceipt}
+            >
+              <Printer size={18} color="#ffffff" />
+              <Text style={styles.modalCloseText}>Print Receipt</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalCloseBtn, { backgroundColor: "#f1f5f9" }]}
               onPress={() => {
                 setSuccessVisible(false);
                 router.replace("/pages/(pages)" as RelativePathString);
               }}
             >
-              <Text style={styles.modalCloseText}>Done</Text>
+              <Text style={[styles.modalCloseText, { color: "#334155" }]}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>

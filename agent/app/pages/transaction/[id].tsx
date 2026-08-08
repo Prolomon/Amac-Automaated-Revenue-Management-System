@@ -1,6 +1,6 @@
 import { formatCurrency } from "@/config";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Wallet, ShieldCheck, CreditCard, Clock, FileText } from "lucide-react-native";
+import { ArrowLeft, Wallet, ShieldCheck, CreditCard, Clock, FileText, Printer } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getRecord } from "@/lib/services/payment";
+import { printReceipt } from "@/utils/receipt-printer";
 
 export default function TransactionDetailScreen() {
   const router = useRouter();
@@ -87,6 +88,24 @@ export default function TransactionDetailScreen() {
   // Hide split info if type is NOT "SPLIT" (or if metadata/split details should be restricted based on type)
   const showSplitInfo = transaction && String(transaction.type || "").toUpperCase() === "SPLIT" && transaction.split;
 
+  const handlePrint = async () => {
+    if (!transaction) return;
+    try {
+      await printReceipt({
+        reference: transaction.reference || transaction.paymentVendorReference || transaction.id || "N/A",
+        amount: transaction.amount || 0,
+        paymentType: transaction.channel || transaction.paymentType || transaction.type || "PAYMENT",
+        memberName: transaction.name || transaction.customerEmail || transaction.userId,
+        category: transaction.category || transaction.transactionCategory,
+        narration: transaction.narration || transaction.name || "AMAC Fee Payment",
+        date: transaction.createdAt || transaction.timeCreated || transaction.date,
+        status: transaction.status || "SUCCESS",
+      });
+    } catch (err: any) {
+      console.error("Failed to print receipt:", err);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerRow}>
@@ -94,7 +113,9 @@ export default function TransactionDetailScreen() {
           <ArrowLeft size={22} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Transaction Detail</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.backBtn} onPress={handlePrint}>
+          <Printer size={20} color="#0ea360" />
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -175,6 +196,11 @@ export default function TransactionDetailScreen() {
               )}
             </View>
           )}
+
+          <TouchableOpacity style={styles.printActionBtn} onPress={handlePrint}>
+            <Printer size={20} color="#ffffff" />
+            <Text style={styles.printActionBtnText}>Print Official Receipt</Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -298,5 +324,20 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 13,
     textAlign: "center",
+  },
+  printActionBtn: {
+    backgroundColor: "#0ea360",
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+  printActionBtnText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

@@ -48,3 +48,15 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+cd android
+gradlew clean
+cd ..
+npx expo run:android
+
+
+
+If you're using EAS Build (cloud builds):
+
+eas build --platform android --profile development

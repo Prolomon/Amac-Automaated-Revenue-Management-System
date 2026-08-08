@@ -411,10 +411,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const register = async (user: Omit<Member, "uid" | "role" | "createdAt">) => {
+    try {
+      const response = await fetch(`${API_URL}/member`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Registration failed" };
+      }
+      return { ok: true, message: "Member registered successfully" };
+    } catch (e: any) {
+      return { ok: false, message: e?.message || "Registration failed" };
+    }
+  };
+
   const value: AuthContextValue = {
     wallet,
     currentUser,
     loading,
+    register,
     login,
     logout,
     updateProfile,

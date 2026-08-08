@@ -210,6 +210,13 @@ export type Transaction = {
   createdAt: Date;
   updatedAt: Date;
   payment: string;
+  narration?: string;
+  transactionCategory?: string;
+  paymentVendorReference?: string;
+  billingVendorReference?: string;
+  recipientAccountName?: string;
+  timeCreated?: string;
+  timeUpdated?: string;
 };
 
 export enum TransactionStatus {

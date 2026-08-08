@@ -6,7 +6,7 @@ import { getPayments, getRecords } from "@/lib/services/payment";
 import { Member, Payment } from "@/lib/types";
 import { useLocalSearchParams, useRouter, RelativePathString } from "expo-router";
 import { ArrowLeft, Mail, Phone, MapPin, CreditCard, History, FileText, X, ChevronRight, Briefcase, AlertCircle } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -35,13 +35,11 @@ export default function MemberDetailScreen() {
   const [activeTab, setActiveTab] = useState<"payments" | "history">("payments");
 
   // Payment detail modal states
-  const [selectedPayment, setSelectedPayment] = useState<{ payment: Payment, principal: number, vat: number, charges: number, subtotal: number, daysOverdue: number, penalty: number, totalAmount: number } | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const loadData = useCallback(async (isSilent = false) => {
+  const loadData = useCallback(async () => {
     if (!id) return;
-    if (!isSilent) setLoading(true);
 
     try {
       // 1. Fetch member profile
@@ -78,17 +76,19 @@ export default function MemberDetailScreen() {
     } catch (err: any) {
       failed(err.message || "Failed to load member profile details");
     } finally {
-      if (!isSilent) setLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   }, [id, token, failed]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(loadData, 0);
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData(true);
+    await loadData();
     setRefreshing(false);
   };
 
@@ -110,34 +110,34 @@ export default function MemberDetailScreen() {
     return { badge: styles.statusFailed, text: styles.statusTextFailed };
   };
 
-  useEffect(() => {
-    if (selectedPaymentId) {
-      const payment = payments.find((p) => p.reference === selectedPaymentId || p.id === selectedPaymentId);
+  const selectedPayment = useMemo(() => {
+    if (!selectedPaymentId) return null;
+    const payment = payments.find((p) => p.reference === selectedPaymentId || p.id === selectedPaymentId);
+    if (!payment) return null;
 
-      const principal = Number(payment?.debt ? payment.debt : payment?.amount);
-      const vat = principal * 0.075;
-      const charges = principal * 0.015;
-      const subtotal = principal + vat + charges;
+    const principal = Number(payment?.debt ? payment.debt : payment?.amount);
+    const vat = principal * 0.075;
+    const charges = principal * 0.015;
+    const subtotal = principal + vat + charges;
 
-      // Get payment date and current date
-      const paymentDate = new Date(payment?.due || payment?.date || new Date());
-      const currentDate = new Date();
+    // Get payment date and current date
+    const paymentDate = new Date(payment?.due || payment?.date || new Date());
+    const currentDate = new Date();
 
-      // Calculate days overdue
-      let daysOverdue = 0;
-      if (currentDate > paymentDate) {
-        const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
-        daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-      }
-
-      // Penalty: 0.005% per day overdue
-      const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-      const penalty = subtotal * penaltyRatePerDay * daysOverdue;
-
-      const totalAmount = subtotal + penalty;
-
-      setSelectedPayment(payment ? { payment, principal, vat, charges, subtotal, daysOverdue, penalty, totalAmount } : null);
+    // Calculate days overdue
+    let daysOverdue = 0;
+    if (currentDate > paymentDate) {
+      const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+      daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
     }
+
+    // Penalty: 0.005% per day overdue
+    const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+    const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+    const totalAmount = subtotal + penalty;
+
+    return { payment, principal, vat, charges, subtotal, daysOverdue, penalty, totalAmount };
   }, [selectedPaymentId, payments]);
 
   if (loading) {
@@ -403,9 +403,9 @@ export default function MemberDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
+            <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 20 }} nestedScrollEnabled showsVerticalScrollIndicator>
               {selectedPayment && (
-                <View style={{ gap: 14 }}>
+                <View style={{ gap: 12 }}>
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Pricing Title</Text>
                     <Text style={styles.modalFieldValueHighlight}>
@@ -419,8 +419,44 @@ export default function MemberDetailScreen() {
                   </View>
 
                   <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>Principal Amount</Text>
+                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.principal)}</Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>VAT (7.5%)</Text>
+                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.vat)}</Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>Charges (1.5%)</Text>
+                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.charges)}</Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>Subtotal</Text>
+                    <Text style={[styles.modalFieldValue, { fontWeight: "600" }]}>{formatCurrency(selectedPayment.subtotal)}</Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>Days Overdue</Text>
+                    <Text style={[styles.modalFieldValue, { color: selectedPayment.daysOverdue > 0 ? "#ef4444" : "#64748b" }]}>
+                      {selectedPayment.daysOverdue} {selectedPayment.daysOverdue === 1 ? "day" : "days"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
+                    <Text style={styles.modalFieldLabel}>Penalty (0.005%/day)</Text>
+                    <Text style={[styles.modalFieldValue, { color: selectedPayment.penalty > 0 ? "#ef4444" : "#64748b" }]}>
+                      {formatCurrency(selectedPayment.penalty)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Total Amount Due</Text>
-                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.totalAmount)}</Text>
+                    <Text style={[styles.modalFieldValue, { fontSize: 16, fontWeight: "bold", color: "#0ea360" }]}>
+                      {formatCurrency(selectedPayment.totalAmount)}
+                    </Text>
                   </View>
 
                   <View style={styles.modalFieldRow}>
@@ -436,15 +472,6 @@ export default function MemberDetailScreen() {
                       {formatCurrency(selectedPayment.payment.debt !== undefined ? selectedPayment.payment.debt : (selectedPayment.payment.amount - (selectedPayment.payment.paid || 0)))}
                     </Text>
                   </View>
-
-                  {selectedPayment.penalty !== undefined && (
-                    <View style={styles.modalFieldRow}>
-                      <Text style={styles.modalFieldLabel}>Penalty</Text>
-                      <Text style={[styles.modalFieldValue, { color: "#ef4444" }]}>
-                        {formatCurrency(selectedPayment.payment.debt !== undefined ? selectedPayment.penalty : 0)}
-                      </Text>
-                    </View>
-                  )}
 
                   <View style={styles.modalFieldRow}>
                     <Text style={styles.modalFieldLabel}>Status</Text>
@@ -483,7 +510,7 @@ export default function MemberDetailScreen() {
             </ScrollView>
 
             {selectedPayment && (
-              <TouchableOpacity style={[styles.modalOutlineBtn, { marginBottom: 16 }]} onPress={() => router.push(`/pages/payment?id=${selectedPayment.payment.reference || selectedPayment.payment.id}` as RelativePathString)}>
+              <TouchableOpacity style={[styles.modalOutlineBtn, { marginBottom: 10, marginTop: 10 }]} onPress={() => router.push(`/pages/payment?id=${selectedPayment.payment.reference || selectedPayment.payment.id}` as RelativePathString)}>
                 <Text style={styles.modalOutlineBtnText}>Pay Now</Text>
               </TouchableOpacity>
             )}
