@@ -55,6 +55,8 @@ function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
 
   const expectedBuffer = Buffer.from(expectedSignature, "utf8");
   const receivedBuffer = Buffer.from(receivedSignature, "utf8");
+  console.log(`Expected signature: ${expectedSignature}`);
+  console.log(`Received signature: ${receivedSignature}`);
 
   if (expectedBuffer.length !== receivedBuffer.length) return false;
 
