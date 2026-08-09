@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { RelativePathString, useRouter } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ONBOARDING_STEPS = [
   {
@@ -49,6 +50,17 @@ export default function WelcomeScreen() {
   const handleSkip = () => {
     router.push("login" as RelativePathString);
   };
+
+  useEffect(() => {
+    const fetchPin = async () => {
+      const storedPin = await AsyncStorage.getItem("urms_agent_pin");
+      if (storedPin) {
+        router.replace("/login");
+      }
+    };
+
+    fetchPin();
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.safe}>
