@@ -13,19 +13,19 @@ import { roleMiddleware } from '../middleware/role.js';
 const router = express.Router();
 
 // Create a new payment transaction
-router.post('/', authMiddleware, roleMiddleware(['user', 'admin', 'company']), createPaymentTransaction);
+router.post('/', authMiddleware, roleMiddleware(['member', 'admin', 'company']), createPaymentTransaction);
 
 // Get all payment transactions (admin only)
 router.get('/', authMiddleware, roleMiddleware(['admin']), getAllPaymentTransactions);
 
 // Get payment transactions by user ID
-router.get('/user/:type/:userId', authMiddleware, roleMiddleware(['user', 'admin']), getPaymentTransactionsByUserId);
+router.get('/user/:type/:userId', authMiddleware, roleMiddleware(['member', 'admin']), getPaymentTransactionsByUserId);
 
 // Get payment transactions by payment ID
-router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['user', 'admin']), getPaymentTransactionsByPaymentId);
+router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['member', 'admin']), getPaymentTransactionsByPaymentId);
 
 // Get a single payment transaction by reference
-router.get('/reference/:reference', authMiddleware, roleMiddleware(['user', 'admin']), getPaymentTransactionByReference);
+router.get('/reference/:reference', authMiddleware, roleMiddleware(['member', 'admin']), getPaymentTransactionByReference);
 
 // Update a payment transaction
 router.put('/:reference', authMiddleware, roleMiddleware(['admin']), updatePaymentTransaction);

@@ -468,9 +468,12 @@ const deleteMember = async (req, res) => {
       })
     }
 
-    await prisma.wallet.delete({
-      where: { userId: req.params.id }
-    })
+    // BUG FIX: removed the duplicate, invalid `prisma.wallet.delete({ where:
+    // { userId } })` call that used to sit here. It used `userId` as a
+    // unique-where key (not valid — only `id` is unique on Wallet per the
+    // Prisma error), it ran unconditionally even when the wallet was already
+    // deleted above or never existed, and it duplicated the deletion that's
+    // correctly handled inside the `if (isWallet)` block a few lines up.
 
     // Then delete the member
     const member = await prisma.member.delete({

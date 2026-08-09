@@ -56,7 +56,7 @@ export const createDemandNotice = async (req, res) => {
       where: {
         userId: userId,
         status: {
-          not: "COMPLETED",
+          not: "PAID",
         },
       },
     });
@@ -64,16 +64,13 @@ export const createDemandNotice = async (req, res) => {
     if (payments.length === 0) {
       return res.status(404).json({
         ok: false,
-        message: "No outstanding payments found for this user",
+        message: "No outstanding payments found for this payment record",
       });
     }
 
     // Create Demand records with CREATED status - each with unique reference
     const demandRecords = await prisma.$transaction(
       payments.map(async (payment) => {
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
-        const expiry = expiryDate.toISOString().split('T')[0];
 
         // Generate unique UID with collision detection
         let uniqueRef;
@@ -262,10 +259,6 @@ export const createMultipleDemandNotice = async (req, res) => {
               attempts++;
             }
 
-            const expiryDate = new Date();
-            expiryDate.setMonth(expiryDate.getMonth() + 1);
-            const expiry = expiryDate.toISOString().split('T')[0];
-
             let wallet;
 
             wallet = await prisma.wallet.findFirst({
@@ -350,13 +343,18 @@ export const createDemandNoticeByPayment = async (req, res) => {
 
     // Fetch payment details
     const payment = await prisma.payment.findFirst({
-      where: { id: paymentId },
+      where: { 
+        id: paymentId, 
+        status: {
+          not: "PAID",
+        }, 
+      },
     });
 
     if (!payment) {
       return res.status(404).json({
         ok: false,
-        message: "Payment not found",
+        message: "No outstanding payments found for this payment record",
       });
     }
 
@@ -378,10 +376,6 @@ export const createDemandNoticeByPayment = async (req, res) => {
         message: "Member must be assigned to an agent to create a demand notice",
       });
     }
-
-    const expiryDate = new Date();
-    expiryDate.setMonth(expiryDate.getMonth() + 1);
-    const expiry = expiryDate.toISOString().split('T')[0];
 
     // Generate unique UID with collision detection
     let uniqueRef;

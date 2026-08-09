@@ -14,8 +14,8 @@ const router = express.Router();
 
 router.post("/", authMiddleware, roleMiddleware(["admin", "agent"]), createPayout);
 router.get("/", authMiddleware, roleMiddleware(["admin"]), getAllPayouts);
-router.get("/:id", authMiddleware, roleMiddleware(["admin", "user", "agent"]), getPayoutById);
-router.get("/user/:userId", authMiddleware, roleMiddleware(["admin", "user", "agent"]), getPayoutByUser);
+router.get("/:id", authMiddleware, roleMiddleware(["admin", "member", "agent"]), getPayoutById);
+router.get("/user/:userId", authMiddleware, roleMiddleware(["admin", "member", "agent"]), getPayoutByUser);
 router.put("/:id", authMiddleware, roleMiddleware(["admin", "agent"]), updatePayout);
 router.patch("/:id/status", authMiddleware, roleMiddleware(["admin"]), updatePayoutStatus);
 

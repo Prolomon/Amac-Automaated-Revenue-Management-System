@@ -724,7 +724,7 @@ const makePayment = async (req, res) => {
         data: {
           paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
           debt: newDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
+          status: isFullyPaid ? "PAID" : "PENDING",
         },
       });
 
@@ -1186,7 +1186,6 @@ const confirmPayment = async (req, res) => {
     }
 
     const { amount: pAmount, center, company } = value;
-    console.log(pAmount, center, company)
     const { userId, paymentId } = req.params;
 
     let amount = Number(pAmount);
@@ -1452,7 +1451,7 @@ const confirmPayment = async (req, res) => {
         data: {
           paid: (paymentRecord.paid || 0) + grossAmount,
           debt: updatedDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
+          status: isFullyPaid ? "PAID" : "PENDING",
         },
       });
 
@@ -1913,7 +1912,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         data: {
           paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
           debt: newDebt,
-          status: isFullyPaid ? "COMPLETED" : "PENDING",
+          status: isFullyPaid ? "PAID" : "PENDING",
         },
       });
 
