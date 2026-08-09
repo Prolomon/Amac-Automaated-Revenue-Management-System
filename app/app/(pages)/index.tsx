@@ -31,20 +31,18 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser, token, createCode } = useAuth();
+  const { currentUser, token } = useAuth();
 
   const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
   const [accountCopied, setAccountCopied] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const { wallet, toggleHide, hide, refresh, getTransactions, pin } = useWallet();
+  const { wallet, toggleHide, hide, refresh, getTransactions } = useWallet();
   const walletBalance = Number(wallet?.balance || 0);
   const walletAccountNo = wallet?.accountNo || 0;
   const walletBank = wallet?.bank?.name || "-";
-  const [pinModalVisible, setPinModalVisible] = useState(false);
-  const [pinData, setPinData] = useState<{ pin: string, confirm: string }>({ pin: "", confirm: "" });
-  const { failed, success } = useToast();
+
 
   const handleCopyAccountNumber = async () => {
     if (!wallet?.accountNo) return;
@@ -92,33 +90,6 @@ export default function Dashboard() {
     if (status === "PENDING") return "#f59e0b";
     if (status === "FAILED") return "#ef4444";
     return "#6b7280";
-  };
-
-  useEffect(() => {
-    if (!pin) {
-      setPinModalVisible(true);
-    }
-  }, [pin]);
-
-  const handleCreateCode = async () => {
-    try {
-      if (!pinData.pin || pinData.pin.length < 6) {
-        failed("Please enter a valid 6-digit security code.");
-        return;
-      }
-      const res = await createCode(pinData.pin, pinData.confirm);
-
-      if (!res.ok) {
-        failed(res.message || "Failed to create security code.");
-        return;
-      }
-
-      success("Security code created successfully.");
-
-      setPinModalVisible(false);
-    } catch (error) {
-      failed("Failed to create security code.");
-    }
   };
 
   return (
@@ -288,146 +259,12 @@ export default function Dashboard() {
             )}
           </View>
         </View>
-
-        {/* Pin Modal */}
-        <Modal visible={pinModalVisible} transparent={true} animationType="fade">
-          <View style={styles.pinModalOverlay}>
-            <TouchableOpacity
-              style={styles.pinModalBackdrop}
-              activeOpacity={1}
-              onPress={() => setPinModalVisible(false)}
-            />
-            <View style={styles.pinModalCard}>
-              <View style={styles.cardHeadRow}>
-                <View style={styles.iconWrap}>
-                  <Lock size={20} color="#0ea360" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>Create Security Code</Text>
-                  <Text style={styles.cardSub}>Create a code for transfer and sensitive actions.</Text>
-                </View>
-              </View>
-
-              <Text style={styles.label}>Security Code</Text>
-              <View style={styles.inputWrap}>
-                <Lock size={16} color="#64748b" style={{ marginLeft: 8 }} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter code"
-                  value={pinData.pin}
-                  onChangeText={(text) => setPinData({ ...pinData, pin: text })}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  secureTextEntry
-                  placeholderTextColor="#94a3b8"
-                />
-              </View>
-
-              <Text style={styles.label}>Confirm Security Code</Text>
-              <View style={styles.inputWrap}>
-                <Lock size={16} color="#64748b" style={{ marginLeft: 8 }} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm code"
-                  value={pinData.confirm}
-                  onChangeText={(text) => setPinData({ ...pinData, confirm: text })}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  secureTextEntry
-                  placeholderTextColor="#94a3b8"
-                />
-              </View>
-
-              <TouchableOpacity style={styles.pinButton} onPress={handleCreateCode}>
-                <Text style={styles.pinButtonText}>Create Code</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  pinModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pinModalBackdrop: {
-    ...StyleSheet.absoluteFill,
-  },
-  pinModalCard: {
-    width: "88%",
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e6eaeb",
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-  },
-  cardHeadRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#e6f9f0",
-    borderWidth: 1,
-    borderColor: "#d4f5e6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: { fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  cardSub: { marginTop: 2, fontSize: 13, color: "#64748b" },
-  label: {
-    marginTop: 10,
-    marginBottom: 6,
-    fontSize: 13,
-    color: "#5b6b73",
-    fontWeight: "600",
-  },
-  inputWrap: {
-    height: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e6e9eb",
-    backgroundColor: "#fff",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    marginLeft: 8,
-    color: "#111827",
-    fontSize: 15,
-  },
-  pinButton: {
-    width: "100%",
-    marginTop: 18,
-    backgroundColor: "#0ea360",
-    borderRadius: 10,
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pinButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
   safe: { flex: 1, backgroundColor: "ghostwhite" },
   content: { paddingBottom: 40 },
   headerCard: {

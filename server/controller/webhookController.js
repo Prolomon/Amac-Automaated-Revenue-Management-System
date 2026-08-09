@@ -4,15 +4,19 @@ import { prisma } from "../config/db.js";
 import { paymentSplit } from "./paymentController.js";
 
 function verifySignature(secret, rawBody, signatureHeader) {
+  if (!secret || !rawBody || !signatureHeader) return false;
+
   const computedSignature = crypto
     .createHmac('sha256', secret)
     .update(rawBody, 'utf8')
     .digest('hex');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(computedSignature, 'utf8'),
-    Buffer.from(signatureHeader, 'utf8')
-  );
+  const computedBuffer = Buffer.from(computedSignature, 'utf8');
+  const providedBuffer = Buffer.from(signatureHeader, 'utf8');
+
+  if (computedBuffer.length !== providedBuffer.length) return false;
+
+  return crypto.timingSafeEqual(computedBuffer, providedBuffer);
 }
 
 const nombaWebhook = async (req, res) => {
@@ -55,13 +59,27 @@ const nombaWebhook = async (req, res) => {
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
     if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
-      const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)[1];
-      const paymentRef = "PAY|" + txn.merchantTxRef.match(/PAY\|?(.*?)-/)[1];
+      const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)?.[1];
+      const paymentRefMatch = txn.merchantTxRef.match(/PAY\|?(.*?)-/);
+
+      if (!paymentRefMatch) {
+        return res.status(400).json({ ok: false, message: 'Unrecognized merchantTxRef format' });
+      }
+      const paymentRef = "PAY|" + paymentRefMatch[1];
+
+      // BUG FIX: no duplicate/idempotency check existed on this branch at all,
+      // unlike the wallet-credit branch below. Webhook redelivery would re-run
+      // paymentSplit — double debt reduction, double wallet credits, and a
+      // second real-money Nomba payout to the agent's bank account.
+      const existingPending = await prisma.transaction.findUnique({
+        where: { reference: `${transactionReference}-MERCHANT-PENDING` },
+      });
+      if (existingPending) {
+        return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+      }
 
       const payment = await prisma.payment.findFirst({
-        where: {
-          reference: paymentRef,
-        },
+        where: { reference: paymentRef },
       });
 
       if (!payment) {
@@ -85,7 +103,7 @@ const nombaWebhook = async (req, res) => {
         currency: 'NGN',
         channel: 'card',
         customerEmail,
-        paymentId: null,
+        paymentId: payment.id || payment.reference,
         userId: member.uid,
         metadata: {
           requestId: event.requestId || null,

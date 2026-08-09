@@ -71,8 +71,7 @@ export default function TerminalDetailPage() {
       try {
         await unassignTerminal({
           name: terminal.name,
-          serialNumber: terminal.name,
-          terminalLabel: terminal.name,
+          uid: terminal.uid,
         });
       } catch (e) {
         // Fallback to update terminal directly if Nomba fails

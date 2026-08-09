@@ -110,7 +110,7 @@ export default function AssignTerminalPage() {
     try {
       // First try to assign via API or create terminal
       const payload = {
-        name: serialNumber.trim(),
+        name: terminalLabel.trim(),
         uid: serialNumber.trim(),
         center: center.trim(),
         companyId: selectedCompanyId || null,

@@ -1678,6 +1678,9 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
           debt: true,
           due: true,
           amount: true,
+          paid: true, // BUG FIX: was missing — paymentRecord.paid was always
+          // undefined, so cumulative "paid" amounts were never
+          // actually accumulating across multiple payments.
           payment: true,
           status: true,
           isVerify: true,
@@ -1840,15 +1843,29 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
       agentWallet,
     });
 
+    // BUG FIX: resolve the agent's identity once, up front, so it's
+    // consistent everywhere it's used below (transaction record + payout).
+    const agentUserId = agentWallet?.userId || agentId || member.agent;
+
     const paymentResult = await prisma.$transaction(async (tx) => {
-      const isFullyPaid = updatedDebt <= 0;
+      // BUG FIX: `updatedDebt` and `currentAmount` were referenced but never
+      // defined anywhere in this function — both were ReferenceErrors that
+      // crashed the transaction on its very first line, before anything
+      // (payment update, wallet increments, ALL THREE transaction records)
+      // ever got persisted. Caught silently by the outer try/catch and
+      // returned as a generic "Server error", which is why nothing —
+      // including the agent transaction record — was ever created.
+      const newDebt = paymentRecord.debt > 0
+        ? paymentRecord.debt - totalAmount
+        : Math.max(paymentRecord.debt - totalAmount, 0);
+      const isFullyPaid = newDebt <= 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
         data: {
           paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
-          debt: paymentRecord.debt > 0 ? paymentRecord.debt - totalAmount : Math.max(currentAmount - totalAmount, 0),
-          status: paymentRecord.debt - totalAmount === 0 ? "COMPLETED" : "PENDING",
+          debt: newDebt,
+          status: isFullyPaid ? "COMPLETED" : "PENDING",
         },
       });
 
@@ -1925,7 +1942,11 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         tx.transaction.create({
           data: {
             reference: `${receiptReference}-AGENT`,
-            merchantTxRef: company,
+            // BUG FIX: this used `company` for both merchantTxRef and userId,
+            // which attributed the agent's credit transaction to the company
+            // instead of the agent. Use the agent's own identity — the same
+            // one used to look up agentWallet above.
+            merchantTxRef: agentUserId,
             event: "payment.agent.credit",
             status: "SUCCESS",
             amount: agentAmount,
@@ -1934,7 +1955,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
             gatewayResponse: "Agent wallet credited",
             customerEmail: agentWallet?.accountName || null,
             paymentId: paymentRecord.id,
-            userId: company,
+            userId: agentUserId,
             metadata: {
               receipt,
               role: "AGENT",

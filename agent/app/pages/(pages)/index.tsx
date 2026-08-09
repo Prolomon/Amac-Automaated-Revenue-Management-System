@@ -283,22 +283,14 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.quickActionItem}
               activeOpacity={0.8}
-              onPress={() => router.push("/pages/payment" as RelativePathString)}
+              onPress={() => router.push("/pages/verify" as RelativePathString)}
             >
               <View style={styles.quickActionIconWrap}>
-                <ArrowLeftRight size={20} color="#0ea360" />
+                <ShieldCheck size={20} color="#0ea360" />
               </View>
-              <Text style={styles.quickActionText}>Payments</Text>
+              <Text style={styles.quickActionText}>Verify</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.modalVerifyBtn}
-            onPress={() => router.push("/pages/verify" as RelativePathString)}
-          >
-            <ShieldCheck size={18} color="#0ea360" style={{ marginRight: 6 }} />
-            <Text style={styles.modalVerifyBtnText}>Verify Payment</Text>
-          </TouchableOpacity>
 
           {/*  transaction history section */}
           <Text style={{ fontSize: 16, fontWeight: "bold", color: "#000", marginVertical: 12 }}>Transaction History</Text>

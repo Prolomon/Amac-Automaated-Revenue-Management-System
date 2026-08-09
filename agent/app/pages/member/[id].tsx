@@ -5,8 +5,8 @@ import { getMember } from "@/lib/services/member";
 import { getPayments, getRecords } from "@/lib/services/payment";
 import { Member, Payment } from "@/lib/types";
 import { useLocalSearchParams, useRouter, RelativePathString } from "expo-router";
-import { ArrowLeft, Mail, Phone, MapPin, CreditCard, History, FileText, X, ChevronRight, Briefcase, AlertCircle } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Mail, Phone, MapPin, CreditCard, History, FileText, ChevronRight, Briefcase, AlertCircle } from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -33,10 +33,6 @@ export default function MemberDetailScreen() {
 
   // Tab view toggler: "payments" | "history"
   const [activeTab, setActiveTab] = useState<"payments" | "history">("payments");
-
-  // Payment detail modal states
-  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -109,36 +105,6 @@ export default function MemberDetailScreen() {
     }
     return { badge: styles.statusFailed, text: styles.statusTextFailed };
   };
-
-  const selectedPayment = useMemo(() => {
-    if (!selectedPaymentId) return null;
-    const payment = payments.find((p) => p.reference === selectedPaymentId || p.id === selectedPaymentId);
-    if (!payment) return null;
-
-    const principal = Number(payment?.debt ? payment.debt : payment?.amount);
-    const vat = principal * 0.075;
-    const charges = principal * 0.015;
-    const subtotal = principal + vat + charges;
-
-    // Get payment date and current date
-    const paymentDate = new Date(payment?.due || payment?.date || new Date());
-    const currentDate = new Date();
-
-    // Calculate days overdue
-    let daysOverdue = 0;
-    if (currentDate > paymentDate) {
-      const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
-      daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-    }
-
-    // Penalty: 0.005% per day overdue
-    const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-    const penalty = subtotal * penaltyRatePerDay * daysOverdue;
-
-    const totalAmount = subtotal + penalty;
-
-    return { payment, principal, vat, charges, subtotal, daysOverdue, penalty, totalAmount };
-  }, [selectedPaymentId, payments]);
 
   if (loading) {
     return (
@@ -307,8 +273,7 @@ export default function MemberDetailScreen() {
                       style={styles.listItem}
                       activeOpacity={0.7}
                       onPress={() => {
-                        setSelectedPaymentId(p.reference || p.id || null);
-                        setModalVisible(true);
+                        router.push(`/pages/payment?id=${p.reference || p.id}` as RelativePathString)
                       }}
                     >
                       <View style={styles.listItemHeader}>
@@ -386,141 +351,6 @@ export default function MemberDetailScreen() {
           )}
         </View>
       </ScrollView>
-
-      {/* Payment Information Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bill Payment Information</Text>
-              <TouchableOpacity style={styles.closeIconBtn} onPress={() => setModalVisible(false)}>
-                <X size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 20 }} nestedScrollEnabled showsVerticalScrollIndicator>
-              {selectedPayment && (
-                <View style={{ gap: 12 }}>
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Pricing Title</Text>
-                    <Text style={styles.modalFieldValueHighlight}>
-                      {selectedPayment.payment.pricing?.title || "Payment Reference Details"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Reference ID</Text>
-                    <Text style={styles.modalFieldValue}>{selectedPayment.payment.reference}</Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Principal Amount</Text>
-                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.principal)}</Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>VAT (7.5%)</Text>
-                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.vat)}</Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Charges (1.5%)</Text>
-                    <Text style={styles.modalFieldValue}>{formatCurrency(selectedPayment.charges)}</Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Subtotal</Text>
-                    <Text style={[styles.modalFieldValue, { fontWeight: "600" }]}>{formatCurrency(selectedPayment.subtotal)}</Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Days Overdue</Text>
-                    <Text style={[styles.modalFieldValue, { color: selectedPayment.daysOverdue > 0 ? "#ef4444" : "#64748b" }]}>
-                      {selectedPayment.daysOverdue} {selectedPayment.daysOverdue === 1 ? "day" : "days"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Penalty (0.005%/day)</Text>
-                    <Text style={[styles.modalFieldValue, { color: selectedPayment.penalty > 0 ? "#ef4444" : "#64748b" }]}>
-                      {formatCurrency(selectedPayment.penalty)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Total Amount Due</Text>
-                    <Text style={[styles.modalFieldValue, { fontSize: 16, fontWeight: "bold", color: "#0ea360" }]}>
-                      {formatCurrency(selectedPayment.totalAmount)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Amount Paid</Text>
-                    <Text style={[styles.modalFieldValue, { color: "#0ea360" }]}>
-                      {formatCurrency(selectedPayment.payment.paid || 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Remaining Debt</Text>
-                    <Text style={[styles.modalFieldValue, { color: "#ef4444" }]}>
-                      {formatCurrency(selectedPayment.payment.debt !== undefined ? selectedPayment.payment.debt : (selectedPayment.payment.amount - (selectedPayment.payment.paid || 0)))}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalFieldRow}>
-                    <Text style={styles.modalFieldLabel}>Status</Text>
-                    <Text style={[styles.modalFieldValue, { fontWeight: "bold" }]}>
-                      {selectedPayment.payment.status}
-                    </Text>
-                  </View>
-
-                  {/* Associated Transaction sessions */}
-                  <Text style={styles.modalSubheading}>Payment Transaction Sessions</Text>
-                  {!selectedPayment.payment.sessions || selectedPayment.payment.sessions.length === 0 ? (
-                    <Text style={styles.modalEmptyText}>No transaction sessions recorded yet.</Text>
-                  ) : (
-                    <View style={styles.sessionsBox}>
-                      {selectedPayment.payment.sessions.map((sessionId: string, index: number) => (
-                        <TouchableOpacity
-                          key={sessionId || index}
-                          style={styles.sessionItemRow}
-                          activeOpacity={0.7}
-                          onPress={() => {
-                            setModalVisible(false);
-                            router.push(`/pages/transaction/${sessionId}` as RelativePathString);
-                          }}
-                        >
-                          <FileText size={14} color="#0ea360" />
-                          <Text style={styles.sessionItemText} numberOfLines={1}>
-                            Session ID: {sessionId}
-                          </Text>
-                          <ChevronRight size={14} color="#94a3b8" />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              )}
-            </ScrollView>
-
-            {selectedPayment && (
-              <TouchableOpacity style={[styles.modalOutlineBtn, { marginBottom: 10, marginTop: 10 }]} onPress={() => router.push(`/pages/payment?id=${selectedPayment.payment.reference || selectedPayment.payment.id}` as RelativePathString)}>
-                <Text style={styles.modalOutlineBtnText}>Pay Now</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
-              <Text style={styles.modalCloseBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
