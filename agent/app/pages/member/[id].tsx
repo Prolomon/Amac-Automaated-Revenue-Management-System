@@ -245,7 +245,7 @@ export default function MemberDetailScreen() {
                 {payments.map((p, index) => {
                   const statusStyle = getStatusStyle(p.status);
 
-                  const principal = Number(p.debt ? p.debt : p.amount);
+                  const principal = Number(p.debt > 0 ? p.debt : p.amount);
                   const vat = principal * 0.075;
                   const charges = principal * 0.015;
                   const subtotal = principal + vat + charges;
@@ -293,7 +293,7 @@ export default function MemberDetailScreen() {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.amountLabel}>Outstanding Debt</Text>
                           <Text style={[styles.amountVal, { color: "#ef4444" }]}>
-                            {formatCurrency(p.debt !== undefined ? p.debt : (p.amount - (p.paid || 0)))}
+                            {formatCurrency(p.debt > 0 ? p.debt : (p.amount - (p.paid || 0)))}
                           </Text>
                         </View>
                         <ChevronRight size={16} color="#cbd5e1" style={{ alignSelf: "center" }} />

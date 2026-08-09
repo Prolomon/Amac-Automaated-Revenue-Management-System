@@ -1,5 +1,6 @@
 import { formatCurrency } from "@/config";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { payNow } from "@/lib/services/payment";
 import { Member } from "@/lib/types";
 import { useState } from "react";
@@ -19,12 +20,15 @@ import {
   User,
   Search,
   AlertCircle,
+  Printer,
 } from "lucide-react-native";
 import { RelativePathString, useRouter } from "expo-router";
+import { printReceipt } from "@/utils/receipt-printer";
 
 export default function PayScreen() {
   const router = useRouter();
   const { success, failed } = useToast();
+  const { currentUser } = useAuth();
 
   const [searchId, setSearchId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -210,7 +214,7 @@ export default function PayScreen() {
                 {paymentsList.map((wrap, index) => {
                   const payment = wrap.payment || wrap;
 
-                  const principal = Number(payment?.debt ? payment?.debt : payment?.amount);
+                  const principal = payment.debt > 0 ? Number(payment.debt) : Number(payment.amount || 0);
                   const vat = principal * 0.075;
                   const charges = principal * 0.015;
                   const subtotal = principal + vat + charges;
@@ -227,13 +231,16 @@ export default function PayScreen() {
                     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
                   }
 
+                  if (String(payment?.status).toLowerCase() === String('PAID').toLowerCase()) {
+                    daysOverdue = 0;
+                  }
+
                   // Penalty: 0.005% per day overdue
                   const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
                   const penalty = subtotal * penaltyRatePerDay * daysOverdue;
 
                   const totalAmount = subtotal + penalty;
 
-                  const isPaid = payment.paid === totalAmount;
                   return (
                     <View
                       key={payment.id || payment.reference || index}
@@ -281,19 +288,19 @@ export default function PayScreen() {
                           <Text
                             style={[
                               styles.amountValue,
-                              { color: isPaid ? "#0ea360" : "#ef4444" },
+                              { color: "#0ea360" },
                             ]}
                           >
                             {formatCurrency(payment.paid || 0)}
                           </Text>
                         </View>
-                        
+
                         <View style={styles.amountCol}>
                           <Text style={styles.amountLabel}>Debt</Text>
                           <Text
                             style={[styles.amountValue, { color: "#ef4444" }]}
                           >
-                            {formatCurrency(penalty || 0)}
+                            {formatCurrency(payment.debt || 0)}
                           </Text>
                         </View>
                       </View>
@@ -324,15 +331,12 @@ export default function PayScreen() {
                             style={[styles.amountValue, { color: "#ef4444" }]}
                           >
                             {formatCurrency(
-                              payment.debt !== undefined
-                                ? payment.debt
-                                : payment.amount - (payment.paid || 0)
-                            )}
+                              penalty || 0)}
                           </Text>
                         </View>
                       </View>
 
-                      {!isPaid && (
+                      {String(payment.status).toLowerCase() !== String('PAID').toLowerCase() ? (
                         <TouchableOpacity
                           style={styles.payNowBtn}
                           onPress={() =>
@@ -347,6 +351,42 @@ export default function PayScreen() {
                           />
                           <Text style={styles.payNowBtnText}>Pay Bill</Text>
                         </TouchableOpacity>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={styles.payNowBtn}
+                            onPress={async () => {
+                              try {
+                                const p = payment;
+                                const printAmt = p?.paid || p?.amount || 0;
+                                await printReceipt({
+                                  reference: p?.reference || p?.id || 'REF-N/A',
+                                  amount: printAmt,
+                                  paymentType: 'AMAC Revenue Fee',
+                                  memberName: memberDetail?.fullname,
+                                  memberId: memberDetail?.uid || memberDetail?.id,
+                                  businessName: memberDetail?.businessName,
+                                  category: memberDetail?.category,
+                                  narration: payment?.payment || 'AMAC Revenue Fee',
+                                  date: p?.date || new Date().toISOString(),
+                                  status: p?.status || 'SUCCESS',
+                                  agentName: currentUser?.fullname || currentUser?.name,
+                                  center: memberDetail?.center || currentUser?.center,
+                                });
+                              } catch (err: any) {
+                                failed("Could not print receipt: " + (err?.message || "Unknown error"));
+                              }
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Printer
+                              size={16}
+                              color="#fff"
+                              style={{ marginRight: 6 }}
+                            />
+                            <Text style={styles.payNowBtnText}>Print Receipt</Text>
+                          </TouchableOpacity>
+                        </>
                       )}
                     </View>
                   );

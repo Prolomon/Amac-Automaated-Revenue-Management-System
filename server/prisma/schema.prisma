@@ -136,6 +136,7 @@ model Payment {
   isVerify     Boolean          @default(false)
   companyId    String?
   paid         Float            @default(0)
+  clear        Boolean          @default(false)
   centerId     String?
   transactions Transaction[]
   idDemand     Boolean?

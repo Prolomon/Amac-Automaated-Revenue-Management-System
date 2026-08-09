@@ -51,6 +51,7 @@ export type Payment = {
   frequency: Frequency;
   date: string;
   amount: number;
+  clear?: boolean;
   payment: string;
   status:
     | "PENDING"
@@ -58,7 +59,8 @@ export type Payment = {
     | "FAILED"
     | "CANCELLED"
     | "REFUNDED"
-    | "COMPLETED";
+    | "COMPLETED"
+    | "PAID";
   due: Date | null;
   member?: Member;
   isVerified: boolean;

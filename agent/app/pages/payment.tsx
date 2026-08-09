@@ -106,9 +106,7 @@ export default function CheckoutPage() {
   const wallet = matchedWrap?.wallet;
 
   // Calculate pricing summary details — safe defaults when payment isn't loaded yet
-  const principal = payment
-    ? Number(payment.debt ? payment.debt : payment.amount || 0)
-    : 0;
+  const principal = Number(payment?.debt > 0 ? payment?.debt : payment?.amount || 0);
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
@@ -131,11 +129,11 @@ export default function CheckoutPage() {
     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   }
   const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-  const penalty = payment?.debt === 0 && payment?.paid > 0 ? 0 : subtotal * penaltyRatePerDay * daysOverdue;;
-  const totalAmount = subtotal + penalty;
-  const debt = payment?.debt;
+  const penalty = String(payment?.status).toLowerCase() === String('PAID').toLowerCase() ? 0 : subtotal * penaltyRatePerDay * daysOverdue;
 
-  if (payment?.debt === 0 && payment?.paid > 0) {
+  const totalAmount = subtotal + penalty;
+
+  if (String(payment?.status).toLowerCase() === String('PAID').toLowerCase()) {
     daysOverdue = 0;
   }
 
@@ -443,46 +441,50 @@ export default function CheckoutPage() {
             </View>
           )}
 
-          <TextInput
-            value={paymentAmount}
-            onChangeText={(text) =>
-              setPaymentAmount(text)
-            }
-            keyboardType="number-pad"
-            autoFocus
-            style={styles.input}
-          />
+          {String(payment.status).toLowerCase() !== String('PAID').toLowerCase() && (
+            <>
+            <TextInput
+              value={paymentAmount}
+              onChangeText={(text) =>
+                setPaymentAmount(text)
+              }
+              keyboardType="number-pad"
+              autoFocus
+              style={styles.input}
+            />
 
-          {/* Action button */}
-          <TouchableOpacity
-            style={styles.confirmBtn}
-            onPress={handleConfirmPayment}
-            disabled={confirming}
-          >
-            {confirming ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <ShieldCheck
-                  size={20}
-                  color="#fff"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.confirmBtnText}>Confirm Payment</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            {/* Action button */}
+          
+            <TouchableOpacity
+              style={styles.confirmBtn}
+              onPress={handleConfirmPayment}
+              disabled={confirming}
+            >
+              {confirming ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <ShieldCheck
+                    size={20}
+                    color="#fff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.confirmBtnText}>Confirm Payment</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-          {/* Card payment button */}
-          <TouchableOpacity
-            style={styles.confirmBtn}
-            onPress={() => {
-              setCardModal(true);
-            }}
-          >
-            <CreditCard size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.confirmBtnText}>Pay With Card</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.confirmBtn}
+              onPress={() => {
+                setCardModal(true);
+              }}
+            >
+              <CreditCard size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.confirmBtnText}>Pay With Card</Text>
+            </TouchableOpacity>
+            </>
+          )}
 
           <TouchableOpacity
             style={styles.confirmBtn}
