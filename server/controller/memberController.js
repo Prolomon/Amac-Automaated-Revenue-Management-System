@@ -154,26 +154,14 @@ const createMember = async (req, res) => {
     }
 
     const { member, initialPayment } = await prisma.$transaction(async (tx) => {
-      const createdMember = await tx.member.create({
-        data: {
-          fullname: value.fullname,
-          businessName: value.businessName,
-          center: value.center,
-          email: value.email,
-          phone: value.phone,
-          type: value.type || "BUSINESS",
-          password: hashedPassword,
-          location: value.location,
-          avatar: value.avatar,
-          agent: value.agent || null,
-          company: value.company || null,
-          uid: genUid,
-          pricing: value.pricing || [],
-          category: value.category || null,
-          zone: value.zone || null,
-        },
-      });
-
+      // BUG FIX: resolve availablePricing BEFORE creating the member, so
+      // member.pricing only ever records IDs that actually resolved to a
+      // real, active pricing row — matching what the payment-creation loop
+      // below actually processes. Previously, member.pricing stored the raw,
+      // unfiltered client input, so an inactive/nonexistent pricing ID would
+      // sit on the member record with no corresponding payment ever created
+      // for it — silently breaking anything downstream that expects
+      // member.pricing entries to have a matching payment.
       const selectedPricingIds = Array.isArray(value.pricing) ? value.pricing : [];
       const availablePricing = selectedPricingIds.length > 0
         ? await tx.pricing.findMany({
@@ -188,6 +176,26 @@ const createMember = async (req, res) => {
           },
         })
         : [];
+
+      const createdMember = await tx.member.create({
+        data: {
+          fullname: value.fullname,
+          businessName: value.businessName,
+          center: value.center,
+          email: value.email,
+          phone: value.phone,
+          type: value.type || "BUSINESS",
+          password: hashedPassword,
+          location: value.location,
+          avatar: value.avatar,
+          agent: value.agent || null,
+          company: value.company || null,
+          uid: genUid,
+          pricing: availablePricing.map((p) => p.id),
+          category: value.category || null,
+          zone: value.zone || null,
+        },
+      });
 
       const createdPayments = [];
 
@@ -208,13 +216,11 @@ const createMember = async (req, res) => {
         return id;
       };
 
+      // BUG FIX: removed the dead `if (!pricing) continue` check — availablePricing
+      // comes straight from tx.pricing.findMany(), which never returns null/undefined
+      // entries, so this branch could never actually run. The real filtering now
+      // happens above, before member.create.
       for (const pricing of availablePricing) {
-
-        if (!pricing) {
-          console.warn("Skipping unavailable pricing for new member:", pricing);
-          continue;
-        }
-
         const uniqueId = await generateUniquePaymentId();
 
         const createdPayment = await createPaymentRecord(
@@ -299,6 +305,17 @@ const createMember = async (req, res) => {
       initialPayment,
     });
   } catch (err) {
+    // BUG FIX: a race between the pre-check `findUnique` and the transaction's
+    // `member.create` (two concurrent requests for the same email) previously
+    // fell through to a generic 500 with a raw Prisma error message leaking to
+    // the client, instead of the clean 409 this endpoint already returns for
+    // the non-race case.
+    if (err?.code === 'P2002') {
+      return res
+        .status(409)
+        .json({ ok: false, message: "Email already exists" });
+    }
+
     return res
       .status(500)
       .json({ ok: false, message: err?.message || "Server error" });

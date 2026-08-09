@@ -58,6 +58,8 @@ class MainActivity : ReactActivity() {
       val promise = PaymentResultHolder.pendingPromise
       if (promise != null) {
         val result = data?.getStringExtra("txnResultData")
+          ?: data?.getStringExtra("response")
+          ?: data?.getStringExtra("result")
         if (resultCode == Activity.RESULT_OK) {
           promise.resolve(result ?: "SUCCESS")
         } else {

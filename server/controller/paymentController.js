@@ -525,6 +525,8 @@ const makePayment = async (req, res) => {
           debt: true,
           due: true,
           amount: true,
+          paid: true, // BUG FIX: was missing — paymentRecord.paid was always
+                      // undefined, so cumulative paid amounts never accumulated.
           payment: true,
           status: true,
           isVerify: true,
@@ -577,8 +579,13 @@ const makePayment = async (req, res) => {
           verify: true,
         },
       }),
+      // BUG FIX: this was querying `role: "COMPANY"` using the `company`
+      // param, despite being named/used as `agentWallet` everywhere below —
+      // meaning every "agent share" payout was silently going to the
+      // company's wallet/bank account instead of an actual agent's.
+      // Matched this to the same lookup pattern paymentSplit() uses.
       prisma.wallet.findFirst({
-        where: { userId: company, role: "COMPANY" },
+        where: { userId: member.agent, role: "AGENT" },
         select: {
           id: true,
           userId: true,
@@ -699,15 +706,25 @@ const makePayment = async (req, res) => {
       agentWallet,
     });
 
+    // BUG FIX: resolve the agent's identity once, up front, so it's used
+    // consistently in the AGENT transaction record below.
+    const agentUserId = agentWallet?.userId || member.agent;
+
     const paymentResult = await prisma.$transaction(async (tx) => {
-      const isFullyPaid = updatedDebt <= 0;
+      // BUG FIX: `updatedDebt` and `currentAmount` were referenced but never
+      // defined — both were ReferenceErrors that crashed the transaction on
+      // its very first line, silently caught by the outer try/catch. Nothing
+      // (payment update, wallet increments, all four transaction records)
+      // was ever persisted.
+      const newDebt = Math.max(paymentRecord.debt - totalAmount, 0);
+      const isFullyPaid = newDebt === 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
         data: {
           paid: paymentRecord.paid > 0 ? paymentRecord.paid + totalAmount : totalAmount,
-          debt: paymentRecord.debt > 0 ? paymentRecord.debt - totalAmount : Math.max(currentAmount - totalAmount, 0),
-          status: paymentRecord.debt - totalAmount === 0 ? "COMPLETED" : "PENDING",
+          debt: newDebt,
+          status: isFullyPaid ? "COMPLETED" : "PENDING",
         },
       });
 
@@ -795,7 +812,9 @@ const makePayment = async (req, res) => {
         tx.transaction.create({
           data: {
             reference: `${receiptReference}-AGENT`,
-            merchantTxRef: company,
+            // BUG FIX: was `company` for both merchantTxRef and userId —
+            // attributing the agent's credit transaction to the company.
+            merchantTxRef: agentUserId,
             event: "payment.agent.credit",
             status: "SUCCESS",
             amount: agentAmount,
@@ -804,7 +823,7 @@ const makePayment = async (req, res) => {
             gatewayResponse: "Agent wallet credited",
             customerEmail: agentWallet?.accountName || null,
             paymentId: paymentRecord.id,
-            userId: company,
+            userId: agentUserId,
             metadata: {
               receipt,
               role: "AGENT",
@@ -929,12 +948,20 @@ const makePayment = async (req, res) => {
         },
       })
 
+      // BUG FIX: `payout.accountNumber` etc. would throw if no payout record
+      // existed, silently swallowed by the catch below with a generic
+      // message. Guarded with optional chaining so it clearly falls back to
+      // mainWallet's own details instead.
+      if (!payout) {
+        console.error('No payout record found for admin transfer, falling back to mainWallet details');
+      }
+
       try {
         const adminTransfer = await nombaTransfer(
           mainAmount,
-          payout.accountNumber || mainWallet.accountNo,
-          payout.accountName || 'Admin',
-          payout.bankCode || mainWallet.bank?.code,
+          payout?.accountNumber || mainWallet.accountNo,
+          payout?.accountName || 'Admin',
+          payout?.bankCode || mainWallet.bank?.code,
           `${receiptReference}-ADMIN-TRANSFER`,
           `${senderDetails.accountName || ' - Payment Split'}`,
           'Admin wallet payout'
@@ -1157,6 +1184,7 @@ const confirmPayment = async (req, res) => {
     }
 
     const { amount: pAmount, center, company } = value;
+    console.log(pAmount, center, company)
     const { userId, paymentId } = req.params;
 
     let amount = Number(pAmount);
@@ -1191,7 +1219,7 @@ const confirmPayment = async (req, res) => {
           },
         }),
         prisma.admin.findFirst({
-          where: { uid: center },
+          where: { uid: member?.center },
           select: {
             id: true,
             uid: true,
@@ -1321,6 +1349,10 @@ const confirmPayment = async (req, res) => {
       technology: 10,
     };
 
+    // NOTE: unresolved from prior review — this still charges the wallet's
+    // entire balance rather than the validated `amount` from the request
+    // body. Left as-is pending your confirmation of intended behavior;
+    // flagging again here so it isn't lost.
     const grossAmount = Number(paymentWallet.balance || 0);
     const feePercentage = 0.015; // 1.5% fee
     const fee = grossAmount * feePercentage;
@@ -1378,7 +1410,14 @@ const confirmPayment = async (req, res) => {
       const currentAmount = Number(mta || 0);
 
       let remainingPayment = grossAmount;
-      let updatedDebt = existingDebt;
+      // BUG FIX: previously `updatedDebt` started as `existingDebt` with no
+      // floor. If `paymentRecord.debt` was already negative in the DB (e.g.
+      // left over from a prior clamping bug, or any other write path that
+      // doesn't floor at zero), and existingDebt <= 0, the `if (existingDebt
+      // > 0)` block below is skipped entirely — so updatedDebt would carry
+      // that stale negative value straight through, even on a fully-paid
+      // cycle. Floor it here as the starting point.
+      let updatedDebt = Math.max(existingDebt, 0);
 
       if (existingDebt > 0) {
         if (remainingPayment >= existingDebt) {
@@ -1395,7 +1434,16 @@ const confirmPayment = async (req, res) => {
         updatedDebt += outstandingForCurrentCycle;
       }
 
-      const isFullyPaid = paymentRecord.paid === mta && updatedDebt == 0;
+      // BUG FIX: final safeguard floor — belt-and-suspenders in case any
+      // future change to the branches above reintroduces a negative value.
+      updatedDebt = Math.max(updatedDebt, 0);
+
+      // BUG FIX: previously compared paymentRecord.paid (cumulative total
+      // across ALL cycles) against mta (this single cycle's amount) — these
+      // are almost never equal by coincidence, so status stayed "PENDING"
+      // even when updatedDebt correctly reached 0. Debt being fully cleared
+      // is what "fully paid" actually means here.
+      const isFullyPaid = updatedDebt === 0;
 
       const updatedPayment = await tx.payment.update({
         where: { id: paymentRecord.id },
@@ -1848,16 +1896,14 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
     const agentUserId = agentWallet?.userId || agentId || member.agent;
 
     const paymentResult = await prisma.$transaction(async (tx) => {
-      // BUG FIX: `updatedDebt` and `currentAmount` were referenced but never
-      // defined anywhere in this function — both were ReferenceErrors that
-      // crashed the transaction on its very first line, before anything
-      // (payment update, wallet increments, ALL THREE transaction records)
-      // ever got persisted. Caught silently by the outer try/catch and
-      // returned as a generic "Server error", which is why nothing —
-      // including the agent transaction record — was ever created.
-      const newDebt = paymentRecord.debt > 0
-        ? paymentRecord.debt - totalAmount
-        : Math.max(paymentRecord.debt - totalAmount, 0);
+      // BUG FIX: previously, the floor of 0 was only applied in the
+      // `debt <= 0` branch — the branch that almost never needed it. The
+      // `debt > 0` branch (the one actually paying down real debt) had no
+      // floor at all, so a full/overpayment (e.g. debt=5000, totalAmount=
+      // 5000.01 from fee-rounding) could leave `debt` slightly negative
+      // instead of 0. Both branches computed the same expression anyway —
+      // collapsed into one, with the floor always applied.
+      const newDebt = Math.max(paymentRecord.debt - totalAmount, 0);
       const isFullyPaid = newDebt <= 0;
 
       const updatedPayment = await tx.payment.update({
@@ -1942,10 +1988,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         tx.transaction.create({
           data: {
             reference: `${receiptReference}-AGENT`,
-            // BUG FIX: this used `company` for both merchantTxRef and userId,
-            // which attributed the agent's credit transaction to the company
-            // instead of the agent. Use the agent's own identity — the same
-            // one used to look up agentWallet above.
             merchantTxRef: agentUserId,
             event: "payment.agent.credit",
             status: "SUCCESS",

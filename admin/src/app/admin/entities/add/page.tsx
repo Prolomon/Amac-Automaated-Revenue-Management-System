@@ -23,7 +23,7 @@ import { useToast } from "@/context/ToastContext";
 export default function AddEntityPage() {
     const router = useRouter();
     const { user, role } = useAuth();
-    const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+    const centerId = user?.uid || user?.center;
     const adminState = user?.state || "";
     const adminLga = user?.lga || "";
     const [metaData, setMetaData] = useState<{ page: number; limit: number }>({ page: 1, limit: 100 });

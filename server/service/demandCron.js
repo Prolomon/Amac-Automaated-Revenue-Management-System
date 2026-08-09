@@ -71,20 +71,35 @@ export const processDemands = async () => {
         const charges = principal * 0.015;
         const subtotal = principal + vat + charges;
 
-        // Get payment date and current date
-        const paymentDate = new Date(payment?.date);
+        // BUG FIX: was `payment?.date`, a field that doesn't exist on the
+        // payment model — new Date(undefined) produces an Invalid Date, and
+        // any comparison against an Invalid Date is always false, so
+        // daysOverdue silently stuck at 0 and penalty was always 0 for
+        // every demand notice, regardless of how overdue the payment
+        // actually was. Every other overdue calculation in this codebase
+        // uses `payment.due` — matched that here.
+        const paymentDate = new Date(payment?.due);
         const currentDate = new Date();
 
-        // Calculate days overdue
+        // Calculate days overdue / penalty — skipped entirely when the
+        // payment is already fully settled (debt cleared and something has
+        // actually been paid), so a settled member's demand notice doesn't
+        // show a nonzero penalty just because `due` is in the past.
         let daysOverdue = 0;
-        if (currentDate > paymentDate) {
-          const diffTime = currentDate - paymentDate;
-          daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-        }
+        let penalty = 0;
 
-        // Penalty: 0.005% per day overdue
-        const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-        const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+        const isFullySettled = Number(payment?.debt) === 0 && Number(payment?.paid) > 0;
+
+        if (!isFullySettled) {
+          if (currentDate > paymentDate) {
+            const diffTime = currentDate - paymentDate;
+            daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+          }
+
+          // Penalty: 0.005% per day overdue
+          const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+          penalty = subtotal * penaltyRatePerDay * daysOverdue;
+        }
 
         const totalAmount = subtotal + penalty;
 

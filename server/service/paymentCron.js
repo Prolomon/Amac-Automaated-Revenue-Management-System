@@ -24,6 +24,23 @@ export const startPaymentCron = () => {
       });
 
       for (const payment of duePayments) {
+        // BUG FIX: previously, once a payment's `due` date passed, it kept
+        // matching `due: { lte: now }` on every hourly cron run forever —
+        // nothing checked whether a recurring payment for the *next* cycle
+        // had already been created. That caused a brand new payment to be
+        // generated every hour for as long as the overdue payment sat in
+        // the table, instead of once per billing cycle.
+        const alreadyRenewed = await prisma.payment.findFirst({
+          where: {
+            userId: payment.userId,
+            payment: payment.payment, // same pricing plan
+            createdAt: { gt: payment.createdAt },
+          },
+          select: { id: true },
+        });
+
+        if (alreadyRenewed) continue;
+
         await createRecurringPaymentForPayment(payment, prisma);
       }
 
@@ -64,13 +81,16 @@ export const startPaymentCron = () => {
           continue;
         }
 
+        // BUG FIX: previously, even after confirming the current cycle was
+        // already overdue (the check above), this computed nextDueDate one
+        // full period PAST that due date and then waited for that to also
+        // pass before creating anything — silently skipping an entire
+        // billing cycle for the member. The overdue check above already
+        // establishes it's time to renew, so just use that next due date
+        // directly instead of gating on it again.
         let dueDate;
         if (latestPayment) {
-          const nextDueDate = getNextDueDate(latestPayment.due, pricingFrequency);
-          if (now < nextDueDate) {
-            continue;
-          }
-          dueDate = nextDueDate;
+          dueDate = getNextDueDate(latestPayment.due, pricingFrequency);
         } else {
           dueDate = new Date();
         }

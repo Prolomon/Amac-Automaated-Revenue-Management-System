@@ -180,3 +180,23 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Ensure autolinked codegen directories exist before CMake configuration
+tasks.whenTaskAdded { task ->
+    if (task.name.contains("externalNativeBuild") || task.name.contains("configureCMake") || task.name.contains("generateJsonModel")) {
+        task.doFirst {
+            def cmakeFile = file("${buildDir}/generated/autolinking/src/main/jni/Android-autolinking.cmake")
+            if (cmakeFile.exists()) {
+                cmakeFile.eachLine { line ->
+                    if (line.contains("add_subdirectory")) {
+                        def matcher = line =~ /"([^"]+)"/
+                        if (matcher.find()) {
+                            def dirPath = matcher.group(1)
+                            file(dirPath).mkdirs()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

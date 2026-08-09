@@ -130,9 +130,14 @@ export default function CheckoutPage() {
     const diffTime = currentDate.getTime() - paymentDate.getTime();
     daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   }
-  const penalty = subtotal * 0.00005 * daysOverdue;
+  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+  const penalty = payment?.debt === 0 && payment?.paid > 0 ? 0 : subtotal * penaltyRatePerDay * daysOverdue;;
   const totalAmount = subtotal + penalty;
   const debt = payment?.debt;
+
+  if (payment?.debt === 0 && payment?.paid > 0) {
+    daysOverdue = 0;
+  }
 
   const handleConfirmPayment = async () => {
     setConfirming(true);
@@ -140,7 +145,7 @@ export default function CheckoutPage() {
       const res = await confirmPayment(
         member.uid || member.id,
         payment.id,
-        debt ? debt : totalAmount,
+        paymentAmount ? Number(paymentAmount) : totalAmount,
         member.center,
         member.company,
         token
@@ -168,6 +173,7 @@ export default function CheckoutPage() {
   };
 
   const handlePayWithCard = async () => {
+    setCardModal(false);
     try {
       const numAmount = Number(paymentAmount) || 0;
       const amountInKobo = Math.round(numAmount * 100).toString();
@@ -206,17 +212,16 @@ export default function CheckoutPage() {
     } catch (e: any) {
       console.error('Nomba Payment Failed:', e);
       failed(e?.message || "Card payment failed or was cancelled");
-    } finally {
-      setCardModal(false);
     }
   };
 
   const handlePrintReceipt = async () => {
     try {
       const p = confirmDetails?.payment || payment;
+      const printAmt = p?.amount ?? (paymentAmount ? Number(paymentAmount) : totalAmount);
       await printReceipt({
         reference: p?.reference || p?.id || 'REF-N/A',
-        amount: p?.amount || totalAmount,
+        amount: printAmt,
         paymentType: confirmDetails?.paymentType || 'CASH',
         memberName: member?.fullname,
         memberId: member?.uid || member?.id,
@@ -438,6 +443,16 @@ export default function CheckoutPage() {
             </View>
           )}
 
+          <TextInput
+            value={paymentAmount}
+            onChangeText={(text) =>
+              setPaymentAmount(text)
+            }
+            keyboardType="number-pad"
+            autoFocus
+            style={styles.input}
+          />
+
           {/* Action button */}
           <TouchableOpacity
             style={styles.confirmBtn}
@@ -467,6 +482,14 @@ export default function CheckoutPage() {
           >
             <CreditCard size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.confirmBtnText}>Pay With Card</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.confirmBtn}
+            onPress={handlePrintReceipt}
+          >
+            <Printer size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.confirmBtnText}>Print</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

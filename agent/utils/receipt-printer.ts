@@ -1,4 +1,6 @@
 import * as Print from 'expo-print';
+import { Platform } from 'react-native';
+import NombaPayment from '@/modules/nomba-payment';
 
 export interface ReceiptData {
   reference: string;
@@ -18,7 +20,15 @@ export interface ReceiptData {
 }
 
 export async function printReceipt(data: ReceiptData): Promise<void> {
-  const formattedAmount = Number(data.amount || 0).toLocaleString('en-NG', {
+  let rawAmount = 0;
+  if (typeof data.amount === 'number') {
+    rawAmount = isNaN(data.amount) ? 0 : data.amount;
+  } else if (typeof data.amount === 'string') {
+    const cleaned = data.amount.replace(/[^0-9.]/g, '');
+    rawAmount = parseFloat(cleaned) || 0;
+  }
+
+  const formattedAmount = rawAmount.toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -46,14 +56,19 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
         <meta charset="utf-8" />
         <title>Payment Receipt</title>
         <style>
+          @page {
+            size: 58mm auto;
+            margin: 0;
+          }
           body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             width: 100%;
-            max-width: 300px;
+            max-width: 280px;
             margin: 0 auto;
-            padding: 10px;
+            padding: 8px;
             color: #111827;
             font-size: 12px;
+            box-sizing: border-box;
           }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
@@ -64,7 +79,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
             margin-bottom: 10px;
           }
           .title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             color: #0ea360;
             margin-bottom: 2px;
@@ -95,7 +110,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
             margin-bottom: 4px;
           }
           .label { color: #64748b; font-size: 11px; }
-          .value { font-weight: 600; font-size: 11px; text-align: right; }
+          .value { font-weight: 600; font-size: 11px; text-align: right; word-break: break-all; }
           .total-box {
             background-color: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -190,6 +205,15 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
       </body>
     </html>
   `;
+
+  if (Platform.OS === 'android' && NombaPayment && typeof NombaPayment.printReceipt === 'function') {
+    try {
+      await NombaPayment.printReceipt(html);
+      return;
+    } catch (e) {
+      console.warn('Native NombaPayment.printReceipt failed, falling back to Print.printAsync:', e);
+    }
+  }
 
   await Print.printAsync({ html });
 }
