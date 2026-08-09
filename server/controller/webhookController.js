@@ -3,33 +3,76 @@ import crypto from "crypto";
 import { prisma } from "../config/db.js";
 import { paymentSplit } from "./paymentController.js";
 
-function verifySignature(secret, rawBody, signatureHeader) {
-  if (!secret || !rawBody || !signatureHeader) return false;
+function generateSignature(payload, secret, timeStamp) {
+  if (!secret) {
+    throw new Error("Missing secret for signature generation");
+  }
+  if (!timeStamp) {
+    throw new Error("Missing timestamp for signature generation");
+  }
 
-  const computedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(rawBody, 'utf8')
-    .digest('hex');
+  let requestPayload;
+  try {
+    const payloadString = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
+    requestPayload = typeof payloadString === "string" ? JSON.parse(payloadString) : payloadString;
+  } catch (err) {
+    throw new Error(`Failed to parse webhook payload: ${err.message}`);
+  }
 
-  const computedBuffer = Buffer.from(computedSignature, 'utf8');
-  const providedBuffer = Buffer.from(signatureHeader, 'utf8');
+  const data = requestPayload.data || {};
+  const merchant = data.merchant || {};
+  const transaction = data.transaction || {};
 
-  if (computedBuffer.length !== providedBuffer.length) return false;
+  const eventType = requestPayload.event_type || "";
+  const requestId = requestPayload.requestId || "";
+  const userId = merchant.userId || "";
+  const walletId = merchant.walletId || "";
+  const transactionId = transaction.transactionId || "";
+  const transactionType = transaction.type || "";
+  const transactionTime = transaction.time || "";
 
-  return crypto.timingSafeEqual(computedBuffer, providedBuffer);
+  let transactionResponseCode = transaction.responseCode || "";
+  if (transactionResponseCode === "null") {
+    transactionResponseCode = "";
+  }
+
+  const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${transactionResponseCode}:${timeStamp}`;
+
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(hashingPayload);
+  return hmac.digest("base64");
+}
+
+function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
+  if (!secret || !rawBody || !receivedSignature || !timeStamp) return false;
+
+  let expectedSignature;
+  try {
+    expectedSignature = generateSignature(rawBody, secret, timeStamp);
+  } catch {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+  const receivedBuffer = Buffer.from(receivedSignature, "utf8");
+
+  if (expectedBuffer.length !== receivedBuffer.length) return false;
+
+  return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
 const nombaWebhook = async (req, res) => {
 
-  // const signature = req.headers['x-nomba-signature'];
-  // const secret = process.env.NOMBA_PRIVATE_SECRET;
+  const signature = req.headers['nomba-signature'];
+  const timeStamp = req.headers['nomba-timestamp'];
+  const secret = process.env.NOMBA_PRIVATE_SECRET;
 
-  // if (!verifySignature(secret, req.rawBody, signature)) {
-  //   return res.status(401).send('Invalid signature');
-  // }
+  if (!verifySignature(secret, req.rawBody, signature, timeStamp)) {
+    return res.status(401).json({ ok: false, message: 'Invalid signature' });
+  }
 
-  // // ✅ Signature verified
-  // console.log('Webhook verified');
+  // ✅ Signature verified
+  console.log('Webhook verified');
 
   try {
     const event = req.body;
@@ -97,17 +140,17 @@ const nombaWebhook = async (req, res) => {
       }
 
       const baseTransactionData = {
-        merchantTxRef: merchantUserId,
+        merchantTxRef: agentId || member.agent,
         event: 'nomba.payment_success',
         amount,
         currency: 'NGN',
         channel: 'card',
         customerEmail,
         paymentId: payment.id || payment.reference,
-        userId: member.uid,
+        userId: agentId || member.agent,
         metadata: {
           requestId: event.requestId || null,
-          role: 'MERCHANT',
+          role: 'AGENT',
           transactionType: 'CREDIT',
           creditedAmount: amount,
           senderAccountNumber: senderDetails.accountNumber || null,
@@ -132,17 +175,17 @@ const nombaWebhook = async (req, res) => {
 
       await prisma.transaction.create({
         data: {
-          reference: `${transactionReference}-MERCHANT-PENDING`,
-          status: 'PENDING',
+          reference: `${transactionReference}-AGENT-SUCCESS`,
+          status: 'SUCCESS',
           gatewayResponse: 'Wallet credit pending',
-          merchantTxRef: merchantUserId,
+          merchantTxRef: agentId || member.agent,
           event: 'nomba.payment_success',
           amount,
           currency: 'NGN',
-          channel: 'wallet',
+          channel: 'card',
           customerEmail,
           paymentId: null,
-          userId: member.uid,
+          userId: agentId || member.agent,
           metadata: {
             ...baseTransactionData.metadata,
             status: 'PENDING',
