@@ -1114,6 +1114,8 @@ const getPaymentForUser = async (req, res) => {
             wallet = await prisma.wallet.findFirst({
               where: { userId: member.agent },
             });
+
+            return { payment, wallet };
           }
         })
       );

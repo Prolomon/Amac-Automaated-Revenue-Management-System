@@ -67,7 +67,13 @@ const nombaWebhook = async (req, res) => {
   const timeStamp = req.headers['nomba-timestamp'];
   const secret = process.env.NOMBA_PRIVATE_SECRET;
 
-  if (!verifySignature(secret, req.rawBody, signature, timeStamp)) {
+  console.log(`Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`);
+  console.log(`Raw body: ${req.rawBody}`);
+
+  const isVerify = verifySignature(secret, req.rawBody, signature, timeStamp);
+  console.log(`Signature verification result: ${isVerify}`);
+
+  if (!isVerify) {
     return res.status(401).json({ ok: false, message: 'Invalid signature' });
   }
 
