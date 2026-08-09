@@ -83,7 +83,13 @@ app.use(
   express.raw({ type: "application/json", limit: bodySizeLimit })
 );
 
-app.use(express.json({ limit: bodySizeLimit }));
+app.use(express.json({
+  limit: bodySizeLimit, 
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
 app.use(express.urlencoded({ extended: true, limit: bodySizeLimit }));
 
 // Routes
