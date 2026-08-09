@@ -60,3 +60,19 @@ npx expo run:android
 If you're using EAS Build (cloud builds):
 
 eas build --platform android --profile development
+
+Build:
+
+bash
+cd android
+./gradlew assembleRelease
+
+Output:
+
+android/app/build/outputs/apk/release/app-release.apk
+
+Quicker alternative — let Expo's CLI do it in one command
+bash
+
+adb uninstall com.amac.agent
+npx expo run:android --variant release

@@ -16,8 +16,8 @@ export default function PagesTabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: "#0ea360",
         tabBarStyle: {
-          paddingTop: 10 + insets.top,
-          height: 85 + insets.bottom,
+          paddingTop: insets.top - 20,
+          height: 65 + insets.bottom,
         },
       }}
     >

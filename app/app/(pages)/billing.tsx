@@ -176,7 +176,7 @@ export default function MakePayment() {
   });
 
   const demand = selectedPayment;
-  const principal = Number((demand as any)?.payment?.amount || demand?.amount || 0);
+  const principal = Number((demand as any)?.debt > 0 ? (demand as any)?.debt :(demand as any)?.payment?.amount || demand?.amount || 0);
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
@@ -292,7 +292,7 @@ export default function MakePayment() {
                     activeOpacity={0.85}
                     onPress={() => {
                       setSelectedPayment(payment);
-                      const p = Number((payment as any)?.payment?.amount || payment?.amount || 0);
+                      const p = Number((payment as any)?.payment?.debt > 0 ? (payment as any)?.payment?.debt :(payment as any)?.payment?.amount || payment?.amount || 0);
                       const sub = p + p * 0.075 + p * 0.015;
                       const pDate = new Date((payment as any)?.payment?.date || payment?.due || payment?.date || "");
                       const now = new Date();
@@ -301,7 +301,7 @@ export default function MakePayment() {
                         days = Math.floor((now.getTime() - pDate.getTime()) / (1000 * 60 * 60 * 24));
                       }
                       const tot = sub + sub * 0.00005 * days;
-                      setPaymentAmount(String(Math.ceil(tot) || payment.amount || ""));
+                      setPaymentAmount(String(Math.ceil(tot)));
                       setShowPaymentModal(true);
                     }}
                   >
@@ -472,7 +472,7 @@ export default function MakePayment() {
                     placeholder="0"
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
-                    value={paymentAmount ? formatAmount(Number(paymentAmount) * 0.015).replace("₦", "") : formatAmount(charges).replace("₦", "")}
+                    value={formatAmount(charges).replace("₦", "")}
                     editable={false}
                   />
                 </View>
