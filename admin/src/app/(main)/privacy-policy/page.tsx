@@ -16,7 +16,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 
 export default function PrivacyPolicyPage() {
   return (
-    main className="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-14">
+    <main className="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-14">
       <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-800 hover:text-emerald-900">
         <Home className="h-4 w-4" />
         Back to Home
