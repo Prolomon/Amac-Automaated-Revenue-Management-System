@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { ArrowLeft, Monitor, Building2, User, CheckCircle2, AlertCircle, RefreshCcw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -9,7 +9,7 @@ import { createTerminal, assignTerminal } from "@/lib/services/terminal";
 import { getAllCompanies, Company } from "@/lib/services/company";
 import { getAllAgents, getAgentsByCompany, Agent } from "@/lib/services/agent";
 
-export default function AssignTerminalPage() {
+function AssignContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialSerial = searchParams.get("serial") || "";
@@ -343,3 +343,13 @@ export default function AssignTerminalPage() {
     </div>
   );
 }
+
+export default function AssignPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AssignContent />
+    </Suspense>
+  );
+}
+
+
