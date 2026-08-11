@@ -68,26 +68,26 @@ export default function PaymentPage() {
 
     const getStatusBadge = (status: string) => {
         const colors: Record<string, string> = {
-            PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
-            SUCCESS: "bg-green-100 text-green-800 border-green-200",
+            PENDING: "bg-[#E8A33D]/15 text-[#8A5A17] border-[#E8A33D]/30",
+            SUCCESS: "bg-[#E4F5EB] text-[#158049] border-[#1B9E5A]/25",
             FAILED: "bg-red-100 text-red-800 border-red-200",
-            CANCELLED: "bg-gray-100 text-gray-800 border-gray-200",
+            CANCELLED: "bg-slate-100 text-slate-600 border-slate-200",
             COMPLETED: "bg-blue-100 text-blue-800 border-blue-200",
             REFUNDED: "bg-purple-100 text-purple-800 border-purple-200",
         };
-        return colors[status] || "bg-gray-100 text-gray-800 border-gray-200";
+        return colors[status] || "bg-slate-100 text-slate-600 border-slate-200";
     };
 
     if (!paymentData) {
         return (
-            <main>
+            <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
                 <div className="flex min-h-[60vh] items-center justify-center">
                     <div className="text-center">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                            <RefreshCw className="h-8 w-8 animate-spin text-emerald-600" />
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#E4F5EB]">
+                            <RefreshCw className="h-8 w-8 animate-spin text-[#158049]" />
                         </div>
-                        <h2 className="text-xl font-semibold text-slate-700">Loading payment details...</h2>
-                        <p className="mt-2 text-sm text-slate-500">Please wait while we retrieve your information</p>
+                        <h2 className="font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">Loading payment details...</h2>
+                        <p className="mt-2 text-sm text-[#5B6B62]">Please wait while we retrieve your information</p>
                     </div>
                 </div>
             </main>
@@ -156,15 +156,16 @@ export default function PaymentPage() {
     }
 
     return (
-        <main>
+        <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
             {/* Member & Payment Summary Header */}
-            <section className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-white to-cyan-50">
+            <section className="relative overflow-hidden bg-[#0B3B26]">
+                <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(27,158,90,0.35),transparent_70%)]" />
                 <div className="relative mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
                     {/* Member Profile Card */}
-                    <div className="mb-8 overflow-hidden rounded-lg border border-emerald-100 bg-white shadow-lg">
-                        <div className="bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-5">
+                    <div className="mb-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">
+                        <div className="bg-[#0B3B26] px-6 py-5">
                             <div className="flex items-center gap-4">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-white">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15 text-white">
                                     {member?.avatar ? (
                                         <Image src={member?.avatar} alt={member?.fullname} width={64} height={64} className="rounded-full" />
                                     ) : (
@@ -172,11 +173,11 @@ export default function PaymentPage() {
                                     )}
                                 </div>
                                 <div className="text-white">
-                                    <h1 className="text-2xl font-bold">{member?.fullname}</h1>
+                                    <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-bold">{member?.fullname}</h1>
                                     {member?.businessName && (
-                                        <p className="text-sm text-emerald-100">{member?.businessName}</p>
+                                        <p className="text-sm text-white/70">{member?.businessName}</p>
                                     )}
-                                    <div className="mt-1 flex items-center gap-3 text-xs text-emerald-100">
+                                    <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
                                         <span className="flex items-center gap-1">
                                             <Mail className="h-3 w-3" /> {member?.email}
                                         </span>
@@ -188,27 +189,27 @@ export default function PaymentPage() {
                             </div>
                         </div>
                         <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                                <p className="text-xs font-medium text-slate-500">Member Type</p>
-                                <p className="mt-1 text-sm font-semibold text-slate-800">{member?.type}</p>
+                            <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                                <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Member Type</p>
+                                <p className="mt-1 text-sm font-semibold text-[#0E1F17]">{member?.type}</p>
                             </div>
                             {member?.location && (
-                                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                                    <p className="text-xs font-medium text-slate-500">Location</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                                <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                                    <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Location</p>
+                                    <p className="mt-1 text-sm font-semibold text-[#0E1F17]">
                                         {member?.location.city}, {member?.location.state}
                                     </p>
                                 </div>
                             )}
                             {member?.zone && (
-                                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                                    <p className="text-xs font-medium text-slate-500">Zone</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{member?.zone}</p>
+                                <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                                    <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Zone</p>
+                                    <p className="mt-1 text-sm font-semibold text-[#0E1F17]">{member?.zone}</p>
                                 </div>
                             )}
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                                <p className="text-xs font-medium text-slate-500">Billing Frequency</p>
-                                <p className="mt-1 text-sm font-semibold text-slate-800">
+                            <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                                <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Billing Frequency</p>
+                                <p className="mt-1 text-sm font-semibold text-[#0E1F17]">
                                     {member?.billingFrequency || "N/A"}
                                 </p>
                             </div>
@@ -216,36 +217,36 @@ export default function PaymentPage() {
                     </div>
 
                     {/* Payments List */}
-                    <div className="mb-8 overflow-hidden rounded-lg border border-emerald-100 bg-white shadow-lg">
-                        <div className="border-b border-emerald-100 bg-emerald-50/50 px-6 py-4">
-                            <h2 className="text-lg font-semibold text-slate-800">Payment Records</h2>
+                    <div className="mb-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">
+                        <div className="border-b border-[#E1E7E2] bg-[#F5F7F5] px-6 py-4">
+                            <h2 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">Payment Records</h2>
                         </div>
-                        <div className="divide-y divide-emerald-50 px-6 py-8 grid md:grid-cols-2 gap-6">
+                        <div className="grid gap-6 divide-y divide-[#E1E7E2] px-6 py-8 md:grid-cols-2 md:divide-y-0">
                             {payments.length === 0 ? (
-                                <div className="px-6 py-8 text-center text-sm text-slate-500">
+                                <div className="px-6 py-8 text-center text-sm text-[#5B6B62]">
                                     No payment records found.
                                 </div>
                             ) : (
                                 payments.map((payment, index) => (
-                                    <button key={payment?.payment?.reference || index} onClick={() => setSelectedPayment(payment?.payment?.reference)} className={`px-6 py-4 hover:bg-emerald-50/30 rounded-lg border-slate-300 border ${selectedPayment === payment?.payment?.reference && "bg-emerald-50/30 border-emerald-700 hover:border-slate-500"}`}>
+                                    <button key={payment?.payment?.reference || index} onClick={() => setSelectedPayment(payment?.payment?.reference)} className={`rounded-2xl border border-[#E1E7E2] px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
                                                     <FileText className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-800 text-left">{payment?.payment?.pricing.title.trim() || "Payment"}</p>
-                                                    <p className="text-xs text-slate-500">
+                                                    <p className="text-left text-sm font-medium text-[#0E1F17]">{payment?.payment?.pricing.title.trim() || "Payment"}</p>
+                                                    <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
                                                         Ref: {payment?.payment?.reference}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right">
-                                                    <p className="text-sm font-semibold text-slate-800">
+                                                    <p className="text-sm font-semibold text-[#0E1F17]">
                                                         {formatCurrency(payment?.payment?.amount)}
                                                     </p>
-                                                    <p className="text-xs text-slate-500">
+                                                    <p className="text-xs text-[#5B6B62]">
                                                         Due: {formatDate(payment?.payment?.due)}
                                                     </p>
                                                 </div>
@@ -254,7 +255,7 @@ export default function PaymentPage() {
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4">
+                                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5B6B62] sm:grid-cols-4">
                                             <span>Frequency: {payment?.payment?.frequency}</span>
                                             <span>Paid: {formatCurrency(payment?.payment?.paid)}</span>
                                             <span>Debt: {formatCurrency(payment?.payment?.debt)}</span>
@@ -268,62 +269,62 @@ export default function PaymentPage() {
 
                     {/* Payment Summary Cards */}
                     {selectedPayment && (<div className="mb-8 grid gap-4 sm:grid-cols-3">
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Principal</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-800">{formatCurrency(principal)}</p>
+                        <div className="rounded-2xl border border-[#E1E7E2] bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Principal</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#158049]">{formatCurrency(principal)}</p>
                         </div>
-                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Value Added Tax (VAT)</p>
-                            <p className="mt-1 text-2xl font-bold text-amber-600">{formatCurrency(vat)}</p>
+                        <div className="rounded-2xl border border-[#E8A33D]/30 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Value Added Tax (VAT)</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#E8A33D]">{formatCurrency(vat)}</p>
                         </div>
-                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Charges</p>
-                            <p className="mt-1 text-2xl font-bold text-amber-600">{formatCurrency(charges)}</p>
+                        <div className="rounded-2xl border border-[#E8A33D]/30 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Charges</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#E8A33D]">{formatCurrency(charges)}</p>
                         </div>
-                        <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Subtotal</p>
-                            <p className="mt-1 text-2xl font-bold text-amber-700">{formatCurrency(subtotal)}</p>
+                        <div className="rounded-2xl border border-[#E8A33D]/30 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Subtotal</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#B8791A]">{formatCurrency(subtotal)}</p>
                         </div>
-                        <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Overdue Day(s)</p>
-                            <p className="mt-1 text-2xl font-bold text-red-600">{daysOverdue}</p>
+                        <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Overdue Day(s)</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-red-600">{daysOverdue}</p>
                         </div>
-                        <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Penalty</p>
-                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(penalty)}</p>
+                        <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Penalty</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-red-600">{formatCurrency(penalty)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Total Amount Due</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-800">{formatCurrency(totalAmount)}</p>
+                        <div className="rounded-2xl border border-[#1B9E5A]/25 bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Total Amount Due</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0B3B26]">{formatCurrency(totalAmount)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Total Paid</p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
+                        <div className="rounded-2xl border border-[#E1E7E2] bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Total Paid</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#158049]">{formatCurrency(totalPaid)}</p>
                         </div>
-                        <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
-                            <p className="text-xs font-medium text-slate-500">Outstanding Debt</p>
-                            <p className="mt-1 text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
+                        <div className="rounded-2xl border border-[#E1E7E2] bg-white p-5 shadow-sm">
+                            <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">Outstanding Debt</p>
+                            <p className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
                         </div>
                     </div>)}
 
                     {/* Wallet & Agent Info */}
                     <div className="mb-8 grid gap-6 md:grid-cols-2">
                         {payment?.wallet && (
-                            <div className="rounded-lg border border-emerald-100 bg-white shadow-lg">
-                                <div className="border-b border-emerald-100 px-6 py-4">
-                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                                        <Wallet className="h-5 w-5 text-emerald-600" /> Wallet Information
+                            <div className="rounded-[20px] border border-white/10 bg-white shadow-lg">
+                                <div className="border-b border-[#E1E7E2] px-6 py-4">
+                                    <h2 className="flex items-center gap-2 font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">
+                                        <Wallet className="h-5 w-5 text-[#158049]" /> Wallet Information
                                     </h2>
                                 </div>
                                 <div className="p-6">
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Account Name</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "****** *******" : payment?.wallet?.accountName}</span>
+                                            <span className="text-sm text-[#5B6B62]">Account Name</span>
+                                            <span className="text-sm font-medium text-[#0E1F17]">{(Number(totalAmount) === Number(totalPaid)) ? "****** *******" : payment?.wallet?.accountName}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Account Number</span>
-                                            <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "**********" : payment?.wallet?.accountNo || "N/A"}</span>
+                                            <span className="text-sm text-[#5B6B62]">Account Number</span>
+                                            <span className="font-['JetBrains_Mono',monospace] text-sm font-medium text-[#0E1F17]">{(Number(totalAmount) === Number(totalPaid)) ? "**********" : payment?.wallet?.accountNo || "N/A"}</span>
                                         </div>
                                         {/* <div className="flex justify-between">
                                             <span className="text-sm text-slate-500">Balance</span>
@@ -332,13 +333,13 @@ export default function PaymentPage() {
                                             </span>
                                         </div> */}
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Currency</span>
-                                            <span className="text-sm font-medium text-slate-800">{payment?.wallet?.currency}</span>
+                                            <span className="text-sm text-[#5B6B62]">Currency</span>
+                                            <span className="text-sm font-medium text-[#0E1F17]">{payment?.wallet?.currency}</span>
                                         </div>
                                         {payment?.wallet?.bank && (
                                             <div className="flex justify-between">
-                                                <span className="text-sm text-slate-500">Bank</span>
-                                                <span className="text-sm font-medium text-slate-800">{(Number(totalAmount) === Number(totalPaid)) ? "******* *******" : payment?.wallet?.bank.name}</span>
+                                                <span className="text-sm text-[#5B6B62]">Bank</span>
+                                                <span className="text-sm font-medium text-[#0E1F17]">{(Number(totalAmount) === Number(totalPaid)) ? "******* *******" : payment?.wallet?.bank.name}</span>
                                             </div>
                                         )}
                                         {/* <div className="flex justify-between">
@@ -353,36 +354,36 @@ export default function PaymentPage() {
                         )}
 
                         {agent && (
-                            <div className="rounded-lg border border-emerald-100 bg-white shadow-lg">
-                                <div className="border-b border-emerald-100 px-6 py-4">
-                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                                        <User className="h-5 w-5 text-emerald-600" /> Agent Information
+                            <div className="rounded-[20px] border border-white/10 bg-white shadow-lg">
+                                <div className="border-b border-[#E1E7E2] px-6 py-4">
+                                    <h2 className="flex items-center gap-2 font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">
+                                        <User className="h-5 w-5 text-[#158049]" /> Agent Information
                                     </h2>
                                 </div>
                                 <div className="p-6">
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Name</span>
-                                            <span className="text-sm font-medium text-slate-800">{agent.fullname || agent.name || "N/A"}</span>
+                                            <span className="text-sm text-[#5B6B62]">Name</span>
+                                            <span className="text-sm font-medium text-[#0E1F17]">{agent.fullname || agent.name || "N/A"}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Email</span>
-                                            <span className="text-sm font-medium text-slate-800">{agent.email || "N/A"}</span>
+                                            <span className="text-sm text-[#5B6B62]">Email</span>
+                                            <span className="text-sm font-medium text-[#0E1F17]">{agent.email || "N/A"}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Phone</span>
-                                            <span className="text-sm font-medium text-slate-800">{agent.phone || "N/A"}</span>
+                                            <span className="text-sm text-[#5B6B62]">Phone</span>
+                                            <span className="text-sm font-medium text-[#0E1F17]">{agent.phone || "N/A"}</span>
                                         </div>
                                         {agent.batchNo && (
                                             <div className="flex justify-between">
-                                                <span className="text-sm text-slate-500">Batch No</span>
-                                                <span className="text-sm font-medium text-slate-800">{agent.batchNo}</span>
+                                                <span className="text-sm text-[#5B6B62]">Batch No</span>
+                                                <span className="text-sm font-medium text-[#0E1F17]">{agent.batchNo}</span>
                                             </div>
                                         )}
                                         {agent.zone && (
                                             <div className="flex justify-between">
-                                                <span className="text-sm text-slate-500">Zone</span>
-                                                <span className="text-sm font-medium text-slate-800">{agent.zone}</span>
+                                                <span className="text-sm text-[#5B6B62]">Zone</span>
+                                                <span className="text-sm font-medium text-[#0E1F17]">{agent.zone}</span>
                                             </div>
                                         )}
                                     </div>
@@ -392,18 +393,18 @@ export default function PaymentPage() {
                     </div>
 
                     {/* Pay Now Action */}
-                    <div className="rounded-lg border border-emerald-100 bg-white p-6 shadow-lg">
+                    <div className="rounded-[20px] border border-white/10 bg-white p-6 shadow-lg">
                         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
                             <div>
-                                <h3 className="text-lg font-semibold text-slate-800">Ready to complete your payment?</h3>
-                                <p className="text-sm text-slate-500">
+                                <h3 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">Ready to complete your payment?</h3>
+                                <p className="text-sm text-[#5B6B62]">
                                     Transfer the payment amount to the account details provided: {formatCurrency(totalDebt)}
                                 </p>
                             </div>
                             {selectedPayment && (<button
                                 onClick={(Number(totalAmount) === Number(totalPaid)) ? null : handleConfirmPayment}
                                 disabled={loading || (Number(totalAmount) === Number(totalPaid))}
-                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border-emerald-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:border-emerald-700 border disabled:cursor-not-allowed disabled:opacity-50" : "inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"}
+                                className={(Number(totalAmount) === Number(totalPaid)) ? "inline-flex items-center gap-2 rounded-xl border border-[#1B9E5A] px-8 py-3 text-sm font-semibold text-[#158049] shadow-sm transition-all hover:border-[#158049] disabled:cursor-not-allowed disabled:opacity-50" : "inline-flex items-center gap-2 rounded-xl bg-[#0B3B26] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0B3B26]/20 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"}
                             >
                                 {(Number(totalAmount) === Number(totalPaid)) ?
                                     <>
@@ -426,22 +427,23 @@ export default function PaymentPage() {
                     </div>
                 </div>
             </section>
+
             {/* Success Modal */}
             {showSuccessModal && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#0E1F17]/50 p-4"
                     onClick={() => setShowSuccessModal(false)}
                 >
                     <div
-                        className="w-full max-w-md rounded-xl border border-emerald-100 bg-white shadow-lg"
+                        className="w-full max-w-md rounded-[20px] border border-[#E1E7E2] bg-white shadow-lg"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-4">
+                        <div className="flex items-center justify-between rounded-t-[20px] bg-[#0B3B26] px-6 py-4">
                             <div className="flex items-center gap-3 text-white">
-                                <div className="rounded-full bg-white/20 p-2 text-white">
+                                <div className="rounded-full bg-white/15 p-2 text-white">
                                     <CheckCircle className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-lg font-semibold">Payment Confirmed</h3>
+                                <h3 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold">Payment Confirmed</h3>
                             </div>
                             <button
                                 type="button"
@@ -453,46 +455,46 @@ export default function PaymentPage() {
                             </button>
                         </div>
 
-                        <div className="p-6 text-sm text-slate-600">
-                            <p className="mb-3 font-medium text-slate-700">Your payment was confirmed successfully.</p>
+                        <div className="p-6 text-sm text-[#5B6B62]">
+                            <p className="mb-3 font-medium text-[#0E1F17]">Your payment was confirmed successfully.</p>
 
                             {confirmDetails ? (
-                                <dl className="divide-y divide-emerald-100 rounded-lg border border-emerald-100 bg-emerald-50/40 text-sm">
+                                <dl className="divide-y divide-[#E1E7E2] rounded-2xl border border-[#1B9E5A]/25 bg-[#E4F5EB]/40 text-sm">
                                     {confirmDetails?.payment?.reference && (
                                         <div className="flex items-center justify-between px-4 py-2.5">
-                                            <dt className="text-slate-500">Reference</dt>
-                                            <dd className="font-medium text-slate-900">{confirmDetails?.payment?.reference}</dd>
+                                            <dt className="text-[#5B6B62]">Reference</dt>
+                                            <dd className="font-['JetBrains_Mono',monospace] font-medium text-[#0E1F17]">{confirmDetails?.payment?.reference}</dd>
                                         </div>
                                     )}
                                     {confirmDetails?.payment?.amount && (
                                         <div className="flex items-center justify-between px-4 py-2.5">
-                                            <dt className="text-slate-500">Amount</dt>
-                                            <dd className="font-medium text-slate-900">₦{Number(confirmDetails?.payment?.amount).toLocaleString()}</dd>
+                                            <dt className="text-[#5B6B62]">Amount</dt>
+                                            <dd className="font-medium text-[#0E1F17]">₦{Number(confirmDetails?.payment?.amount).toLocaleString()}</dd>
                                         </div>
                                     )}
                                     {confirmDetails?.payment?.status && (
                                         <div className="flex items-center justify-between px-4 py-2.5">
-                                            <dt className="text-slate-500">Status</dt>
-                                            <dd className="font-medium capitalize text-emerald-700">{confirmDetails?.payment?.status}</dd>
+                                            <dt className="text-[#5B6B62]">Status</dt>
+                                            <dd className="font-medium capitalize text-[#158049]">{confirmDetails?.payment?.status}</dd>
                                         </div>
                                     )}
                                     {confirmDetails?.payment?.date && (
                                         <div className="flex items-center justify-between px-4 py-2.5">
-                                            <dt className="text-slate-500">Date</dt>
-                                            <dd className="font-medium text-slate-900">{confirmDetails?.payment?.date}</dd>
+                                            <dt className="text-[#5B6B62]">Date</dt>
+                                            <dd className="font-medium text-[#0E1F17]">{confirmDetails?.payment?.date}</dd>
                                         </div>
                                     )}
                                 </dl>
                             ) : (
-                                <p className="text-slate-700">Payment confirmed successfully.</p>
+                                <p className="text-[#0E1F17]">Payment confirmed successfully.</p>
                             )}
                         </div>
 
-                        <div className="flex justify-end border-t border-emerald-100 px-6 py-4">
+                        <div className="flex justify-end border-t border-[#E1E7E2] px-6 py-4">
                             <button
                                 type="button"
                                 onClick={() => setShowSuccessModal(false)}
-                                className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+                                className="rounded-xl bg-[#0B3B26] px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
                             >
                                 Close
                             </button>
@@ -504,19 +506,19 @@ export default function PaymentPage() {
             {/* Failure Modal */}
             {showFailureModal && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#0E1F17]/50 p-4"
                     onClick={() => setShowFailureModal(false)}
                 >
                     <div
-                        className="w-full max-w-md rounded-xl border border-rose-100 bg-white shadow-lg"
+                        className="w-full max-w-md rounded-[20px] border border-rose-100 bg-white shadow-lg"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-rose-600 to-rose-500 px-6 py-4">
+                        <div className="flex items-center justify-between rounded-t-[20px] bg-rose-600 px-6 py-4">
                             <div className="flex items-center gap-3 text-white">
                                 <div className="rounded-full bg-white/20 p-2 text-white">
                                     <XCircle className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-lg font-semibold">Payment Failed</h3>
+                                <h3 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold">Payment Failed</h3>
                             </div>
                             <button
                                 type="button"
@@ -528,7 +530,7 @@ export default function PaymentPage() {
                             </button>
                         </div>
 
-                        <div className="p-6 text-sm text-slate-600">
+                        <div className="p-6 text-sm text-[#5B6B62]">
                             <p>{failureMessage || "There was an issue confirming your payment."}</p>
                         </div>
 

@@ -25,3 +25,32 @@ body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
 }
+
+.carousel-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.carousel-mask:hover .carousel-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .carousel-track,
+  .ticker-track {
+    animation: none !important;
+  }
+}
+
+@keyframes screens {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 14px));
+  }
+}
+
+.animate-screens {
+  animation: screens 25s linear infinite;
+  will-change: transform;
+}

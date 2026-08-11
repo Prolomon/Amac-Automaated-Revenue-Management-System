@@ -526,7 +526,7 @@ const makePayment = async (req, res) => {
           due: true,
           amount: true,
           paid: true, // BUG FIX: was missing — paymentRecord.paid was always
-                      // undefined, so cumulative paid amounts never accumulated.
+          // undefined, so cumulative paid amounts never accumulated.
           payment: true,
           status: true,
           isVerify: true,
@@ -1100,23 +1100,21 @@ const getPaymentForUser = async (req, res) => {
         return res.status(500).json({ ok: false, message: "Please Contact Support to assign an agent" });
       }
 
+      let wallet;
+
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: member.uid },
+      });
+
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: member.agent },
+        });
+      }
+
       const paymentList = await Promise.all(
         payments.map(async (payment) => {
-          let wallet;
-
-          wallet = await prisma.wallet.findFirst({
-            where: { userId: member.uid },
-          });
-
-          if (wallet) {
-            return { payment, wallet };
-          } else {
-            wallet = await prisma.wallet.findFirst({
-              where: { userId: member.agent },
-            });
-
-            return { payment, wallet };
-          }
+          return { payment, wallet };
         })
       );
 
@@ -1148,6 +1146,10 @@ const getPaymentForUser = async (req, res) => {
       member = await prisma.member.findFirst({
         where: { uid: payment?.userId }
       });
+
+      if (!member) {
+        return res.status(404).json({ ok: false, message: "Member associated with this payment not found" });
+      }
 
       let wallet = await prisma.wallet.findFirst({
         where: { userId: member.uid },

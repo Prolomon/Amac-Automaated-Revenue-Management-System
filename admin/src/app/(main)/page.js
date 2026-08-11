@@ -8,129 +8,134 @@ import { Wallet, CreditCard, TrendingUp, Users, Settings, BarChart3, FileText, M
 export default function LandingPage() {
 
   return (
-    <main>
-      <section id="overview" className="relative overflow-hidden">
+    <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
+      {/* ---------- HERO ---------- */}
+      <section id="overview" className="relative overflow-hidden bg-[#0B3B26]">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(27,158,90,0.35),transparent_70%)]" />
 
         <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:items-center md:px-6 md:py-20">
           <div>
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#1B9E5A]/45 bg-[#1B9E5A]/18 px-3.5 py-1.5 font-['JetBrains_Mono',monospace] text-xs font-semibold uppercase tracking-wide text-[#8FE0B4]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#4ADE80] shadow-[0_0_0_3px_rgba(74,222,128,0.25)]" />
               Amac Revenue Management
             </span>
-            <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
+            <h1 className="mt-4 font-['Space_Grotesk',sans-serif] text-3xl font-bold leading-tight tracking-tight text-white md:text-5xl">
               Collect, monitor, and grow revenue from one connected dashboard.
             </h1>
-            <p className="mt-4 text-base text-slate-600 md:text-lg">
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-white/70 md:text-lg">
               Manage entities, agents, wallets, and payment operations with a clear workflow built for daily execution.
             </p>
-            <p className="mt-3 text-sm font-medium text-slate-700">
+            <p className="mt-3 max-w-lg text-sm font-medium text-white/85">
               The platform uses encrypted data transmission and secure access controls for operations.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href="/auth/admin"
-                className="inline-flex rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+                className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0E1F17] transition-transform hover:-translate-y-0.5"
               >
                 Login to Dashboard
               </Link>
               <a
                 href="#recruitment"
-                className="inline-flex rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="inline-flex rounded-xl border border-white/25 bg-transparent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/5"
               >
                 Join Recruitment
               </a>
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Active Centers</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">24</p>
+              <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+                <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-white/50">Active Centers</p>
+                <p className="mt-1 font-['Space_Grotesk',sans-serif] text-lg font-bold text-white">24</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Agents</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">180+</p>
+              <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+                <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-white/50">Agents</p>
+                <p className="mt-1 font-['Space_Grotesk',sans-serif] text-lg font-bold text-white">180+</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm col-span-2 sm:col-span-1">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Daily Collections</p>
-                <p className="mt-1 text-lg font-bold text-emerald-800">₦8.4M</p>
+              <div className="col-span-2 rounded-2xl border border-white/10 bg-white/6 p-3 sm:col-span-1">
+                <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-white/50">Daily Collections</p>
+                <p className="mt-1 font-['Space_Grotesk',sans-serif] text-lg font-bold text-[#7BD9A6]">₦8.4M</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-emerald-100 bg-white p-3 shadow-md">
+          <div className="rounded-3xl border border-white/10 bg-white/6 p-3 backdrop-blur-sm">
             <Image
               src="/revenue-hero.svg"
               alt="Revenue dashboard illustration"
               width={1200}
               height={900}
-              className="h-auto w-full rounded-lg"
+              className="h-auto w-full rounded-2xl"
               priority
             />
           </div>
         </div>
       </section>
 
-      <section id="wallet" className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+      {/* ---------- WALLET / OPS / ASSURANCE ---------- */}
+      <section id="wallet" className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#E1E7E2] bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
                 <Wallet className="h-5 w-5" />
               </span>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Wallet Balance Tracking</p>
+              <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#5B6B62]">Wallet Balance Tracking</p>
             </div>
-            <h3 className="mt-3 text-xl font-semibold text-slate-900">Real-time account visibility</h3>
-            <p className="mt-2 text-sm text-slate-600">
+            <h3 className="mt-3 font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">Real-time account visibility</h3>
+            <p className="mt-2 text-sm text-[#5B6B62]">
               Monitor each member wallet profile and settlement flow in one place.
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#E1E7E2] bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
                 <CreditCard className="h-5 w-5" />
               </span>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Payment Operations</p>
+              <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#5B6B62]">Payment Operations</p>
             </div>
-            <h3 className="mt-3 text-xl font-semibold text-slate-900">Actionable payment records</h3>
-            <p className="mt-2 text-sm text-slate-600">
+            <h3 className="mt-3 font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">Actionable payment records</h3>
+            <p className="mt-2 text-sm text-[#5B6B62]">
               Track pending, completed, and failed transactions with faster follow-up.
             </p>
           </div>
 
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#1B9E5A]/25 bg-[#E4F5EB]/60 p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1B9E5A]/15 text-[#158049]">
                 <TrendingUp className="h-5 w-5" />
               </span>
-              <p className="text-xs uppercase tracking-wide text-emerald-800">Revenue Assurance</p>
+              <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#158049]">Revenue Assurance</p>
             </div>
-            <h3 className="mt-3 text-xl font-semibold text-slate-900">Less leakage, better reporting</h3>
-            <p className="mt-2 text-sm text-slate-700">
+            <h3 className="mt-3 font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">Less leakage, better reporting</h3>
+            <p className="mt-2 text-sm text-[#0E1F17]/75">
               Built-in checks keep collection activity clean and transparent from field to office.
             </p>
           </div>
         </div>
       </section>
 
+      {/* ---------- RECRUITMENT ---------- */}
       <section id="recruitment" className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-10">
-        <div className="rounded-xl border border-cyan-100 bg-linear-to-r from-white via-emerald-50 to-cyan-50 p-6 shadow-sm md:p-8">
+        <div className="overflow-hidden rounded-[28px] bg-[#0B3B26] p-6 shadow-sm md:p-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[#8FE0B4]">
               <Users className="h-5 w-5" />
             </span>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Recruitment</p>
+            <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#8FE0B4]">Recruitment</p>
           </div>
-          <h2 className="mt-4 text-2xl font-bold text-slate-900 md:text-3xl">
+          <h2 className="mt-4 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-white md:text-3xl">
             Join our field operations team
           </h2>
-          <p className="mt-3 max-w-2xl text-sm text-slate-600 md:text-base">
+          <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
             We are onboarding new agents and operations support personnel across multiple locations.
           </p>
           <div className="mt-5">
             <Link
               href="/recruitment-portal"
-              className="inline-flex rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+              className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0E1F17] transition-transform hover:-translate-y-0.5"
             >
               Apply for Recruitment
             </Link>
@@ -138,108 +143,77 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+      {/* ---------- FEATURES ---------- */}
+      <section id="features" className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
         <div className="mb-6">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Features</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Everything needed for daily revenue operations</h2>
+          <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#158049]">Features</p>
+          <h2 className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] md:text-3xl">Everything needed for daily revenue operations</h2>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                <Users className="h-5 w-5" />
-              </span>
-              <h3 className="text-base font-semibold text-slate-900">Member Management</h3>
+          {[
+            { icon: Users, title: "Member Management", desc: "Maintain complete entity profiles with location, category, and pricing setup." },
+            { icon: Settings, title: "Agent Allocation", desc: "Assign and track responsible agents for each member account." },
+            { icon: BarChart3, title: "Pricing Control", desc: "Upgrade and adjust pricing plans with clear billing visibility." },
+            { icon: FileText, title: "Export and Insights", desc: "Generate payment reports and monitor trend performance across categories." },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="rounded-[20px] border border-[#E1E7E2] bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h3 className="font-['Space_Grotesk',sans-serif] text-base font-semibold text-[#0E1F17]">{title}</h3>
+              </div>
+              <p className="mt-2 text-sm text-[#5B6B62]">{desc}</p>
             </div>
-            <p className="mt-2 text-sm text-slate-600">Maintain complete entity profiles with location, category, and pricing setup.</p>
-          </div>
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                <Settings className="h-5 w-5" />
-              </span>
-              <h3 className="text-base font-semibold text-slate-900">Agent Allocation</h3>
-            </div>
-            <p className="mt-2 text-sm text-slate-600">Assign and track responsible agents for each member account.</p>
-          </div>
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                <BarChart3 className="h-5 w-5" />
-              </span>
-              <h3 className="text-base font-semibold text-slate-900">Pricing Control</h3>
-            </div>
-            <p className="mt-2 text-sm text-slate-600">Upgrade and adjust pricing plans with clear billing visibility.</p>
-          </div>
-          <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                <FileText className="h-5 w-5" />
-              </span>
-              <h3 className="text-base font-semibold text-slate-900">Export and Insights</h3>
-            </div>
-            <p className="mt-2 text-sm text-slate-600">Generate payment reports and monitor trend performance across categories.</p>
-          </div>
+          ))}
         </div>
       </section>
 
-      <section id="trust" className="border-y border-emerald-100 bg-emerald-50/60">
-        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+      {/* ---------- TRUST ---------- */}
+      <section id="trust" className="border-y border-[#E1E7E2] bg-[#E4F5EB]/40">
+        <div className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
           <div className="mb-6 text-center">
-            <p className="text-xs uppercase tracking-wide text-emerald-800">Why you can trust this portal</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Built for accountability and safety</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
+            <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#158049]">Why you can trust this portal</p>
+            <h2 className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] md:text-3xl">Built for accountability and safety</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-[#5B6B62]">
               This is the official revenue platform of the Abuja Municipal Area Council. Here is how we keep your data and payments safe.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
-              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <h3 className="mt-3 text-sm font-semibold text-slate-900">Encrypted transactions</h3>
-              <p className="mt-1 text-xs text-slate-600">All payments are transmitted over encrypted connections and never stored in plain text.</p>
-            </div>
-            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
-              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
-                <BadgeCheck className="h-5 w-5" />
-              </span>
-              <h3 className="mt-3 text-sm font-semibold text-slate-900">Official AMAC platform</h3>
-              <p className="mt-1 text-xs text-slate-600">Operated on behalf of the Abuja Municipal Area Council for tenement and business rate collection.</p>
-            </div>
-            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
-              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
-                <Receipt className="h-5 w-5" />
-              </span>
-              <h3 className="mt-3 text-sm font-semibold text-slate-900">Instant digital receipts</h3>
-              <p className="mt-1 text-xs text-slate-600">Every payment generates a verifiable receipt tied to your account, no matter which channel you use.</p>
-            </div>
-            <div className="rounded-lg border border-emerald-100 bg-white p-5 text-center shadow-sm">
-              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-800 text-white">
-                <UserCheck className="h-5 w-5" />
-              </span>
-              <h3 className="mt-3 text-sm font-semibold text-slate-900">Verified field agents</h3>
-              <p className="mt-1 text-xs text-slate-600">Every agent is registered on the system and can be confirmed by our support team on request.</p>
-            </div>
+            {[
+              { icon: ShieldCheck, title: "Encrypted transactions", desc: "All payments are transmitted over encrypted connections and never stored in plain text." },
+              { icon: BadgeCheck, title: "Official AMAC platform", desc: "Operated on behalf of the Abuja Municipal Area Council for tenement and business rate collection." },
+              { icon: Receipt, title: "Instant digital receipts", desc: "Every payment generates a verifiable receipt tied to your account, no matter which channel you use." },
+              { icon: UserCheck, title: "Verified field agents", desc: "Every agent is registered on the system and can be confirmed by our support team on request." },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="rounded-[20px] border border-[#E1E7E2] bg-white p-5 text-center shadow-sm">
+                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#0B3B26] text-[#8FE0B4]">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h3 className="mt-3 font-['Space_Grotesk',sans-serif] text-sm font-semibold text-[#0E1F17]">{title}</h3>
+                <p className="mt-1 text-xs text-[#5B6B62]">{desc}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-6 flex flex-col items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+          <div className="mt-6 flex flex-col items-start gap-3 rounded-[20px] border border-[#E8A33D]/40 bg-[#E8A33D]/[0.08] p-5 sm:flex-row sm:items-center">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8A33D] text-white">
               <AlertTriangle className="h-5 w-5" />
             </span>
-            <p className="text-sm text-amber-900">
+            <p className="text-sm text-[#0E1F17]/80">
               <span className="font-semibold">Stay alert:</span> Only pay through this website, our official USSD/bank channels, or a field agent who can be verified by calling our support line. AMAC staff will never ask you to pay directly into a personal account.
             </p>
           </div>
         </div>
       </section>
 
-      <section id="faq" className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+      {/* ---------- FAQ ---------- */}
+      <section id="faq" className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-20">
         <div className="mb-6">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Frequently Asked Questions</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Common questions from residents and businesses</h2>
+          <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#158049]">Frequently Asked Questions</p>
+          <h2 className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] md:text-3xl">Common questions from residents and businesses</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {[
@@ -260,32 +234,33 @@ export default function LandingPage() {
               a: "Yes. Contact support with your payment reference or phone number used at the time of payment, and we will resend your digital receipt.",
             },
           ].map((item) => (
-            <div key={item.q} className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">{item.q}</h3>
-              <p className="mt-2 text-sm text-slate-600">{item.a}</p>
+            <div key={item.q} className="rounded-[20px] border border-[#E1E7E2] bg-white p-5 shadow-sm">
+              <h3 className="font-['Space_Grotesk',sans-serif] text-sm font-semibold text-[#0E1F17]">{item.q}</h3>
+              <p className="mt-2 text-sm text-[#5B6B62]">{item.a}</p>
             </div>
           ))}
         </div>
       </section>
 
+      {/* ---------- CONTACT ---------- */}
       <section id="contact" className="mx-auto w-full max-w-7xl px-4 pb-14 md:px-6 md:pb-20">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="rounded-[20px] border border-[#E1E7E2] bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
               <Mail className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Need help?</p>
-              <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Talk to the Amac Revenue team</h2>
+              <p className="font-['JetBrains_Mono',monospace] text-xs uppercase tracking-wide text-[#5B6B62]">Need help?</p>
+              <h2 className="mt-1 font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] md:text-3xl">Talk to the Amac Revenue team</h2>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-600 md:text-base">Send inquiries on onboarding, operations, and system access.</p>
+          <p className="mt-3 text-sm text-[#5B6B62] md:text-base">Send inquiries on onboarding, operations, and system access.</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <a href="mailto:support@afriverge.com" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            <a href="mailto:support@afriverge.com" className="inline-flex items-center gap-2 rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-2.5 text-sm font-medium text-[#0E1F17]/80 hover:bg-white">
               <Mail className="h-4 w-4" />
               support@afriverge.com
             </a>
-            <a href="tel:+2348000000000" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            <a href="tel:+2348000000000" className="inline-flex items-center gap-2 rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-2.5 text-sm font-medium text-[#0E1F17]/80 hover:bg-white">
               <Phone className="h-4 w-4" />
               +234 800 000 0000
             </a>
