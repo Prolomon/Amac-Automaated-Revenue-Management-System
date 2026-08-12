@@ -114,6 +114,10 @@ export const createDemandNotice = async (req, res) => {
     // These are PrismaPromise objects, not JS Promises from async functions —
     // that's what $transaction requires to batch them atomically.
     const transactionOps = preparedDemands.flatMap(({ payment, uniqueRef }) => [
+      prisma.payment.update({
+        where: { id: payment.id },
+        data: { idDemand: true },
+      }),
       prisma.demand.create({
         data: {
           reference: uniqueRef,
@@ -288,7 +292,11 @@ export const createMultipleDemandNotice = async (req, res) => {
 
         // Build a flat array of PLAIN (non-awaited) Prisma Client calls —
         // PrismaPromises, not JS Promises from async functions.
-        const transactionOps = preparedDemands.map(({ payment, uniqueRef }) =>
+        const transactionOps = preparedDemands.map(({ payment, uniqueRef }) => {
+          prisma.payment.update({
+            where: { id: payment.id },
+            data: { idDemand: true },
+          })
           prisma.demand.create({
             data: {
               reference: uniqueRef,
@@ -301,7 +309,7 @@ export const createMultipleDemandNotice = async (req, res) => {
               center: member.center,
             },
           })
-        );
+        });
 
         const demandRecords = await prisma.$transaction(transactionOps);
 
@@ -443,6 +451,11 @@ export const createDemandNoticeByPayment = async (req, res) => {
         center: member.center,
       },
     });
+
+    await prisma.payment.update({
+        where: { id: payment.id },
+        data: { idDemand: true },
+      })
 
     // Trigger instant email processing in the background
     processDemands().catch((err) =>
