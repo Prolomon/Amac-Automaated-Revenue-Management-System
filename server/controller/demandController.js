@@ -114,10 +114,6 @@ export const createDemandNotice = async (req, res) => {
     // These are PrismaPromise objects, not JS Promises from async functions —
     // that's what $transaction requires to batch them atomically.
     const transactionOps = preparedDemands.flatMap(({ payment, uniqueRef }) => [
-      prisma.payment.update({
-        where: { id: payment.id },
-        data: { isDemand: true },
-      }),
       prisma.demand.create({
         data: {
           reference: uniqueRef,
