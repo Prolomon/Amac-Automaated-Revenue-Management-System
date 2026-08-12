@@ -655,7 +655,7 @@ const makePayment = async (req, res) => {
         .json({ ok: false, message: "Payment record not found" });
     }
 
-    console.log("this is the center: " main)
+    console.log("this is the center: ", main)
 
     if (!main) {
       return res
