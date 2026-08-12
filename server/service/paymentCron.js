@@ -37,7 +37,7 @@ export const startPaymentCron = () => {
             createdAt: { gt: payment.createdAt },
           },
           select: { id: true },
-        });
+        }); 
 
         if (alreadyRenewed) continue;
 

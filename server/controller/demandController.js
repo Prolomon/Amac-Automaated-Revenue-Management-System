@@ -79,7 +79,7 @@ export const createDemandNotice = async (req, res) => {
 
         while (!uniqueRef && attempts < maxAttempts) {
           const genUid = generateDemandUid();
-          const existingMemberWithUid = await prisma.demand.findFirst({
+          const existingMemberWithUid = prisma.demand.findFirst({
             where: { reference: genUid },
             select: { id: true },
           });
@@ -90,28 +90,28 @@ export const createDemandNotice = async (req, res) => {
           attempts++;
         }
 
-        await prisma.payment.update({
+        prisma.payment.update({
           where: { id: payment.id },
           data: { isDemand: true }, // Update payment status to PENDING
         });
 
         let wallet;
 
-        wallet = await prisma.wallet.findFirst({
+        wallet = prisma.wallet.findFirst({
           where: {
             userId: member.uid,
           },
         });
 
         if (!wallet) {
-          wallet = await prisma.wallet.findFirst({
+          wallet = prisma.wallet.findFirst({
             where: {
               userId: member.agent,
             },
           });
         }
 
-        return await prisma.demand.create({
+        return prisma.demand.create({
           data: {
             reference: uniqueRef,
             userId: userId,
