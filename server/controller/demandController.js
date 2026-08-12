@@ -68,63 +68,74 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    // Create Demand records with CREATED status - each with unique reference
-    const demandRecords = await prisma.$transaction(
-      payments.map(async (payment) => {
+    // Resolve wallet once (it's the same for every payment on this member)
+    let wallet = await prisma.wallet.findFirst({
+      where: { userId: member.uid },
+    });
 
-        // Generate unique UID with collision detection
-        let uniqueRef;
-        let attempts = 0;
-        const maxAttempts = 5;
+    if (!wallet) {
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: member.agent },
+      });
+    }
 
-        while (!uniqueRef && attempts < maxAttempts) {
-          const genUid = generateDemandUid();
-          const existingMemberWithUid = prisma.demand.findFirst({
-            where: { reference: genUid },
-            select: { id: true },
-          });
+    // Do all the async prep work FIRST (unique ref generation),
+    // since this can't happen inside the $transaction array itself.
+    const preparedDemands = [];
 
-          if (!existingMemberWithUid) {
-            uniqueRef = genUid;
-          }
-          attempts++;
+    for (const payment of payments) {
+      let uniqueRef;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!uniqueRef && attempts < maxAttempts) {
+        const genUid = generateDemandUid();
+        const existingWithUid = await prisma.demand.findFirst({
+          where: { reference: genUid },
+          select: { id: true },
+        });
+
+        if (!existingWithUid) {
+          uniqueRef = genUid;
         }
+        attempts++;
+      }
 
-        prisma.payment.update({
-          where: { id: payment.id },
-          data: { isDemand: true }, // Update payment status to PENDING
-        });
+      if (!uniqueRef) {
+        throw new Error(
+          `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`
+        );
+      }
 
-        let wallet;
+      preparedDemands.push({ payment, uniqueRef });
+    }
 
-        wallet = prisma.wallet.findFirst({
-          where: {
-            userId: member.uid,
-          },
-        });
+    // Now build a flat array of PLAIN (non-awaited) Prisma Client calls.
+    // These are PrismaPromise objects, not JS Promises from async functions —
+    // that's what $transaction requires to batch them atomically.
+    const transactionOps = preparedDemands.flatMap(({ payment, uniqueRef }) => [
+      prisma.payment.update({
+        where: { id: payment.id },
+        data: { isDemand: true },
+      }),
+      prisma.demand.create({
+        data: {
+          reference: uniqueRef,
+          userId: userId,
+          walletId: wallet ? wallet.id : null,
+          paymentId: payment.id,
+          amount: Number(payment.debt || payment.amount),
+          status: "CREATED",
+          isSent: false,
+          center: member.center,
+        },
+      }),
+    ]);
 
-        if (!wallet) {
-          wallet = prisma.wallet.findFirst({
-            where: {
-              userId: member.agent,
-            },
-          });
-        }
+    const results = await prisma.$transaction(transactionOps);
 
-        return prisma.demand.create({
-          data: {
-            reference: uniqueRef,
-            userId: userId,
-            walletId: wallet ? wallet.id : null,
-            paymentId: payment.id,
-            amount: Number(payment.debt || payment.amount),
-            status: "CREATED",
-            isSent: false,
-            center: member.center,
-          },
-        });
-      })
-    );
+    // Every other op is the demand.create result (payment.update, demand.create, ...)
+    const demandRecords = results.filter((_, idx) => idx % 2 === 1);
 
     // Calculate totals for response
     const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -182,7 +193,6 @@ export const createMultipleDemandNotice = async (req, res) => {
           where: { uid: userId },
         });
 
-
         if (!member) {
           results.failed++;
           results.details.push({
@@ -238,57 +248,66 @@ export const createMultipleDemandNotice = async (req, res) => {
           continue;
         }
 
-        // Create Demand records with CREATED status for unpaid payments - each with unique reference
-        const demandRecords = await prisma.$transaction(
-          unpaidPayments.map(async (payment) => {
-            // Generate unique UID with collision detection
-            let uniqueRef;
-            let attempts = 0;
-            const maxAttempts = 5;
+        // Resolve wallet once per user (doesn't depend on payment)
+        let wallet = await prisma.wallet.findFirst({
+          where: { userId },
+        });
 
-            while (!uniqueRef && attempts < maxAttempts) {
-              const genUid = generateDemandUid();
-              const existingMemberWithUid = await prisma.demand.findFirst({
-                where: { reference: genUid },
-                select: { id: true },
-              });
+        if (!wallet) {
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: member.agent },
+          });
+        }
 
-              if (!existingMemberWithUid) {
-                uniqueRef = genUid;
-              }
-              attempts++;
-            }
+        // Do the async prep work (unique ref generation) BEFORE building
+        // the $transaction array — this can't happen inside it.
+        const preparedDemands = [];
 
-            let wallet;
+        for (const payment of unpaidPayments) {
+          let uniqueRef;
+          let attempts = 0;
+          const maxAttempts = 5;
 
-            wallet = await prisma.wallet.findFirst({
-              where: {
-                userId: userId
-              },
+          while (!uniqueRef && attempts < maxAttempts) {
+            const genUid = generateDemandUid();
+            const existingWithUid = await prisma.demand.findFirst({
+              where: { reference: genUid },
+              select: { id: true },
             });
 
-            if (!wallet) {
-              wallet = await prisma.wallet.findFirst({
-                where: {
-                  userId: member.agent,
-                },
-              });
+            if (!existingWithUid) {
+              uniqueRef = genUid;
             }
+            attempts++;
+          }
 
-            return prisma.demand.create({
-              data: {
-                reference: uniqueRef,
-                userId: userId,
-                paymentId: payment.id,
-                amount: Number(payment.debt || payment.amount),
-                status: "CREATED",
-                walletId: wallet ? wallet.id : null,
-                isSent: false,
-                center: member.center,
-              },
-            });
+          if (!uniqueRef) {
+            throw new Error(
+              `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`
+            );
+          }
+
+          preparedDemands.push({ payment, uniqueRef });
+        }
+
+        // Build a flat array of PLAIN (non-awaited) Prisma Client calls —
+        // PrismaPromises, not JS Promises from async functions.
+        const transactionOps = preparedDemands.map(({ payment, uniqueRef }) =>
+          prisma.demand.create({
+            data: {
+              reference: uniqueRef,
+              userId: userId,
+              paymentId: payment.id,
+              amount: Number(payment.debt || payment.amount),
+              status: "CREATED",
+              walletId: wallet ? wallet.id : null,
+              isSent: false,
+              center: member.center,
+            },
           })
         );
+
+        const demandRecords = await prisma.$transaction(transactionOps);
 
         results.created++;
         results.details.push({
@@ -343,11 +362,11 @@ export const createDemandNoticeByPayment = async (req, res) => {
 
     // Fetch payment details
     const payment = await prisma.payment.findFirst({
-      where: { 
-        id: paymentId, 
+      where: {
+        id: paymentId,
         status: {
           not: "PAID",
-        }, 
+        },
       },
     });
 
@@ -402,9 +421,7 @@ export const createDemandNoticeByPayment = async (req, res) => {
       });
     }
 
-    let wallet;
-
-    wallet = await prisma.wallet.findFirst({
+    let wallet = await prisma.wallet.findFirst({
       where: {
         userId: member.uid,
       },
@@ -425,7 +442,6 @@ export const createDemandNoticeByPayment = async (req, res) => {
         paymentId: payment.id,
         userId: member.uid,
         walletId: wallet ? wallet.id : null,
-        paymentId: payment.id,
         amount: Number(payment.debt || payment.amount),
         isSent: false,
         center: member.center,
