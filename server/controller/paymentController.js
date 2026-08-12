@@ -498,9 +498,13 @@ const makePayment = async (req, res) => {
     const { amount, center, company } = value;
     const { userId, paymentId } = req.params;
 
+    console.log("Amount: ", amount, "Center: ", center, "Company: ", company, "userId: ", userId, "paymentId: ", paymentId)
+
     const member = await prisma.member.findUnique({
       where: { uid: userId },
     });
+
+    console.log(member)
 
     if (!member) {
       return res.status(404).json({ ok: false, message: "Member not found" });
@@ -650,6 +654,8 @@ const makePayment = async (req, res) => {
         .status(404)
         .json({ ok: false, message: "Payment record not found" });
     }
+
+    console.log("this is the center: " main)
 
     if (!main) {
       return res
