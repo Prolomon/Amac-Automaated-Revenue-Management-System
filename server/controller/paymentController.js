@@ -535,7 +535,7 @@ const makePayment = async (req, res) => {
         },
       }),
       prisma.admin.findFirst({
-        where: { uid: center },
+        where: { uid: member.center || center },
         select: {
           id: true,
           uid: true,
