@@ -1,9 +1,11 @@
 "use client";
 import React, { useEffect, useState, use, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Download, RefreshCw, AlertCircle, CheckCircle, XCircle, Clock, Ban } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, AlertCircle, CheckCircle, XCircle, Clock, Ban, Flag } from "lucide-react";
 import { getPayment, Payment as PaymentType } from "@/lib/services/payments";
 import { useToast } from "@/context/ToastContext";
+import Link from "next/link";
+import { useReactToPrint } from "react-to-print";
 
 export default function PaymentDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -13,7 +15,6 @@ export default function PaymentDetailsPage() {
   const router = useRouter();
   const [payment, setPayment] = useState<PaymentType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -50,39 +51,6 @@ export default function PaymentDetailsPage() {
   };
 
   const handleBack = () => router.back();
-
-  const downloadAsPDF = async () => {
-    setDownloading(true);
-    try {
-      // Dynamically import html2canvas and jsPDF
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      const element = receiptRef.current;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Receipt-${payment?.reference || id}.pdf`);
-    } catch (e) {
-      addToast("error", "Failed to download PDF. Please try again.");
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   const formatDate = (iso: string | Date | null | undefined): string => {
     if (!iso) return '—';
@@ -150,6 +118,11 @@ export default function PaymentDetailsPage() {
     }
   };
 
+  const downloadAsPDF = useReactToPrint({
+    contentRef: receiptRef,
+    documentTitle: () => `Receipt_${payment?.member?.businessName}_${payment?.reference || id}_${new Date().toISOString().split('T')[0]}`,
+  });
+
   if (loading) {
     return (
       <div className="p-4 md:p-6 flex items-center justify-center min-h-screen">
@@ -201,25 +174,59 @@ export default function PaymentDetailsPage() {
   const statusConfig = getStatusConfig(payment.status);
   const StatusIcon = statusConfig.icon;
 
+  const principal = Number(payment.debt > 0 ? payment.debt : payment.amount);
+  const vat = principal * 0.075;
+  const charges = principal * 0.015;
+  const subtotal = principal + vat + charges;
+
+  // Get payment date and current date
+  const paymentDate = new Date(payment?.date);
+  const currentDate = new Date();
+
+  // Calculate days overdue
+  let daysOverdue = 0;
+  // if (currentDate > paymentDate) {
+  //   const diffTime = currentDate - paymentDate;
+  //   daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+  // }
+  if (currentDate > paymentDate) {
+    const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+  }
+
+  // Penalty: 0.005% per day overdue
+  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+  const totalAmount = subtotal + penalty;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors"
+          className="flex items-center gap-2 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors"
         >
           <ArrowLeft size={18} />
           Back
         </button>
-        <button
-          onClick={downloadAsPDF}
-          disabled={downloading}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-        >
-          <Download size={18} />
-          {downloading ? 'Generating PDF...' : 'Download Receipt'}
-        </button>
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <Link
+            href={`/admin/demands/${payment?.id}`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+          >
+            <Flag size={18} />
+            View Demand Notice
+          </Link>
+          <button
+            onClick={downloadAsPDF}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border bg-emerald-800 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+          >
+            <Download size={18} />
+            Download Receipt
+          </button>
+        </div>
       </div>
 
       {/* Receipt */}
@@ -284,8 +291,8 @@ export default function PaymentDetailsPage() {
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Payment code</p>
-                <p className="text-base font-medium text-slate-900">{payment?.payment || '—'}</p>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Payment Frequency</p>
+                <p className="text-base font-medium text-slate-900">{payment?.frequency || '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Due Date</p>
@@ -334,31 +341,31 @@ export default function PaymentDetailsPage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Total Amount</p>
-                <p className="text-3xl md:text-4xl font-bold text-slate-900">{formatCurrency(payment?.amount || 0)}</p>
+                <p className="text-3xl md:text-4xl font-bold text-slate-900">{formatCurrency(totalAmount || 0)}</p>
               </div>
-            </div> 
+            </div>
           </div>
 
           {/* Payment split */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Amount Paid */}
-          <div className="bg-emerald-50 rounded-xl p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-emerald-600 mb-1">Amount Paid</p>
-                <p className="text-3xl md:text-4xl font-bold text-emerald-900">{formatCurrency(payment?.paid || 0)}</p>
+            <div className="bg-emerald-50 rounded-xl p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-emerald-600 mb-1">Amount Paid</p>
+                  <p className="text-3xl md:text-4xl font-bold text-emerald-900">{formatCurrency(payment?.paid || 0)}</p>
+                </div>
               </div>
             </div>
-          </div>
-          {/* Amount Pending */}
-          <div className="bg-amber-50 rounded-xl p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-amber-600 mb-1">Debt</p>
-                <p className="text-3xl md:text-4xl font-bold text-amber-900">{formatCurrency(payment?.debt || 0)}</p>
+            {/* Amount Pending */}
+            <div className="bg-amber-50 rounded-xl p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-amber-600 mb-1">Debt</p>
+                  <p className="text-3xl md:text-4xl font-bold text-amber-900">{formatCurrency(payment?.debt || 0)}</p>
+                </div>
               </div>
             </div>
-          </div>
           </div>
 
           {/* Timestamps */}

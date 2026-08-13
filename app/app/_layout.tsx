@@ -53,6 +53,7 @@ function RootLayout() {
                 name="modal"
                 options={{ presentation: "modal", title: "Modal" }}
               />
+              <Stack.Screen name="checkout" options={{ headerShown: false }} />
             </Stack>
             <StatusBar style="auto" />
           </ToastProvider>

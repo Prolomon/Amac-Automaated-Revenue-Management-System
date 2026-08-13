@@ -14,6 +14,7 @@ export type Demand = {
   member: Member;
   payment: Payment;
   isSent: Boolean;
+  dates: Date[];
 };
 
 export async function sendDemand(
@@ -130,31 +131,16 @@ export async function getDemand(
   return data;
 }
 
-export async function getDemandsByPayment(
+export async function getDemandByPayment(
   paymentId: string,
-  status?: string,
-  startDate?: string,
-  endDate?: string,
-  page?: string,
-  limit?: string,
 ): Promise<{
   ok: boolean;
   data?: Demand[];
   message?: string;
-  meta?: { total: string; page: string; limit: string; totalPages: number };
 }> {
-  const params = new URLSearchParams();
-
-  if (startDate) params.set("startDate", startDate);
-  if (endDate) params.set("endDate", endDate);
-  if (status) params.set("status", status);
-  if (page) params.set("page", page);
-  if (limit) params.set("limit", limit);
-
-  const queryString = params.toString();
 
   const response = await fetch(
-    `${API_URL}/demand/${paymentId}/payment${queryString ? `?${queryString}` : ""}`,
+    `${API_URL}/demand/${paymentId}/payment`,
     {
       headers: { ...buildHeaders() },
     },

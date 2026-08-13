@@ -343,11 +343,11 @@ export const createDemandNoticeByPayment = async (req, res) => {
 
     // Fetch payment details
     const payment = await prisma.payment.findFirst({
-      where: { 
-        id: paymentId, 
+      where: {
+        id: paymentId,
         status: {
           not: "PAID",
-        }, 
+        },
       },
     });
 
@@ -618,49 +618,27 @@ export const getDemandByPayment = async (req, res) => {
       });
     }
 
-    const { status, startDate, endDate, page = 1, limit = 50 } = req.query;
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    // Build where clause
-    const where = {};
-    if (id) where.paymentId = id;
-    if (status) where.status = status;
-
-    // Date range filter
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
-    }
-
     // Get demands with payment and member info
-    const [demands, total] = await Promise.all([
-      prisma.demand.findMany({
-        where,
-        include: {
-          payment: true,
-          member: true,
+    const demand = await prisma.demand.findFirst({
+      where: {
+        paymentId: id,
+      },
+      include: {
+        payment: {
+          include: {
+            pricing: true,
+          },
         },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: Number(limit),
-      }),
-      prisma.demand.count({ where }),
-    ]);
+        member: true,
+        wallet: true,
+      },
+    })
 
     return res.status(200).json({
       ok: true,
-      data: demands,
-      meta: {
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
-      },
+      data: demand
     });
   } catch (err) {
-    console.error("getDemands error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",

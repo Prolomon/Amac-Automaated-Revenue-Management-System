@@ -64,7 +64,7 @@ export default function Payments() {
       success: payments.filter(p => p.status === "SUCCESS").length,
       pending: payments.filter(p => p.status === "PENDING").length,
       failed: payments.filter(p => p.status === "FAILED").length,
-      totalAmount: payments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+      totalAmount: payments.reduce((sum, p) => sum + Number(p.paid || 0), 0),
       totalDebt: payments.reduce((sum, p) => sum + Number(p.debt || 0), 0),
     };
   }, [payments]);
@@ -155,7 +155,8 @@ export default function Payments() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`}
+              className={`w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm outline-none transition border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`}
+              placeholder="Search by reference, member name, or plan"
             />
           </div>
         </div>
@@ -263,7 +264,7 @@ export default function Payments() {
                     <div className="mt-4">
                       <div className="grid gap-2">
                         <button
-                          onClick={() => router.push(`/admin/payments/${payment.id}`)}
+                          onClick={() => router.push(`/admin/payments/${payment.reference}`)}
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600"
                           disabled={loading || paymentLoad === payment.id}
                         >
@@ -284,7 +285,7 @@ export default function Payments() {
                           ) : (
                             <Bell size={16} />
                           )}
-                          Send Demand Notice
+                          {payment.isDemand ? "Send Reminder" : "Send Payment Notice"}
                         </button>
                       </div>
                     </div>

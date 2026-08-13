@@ -6,7 +6,7 @@ import { getPricingByCenter } from "@/lib/services/pricing";
 import { Payment, Pricing } from "@/lib/types";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -21,22 +21,55 @@ import {
   View,
 } from "react-native";
 
+const VAT_RATE = 0.075;
+const CHARGE_RATE = 0.015;
+const PENALTY_RATE_PER_DAY = 0.00005;
+
+/**
+ * Single source of truth for the fee breakdown.
+ * Previously this math was duplicated (once in the "Pay now" card button,
+ * once inline in the modal render) and read slightly different fields
+ * each time, which let the two silently drift apart.
+ */
+function computeBreakdown(payment: Payment | null) {
+  if (!payment) {
+    return { principal: 0, vat: 0, charges: 0, subtotal: 0, daysOverdue: 0, penalty: 0, total: 0 };
+  }
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  const principal = round2(
+    Number(Number(payment.debt) > 0 ? payment.debt : payment.amount || 0)
+  );
+  const vat = round2(principal * VAT_RATE);
+  const charges = round2(principal * CHARGE_RATE);
+  const subtotal = round2(principal + vat + charges);
+
+  const paymentDate = new Date(payment.due || payment.date || "");
+  const currentDate = new Date();
+
+  let daysOverdue = 0;
+  if (!Number.isNaN(paymentDate.getTime()) && currentDate > paymentDate) {
+    daysOverdue = Math.floor(
+      (currentDate.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }
+
+  const penalty = round2(subtotal * PENALTY_RATE_PER_DAY * daysOverdue);
+  const total = round2(subtotal + penalty);
+
+  return { principal, vat, charges, subtotal, daysOverdue, penalty, total };
+}
+
 export default function MakePayment() {
   const router = useRouter();
   const { currentUser, token } = useAuth();
-  const { failed, success } = useToast();
+  const { failed, } = useToast();
 
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState<string>("");
-  const [secureTokenInput, setSecureTokenInput] = useState<string>("");
   const [pricing, setPricing] = useState<Pricing[]>([]);
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const { pin } = useWallet();
 
   const fetchPricing = useCallback(async () => {
     try {
@@ -51,17 +84,19 @@ export default function MakePayment() {
       setPricing([]);
       failed(error.message || "An error occurred while fetching pricing");
     }
-  }, [token, failed]);
+  }, [currentUser?.center, token, failed]);
 
   useEffect(() => {
     fetchPricing();
   }, [fetchPricing]);
 
-  const formatAmount = (value: number) =>
-    value.toLocaleString("en-NG", {
+  const formatAmount = (value: number, withSymbol = true) => {
+    const formatted = value.toLocaleString("en-NG", {
       style: "currency",
       currency: "NGN",
     });
+    return withSymbol ? formatted : formatted.replace("₦", "").trim();
+  };
 
   const formatDate = (value?: string | Date | null) => {
     if (!value) return "N/A";
@@ -109,90 +144,11 @@ export default function MakePayment() {
     setRefreshing(false);
   };
 
-  const handlePayNow = async () => {
-    setLoading(true);
-    if (!currentUser?.uid) {
-      setError("No user available");
-      failed("No user available");
-      return;
-    }
-
-    if (!secureTokenInput || secureTokenInput.trim().length === 0) {
-      setError("Please enter your secure token");
-      failed("Please enter your secure token");
-      return;
-    }
-
-    if (secureTokenInput !== pin) {
-      setError("Invalid secure token");
-      failed("Invalid secure token");
-      return;
-    }
-
-    if (!selectedPayment) {
-      setError("No payment selected");
-      failed("No payment selected");
-      return;
-    }
-
-    try {
-
-      const paymentRes = await makePayment(
-        currentUser.uid,
-        Number(paymentAmount),
-        selectedPayment?.payment as string,
-        currentUser.center as string,
-        currentUser.company as string,
-        token as string
-      );
-
-      if (!paymentRes || !paymentRes.ok) {
-        setError(paymentRes?.message || "Payment failed");
-        failed(paymentRes?.message || "Payment failed");
-        return;
-      }
-      success("Payment successful");
-
-      fetchPayments();
-
-    } catch (error: any) {
-      setError(error?.message || "An error occurred during verification");
-      failed(error?.message || "An error occurred during verification");
-    } finally {
-      setSecureTokenInput("");
-      setPaymentAmount("");
-      setSelectedPayment(null);
-      setShowPaymentModal(false);
-
-      setError("")
-      setLoading(false);
-    }
-  };
-
   const sortedPayments = [...allPayments].sort((left, right) => {
     const leftDate = new Date(left.due || left.date).getTime();
     const rightDate = new Date(right.due || right.date).getTime();
     return rightDate - leftDate;
   });
-
-  const demand = selectedPayment;
-  const principal = Number((demand as any)?.debt > 0 ? (demand as any)?.debt :(demand as any)?.payment?.amount || demand?.amount || 0);
-  const vat = principal * 0.075;
-  const charges = principal * 0.015;
-  const subtotal = principal + vat + charges;
-
-  const paymentDate = new Date((demand as any)?.payment?.date || demand?.due || demand?.date || "");
-  const currentDate = new Date();
-
-  let daysOverdue = 0;
-  if (!isNaN(paymentDate.getTime()) && currentDate > paymentDate) {
-    const diffTime = currentDate.getTime() - paymentDate.getTime();
-    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  }
-
-  const penaltyRatePerDay = 0.00005;
-  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
-  const totalAmount = subtotal + penalty;
 
   return (
     <KeyboardAvoidingView
@@ -212,11 +168,13 @@ export default function MakePayment() {
             <TouchableOpacity
               style={styles.back}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               onPress={() => router.back()}
             >
               <ArrowLeft color="#000" />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: "#000" }]}>Make Payment</Text>
+            <Text style={styles.headerTitle}>Make Payment</Text>
             <View style={{ width: 32 }} />
           </View>
         </View>
@@ -233,11 +191,12 @@ export default function MakePayment() {
             </Text>
           </View>
         ) : (
-          <View style={{ marginHorizontal: 14, marginTop: 8 }}>
+          <View style={{ marginHorizontal: 14 }}>
             {sortedPayments.map((payment, index) => {
-
-              const pricingInfo = pricing.find((item) => item.id === payment.payment)
-              const statusLabel = payment.status.charAt(0).toUpperCase() + payment.status.slice(1).toLowerCase();
+              const pricingInfo = pricing.find((item) => item.id === payment.payment);
+              const statusLabel =
+                payment.status.charAt(0).toUpperCase() + payment.status.slice(1).toLowerCase();
+              const isSuccess = payment.status.toLowerCase() === "success";
 
               return (
                 <View
@@ -259,8 +218,8 @@ export default function MakePayment() {
                       </Text>
                     </View>
 
-                    <View style={[styles.statusBadge, payment.status.toLowerCase() === "success" ? styles.statusSuccess : styles.statusPending]}>
-                      <Text style={[styles.statusText, payment.status.toLowerCase() === "success" ? styles.statusTextSuccess : styles.statusTextPending]}>
+                    <View style={[styles.statusBadge, isSuccess ? styles.statusSuccess : styles.statusPending]}>
+                      <Text style={[styles.statusText, isSuccess ? styles.statusTextSuccess : styles.statusTextPending]}>
                         {statusLabel}
                       </Text>
                     </View>
@@ -269,20 +228,16 @@ export default function MakePayment() {
                   <View style={styles.amountGrid}>
                     <View style={styles.amountBadge}>
                       <Text style={styles.amountLabel}>
-                        {Number(payment.debt) > 0 ? "Total Paid" : "Amount"}
+                        Amount
                       </Text>
                       <Text style={styles.amountValue}>
-                        {formatAmount(
-                          Number(payment.debt) > 0
-                            ? (Number(payment.amount) || 0) - (Number(payment.debt) || 0)
-                            : (Number(payment.amount) || 0)
-                        ).replace("₦", "")}
+                        {formatAmount(Number(computeBreakdown(payment).total) || 0)}
                       </Text>
                     </View>
                     <View style={styles.debtBadge}>
                       <Text style={styles.debtLabel}>Outstanding</Text>
                       <Text style={styles.debtValue}>
-                        {formatAmount(Number(payment.debt) || 0).replace("₦", "")}
+                        {formatAmount(Number(payment.debt) || 0, false)}
                       </Text>
                     </View>
                   </View>
@@ -290,220 +245,22 @@ export default function MakePayment() {
                   <TouchableOpacity
                     style={styles.payNowButton}
                     activeOpacity={0.85}
-                    onPress={() => {
-                      setSelectedPayment(payment);
-                      const p = Number((payment as any)?.payment?.debt > 0 ? (payment as any)?.payment?.debt :(payment as any)?.payment?.amount || payment?.amount || 0);
-                      const sub = p + p * 0.075 + p * 0.015;
-                      const pDate = new Date((payment as any)?.payment?.date || payment?.due || payment?.date || "");
-                      const now = new Date();
-                      let days = 0;
-                      if (!isNaN(pDate.getTime()) && now > pDate) {
-                        days = Math.floor((now.getTime() - pDate.getTime()) / (1000 * 60 * 60 * 24));
-                      }
-                      const tot = sub + sub * 0.00005 * days;
-                      setPaymentAmount(String(Math.ceil(tot)));
-                      setShowPaymentModal(true);
-                    }}
+                    onPress={() => router.push(`/checkout?reference=${payment.reference}`)}
                   >
-                    <Text style={styles.payNowText}>{loading ? "Processing..." : "Pay now"}</Text>
+                    <Text style={styles.payNowText}>Pay now</Text>
                   </TouchableOpacity>
                 </View>
               );
             })}
           </View>
         )}
-
-        <Modal visible={showPaymentModal} animationType="slide">
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <View style={styles.modalShell}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalEyebrow}>Payment checkout</Text>
-                  <Text style={styles.modalHeaderTitle}>Review and pay securely</Text>
-                </View>
-                <TouchableOpacity style={styles.closeButtonWrap} onPress={() => setShowPaymentModal(false)}>
-                  <Text style={styles.closeButton}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              {error ? (
-                <View style={styles.errorBanner}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              ) : null}
-
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={styles.modalContent}
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-              >
-                <View style={styles.modalHeroCard}>
-                  <Text style={styles.modalTitleLarge} numberOfLines={1}>
-                    {pricing.find((item) => item.id === selectedPayment?.payment)?.title || selectedPayment?.payment || "Payment Details"}
-                  </Text>
-
-                  <View style={styles.badgeRow}>
-                    {pricing.find((item) => item.id === selectedPayment?.payment)?.category ? (
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>
-                          {pricing.find((item) => item.id === selectedPayment?.payment)?.category}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    <View style={[styles.statusBadge, selectedPayment?.status?.toLowerCase() === "success" ? styles.statusSuccess : styles.statusPending]}>
-                      <Text style={[styles.statusText, selectedPayment?.status?.toLowerCase() === "success" ? styles.statusTextSuccess : styles.statusTextPending]}>
-                        {selectedPayment?.status || "Pending"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.modalSubtitle}>
-                    Confirm the details below, review calculation breakdown, enter the amount, and complete the payment.
-                  </Text>
-                </View>
-
-                <View style={styles.summaryGrid}>
-                  <View style={styles.summaryCard}>
-                    <Text style={styles.summaryLabel}>Reference</Text>
-                    <Text style={styles.summaryValue} numberOfLines={1}>
-                      {selectedPayment?.reference || "N/A"}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryCard}>
-                    <Text style={styles.summaryLabel}>Due date</Text>
-                    <Text style={styles.summaryValue} numberOfLines={1}>
-                      {formatDate(selectedPayment?.due)}
-                    </Text>
-                  </View>
-                  <View style={[styles.summaryCard, styles.summaryCardWide]}>
-                    <Text style={styles.summaryLabel}>Paid balance</Text>
-                    <Text style={[styles.summaryValue, { color: "#166534" }]}>
-                      {selectedPayment ? formatAmount((Number(selectedPayment.amount) || 0) - (Number(selectedPayment.paid) || 0)) : "-"}
-                    </Text>
-                  </View>
-                  <View style={[styles.summaryCard, styles.summaryCardWide]}>
-                    <Text style={styles.summaryLabel}>Outstanding balance</Text>
-                    <Text style={[styles.summaryValue, { color: "#dc2626" }]}>
-                      {selectedPayment ? formatAmount(Number(selectedPayment.debt) || 0) : "-"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.breakdownCard}>
-                  <Text style={styles.breakdownHeaderTitle}>Payment Calculation Breakdown</Text>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Principal Amount</Text>
-                    <Text style={styles.detailValue}>{formatAmount(principal)}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>VAT (7.5%)</Text>
-                    <Text style={styles.detailValue}>{formatAmount(vat)}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Charges (1.5%)</Text>
-                    <Text style={styles.detailValue}>{formatAmount(charges)}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Subtotal</Text>
-                    <Text style={styles.detailValueBold}>{formatAmount(subtotal)}</Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Days Overdue</Text>
-                    <Text style={[styles.detailValue, daysOverdue > 0 ? { color: "#dc2626" } : {}]}>
-                      {daysOverdue} {daysOverdue === 1 ? "day" : "days"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Penalty (0.005%/day)</Text>
-                    <Text style={[styles.detailValue, penalty > 0 ? { color: "#dc2626" } : {}]}>
-                      {formatAmount(penalty)}
-                    </Text>
-                  </View>
-
-                  <View style={[styles.detailRow, styles.totalRow]}>
-                    <Text style={styles.totalLabel}>Total Payable Amount</Text>
-                    <Text style={styles.totalValue}>{formatAmount(totalAmount)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Enter amount to pay</Text>
-                  <TextInput
-                    style={styles.amountInputLarge}
-                    placeholder="0"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="numeric"
-                    value={paymentAmount}
-                    onChangeText={(text) => setPaymentAmount(text.replace(/[^0-9]/g, ""))}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Secure token</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="Enter secure token"
-                    placeholderTextColor="#94a3b8"
-                    secureTextEntry
-                    value={secureTokenInput}
-                    onChangeText={(text) => setSecureTokenInput(text)}
-                  />
-                </View>
-
-                <View style={styles.feeNote}>
-                  <Text style={styles.feeNoteText}>Charges are 1.5% of the payment amount.</Text>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Charges</Text>
-                  <TextInput
-                    style={styles.amountInputLarge}
-                    placeholder="0"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="numeric"
-                    value={formatAmount(charges).replace("₦", "")}
-                    editable={false}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.modalPayButton}
-                  activeOpacity={0.95}
-                  onPress={() => {
-                    handlePayNow();
-                  }}
-                >
-                  <Text style={styles.modalPayText}>{loading ? "Processing..." : "Pay now"}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={() => setShowPaymentModal(false)}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f6f8f9" },
+  safe: { flex: 1, backgroundColor: "ghostwhite" },
   container: { paddingBottom: 40 },
   header: { paddingVertical: 22, paddingHorizontal: 14 },
   headerRow: {
@@ -518,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: { fontSize: 18 },
+  headerTitle: { fontSize: 18, color: "#000" },
   loadingCard: {
     marginHorizontal: 14,
     borderRadius: 10,
@@ -608,94 +365,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   payNowText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  modalShell: { flex: 1, backgroundColor: "#f8fafc" },
-  modalHeaderRow: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    backgroundColor: "#fff",
-  },
-  modalEyebrow: { color: "#0ea360", fontSize: 12, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },
-  modalHeaderTitle: { marginTop: 4, color: "#0f172a", fontSize: 18, fontWeight: "800" },
-  closeButtonWrap: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0" },
-  closeButton: { fontSize: 16, color: "#0f172a", fontWeight: "700" },
-  modalTitleLarge: { fontSize: 20, fontWeight: "800", marginBottom: 6, color: "#0f172a" },
-  modalSubtitle: { marginTop: 4, color: "#64748b", fontSize: 13, lineHeight: 19 },
-  modalContent: { padding: 16, paddingTop: 14, paddingBottom: 50, alignItems: "stretch" },
-  modalHeroCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#e2e8f0", marginBottom: 12 },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   categoryBadge: { backgroundColor: "#f1f5f9", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
-  categoryText: { color: "#0f172a", fontWeight: "700" },
-  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 },
-  summaryCard: { flexBasis: "48%", flexGrow: 1, backgroundColor: "#fff", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: "#e2e8f0" },
-  summaryCardWide: { flexBasis: "100%" },
-  summaryLabel: { color: "#64748b", fontSize: 12, fontWeight: "600", marginBottom: 6 },
-  summaryValue: { color: "#0f172a", fontSize: 14, fontWeight: "700" },
-  breakdownCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    marginBottom: 12,
-  },
-  breakdownHeaderTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0f172a",
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingBottom: 8,
-  },
-  detailValueBold: {
-    color: "#0f172a",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  totalRow: {
-    marginTop: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    borderBottomWidth: 0,
-  },
-  totalLabel: {
-    color: "#0f172a",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  totalValue: {
-    color: "#0ea360",
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  inputGroup: { marginBottom: 12 },
-  inputLabel: { marginBottom: 6, color: "#334155", fontSize: 13, fontWeight: "600" },
-  detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  detailLabel: { color: "#64748b", fontSize: 13 },
-  detailValue: { color: "#0f172a", fontSize: 14, fontWeight: "600" },
-  amountInput: {
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#1e293b",
-  },
-  amountInputLarge: { backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, padding: 16, fontSize: 18, color: "#0f172a", width: "100%" },
-  modalPayButton: { backgroundColor: "#0ea360", paddingVertical: 14, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 16 },
-  modalPayText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  modalCancelButton: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#e2e8f0", paddingVertical: 12, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 10 },
-  modalCancelText: { color: "#374151", fontSize: 15, fontWeight: "600" },
-  errorBanner: { backgroundColor: "#fee2e2", paddingHorizontal: 12, paddingVertical: 14, marginVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#fecaca" },
-  errorText: { color: "#b91c1c", fontSize: 14, lineHeight: 20 },
-  feeNote: { marginTop: 2, padding: 12, borderRadius: 10, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0" },
-  feeNoteText: { color: "#475569", fontSize: 13, lineHeight: 19 },
 });

@@ -515,7 +515,7 @@ const makePayment = async (req, res) => {
       technologyWallet,
     ] = await Promise.all([
       prisma.payment.findFirst({
-        where: { payment: paymentId },
+        where: { OR: [{ payment: paymentId }, { reference: paymentId }, { id: paymentId }] },
         select: {
           id: true,
           reference: true,

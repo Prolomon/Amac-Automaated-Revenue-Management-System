@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Download, Eye, EyeOff, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check } from "lucide-react";
+import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check } from "lucide-react";
 import { getDemandsByCenter, resendDemand } from "@/lib/services/demand";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/context/AuthContext";
@@ -74,28 +74,6 @@ function DemandsListPage() {
       style: "currency",
       currency: "NGN",
     }).format(amount);
-  };
-
-  const formatDate = (date?: Date) => {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString("en-NG", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "border-amber-200 bg-amber-50 text-amber-700";
-      case "SENT":
-        return "border-blue-200 bg-blue-50 text-blue-700";
-      case "REJECTED":
-        return "border-red-200 bg-red-50 text-red-700";
-      default:
-        return "border-slate-200 bg-slate-50 text-slate-700";
-    }
   };
 
   const handleResend = async (demandId: string, e: React.MouseEvent) => {
@@ -263,7 +241,7 @@ function DemandsListPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
@@ -301,7 +279,10 @@ function DemandsListPage() {
                           <p className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                             {demand.member?.businessName ? 'BUSINESS' : 'INDIVIDUAL'}
                           </p>
-                        </div>
+                          <p className={`mt-2 ml-2 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${demand.status.toUpperCase() === 'PENDING' ? "text-amber-600 border-amber-200 bg-amber-50" : demand.status.toUpperCase() === 'PAID' ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-slate-600 border-slate-200 bg-slate-50"}`}>
+                            {demand.status.toUpperCase()}
+                          </p>
+                        </div> 
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${demand.isSent
                             ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -320,58 +301,20 @@ function DemandsListPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4">
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-slate-500">Contact Details</p>
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-3">
-                              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                              <span className="text-xs font-medium text-slate-700">
-                                {demand.member?.email || "No email"}
-                              </span>
-                            </div>
-                            {demand.member?.location && (
-                              <div className="flex items-start gap-3">
-                                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                                <span className="text-xs font-medium text-slate-700">
-                                  {demand.member.location.nearestBusStop || demand.member?.location?.city || "N/A"}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex items-start gap-3">
-                              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                              <span className="text-xs font-medium text-slate-700">
-                                {formatDate(demand.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Reference
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-slate-900">
-                              AMAC/DN/{demand.reference || "N/A"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Status
-                            </p>
-                            <p className="mt-1 text-2xl font-bold text-emerald-600 capitalize">
-                              {demand.status.toLowerCase()}
-                            </p>
-                          </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Reference
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-slate-900">
+                            AMAC/DN/{demand.reference || "N/A"}
+                          </p>
                         </div>
                       </div>
 
                       <div className="mt-5">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Link href={`/admin/demands/${demand.id}`}
+                        <div className="grid gap-2">
+                          <Link href={`/admin/demands/${demand?.payment?.id || demand.id}`}
                             className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                           >
                             <Eye size={16} />
@@ -383,7 +326,7 @@ function DemandsListPage() {
                             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <RefreshCw className={resendLoading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
-                            Resend
+                            Send Reminder
                           </button>
                         </div>
                       </div>

@@ -79,6 +79,7 @@ export type Payment = {
   isVerified: boolean;
   sessions: string[];
   debt: number;
+  pricing?: Pricing;
   createdAt?: Date;
   updatedAt?: Date;
 };

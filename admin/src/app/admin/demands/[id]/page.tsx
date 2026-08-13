@@ -4,13 +4,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/context/ToastContext";
 import Link from "next/link";
-import { Download, ArrowLeft, RefreshCw, Landmark, Globe, Printer } from "lucide-react";
-import { getDemand, Demand, resendDemand } from "@/lib/services/demand";
+import { ArrowLeft, RefreshCw, Landmark, Globe, Printer } from "lucide-react";
+import { getDemand, Demand, resendDemand, getDemandByPayment } from "@/lib/services/demand";
 import { useAuth } from "@/context/AuthContext";
 import { useParams } from "next/navigation";
 import withAuth from "@/components/withAuth";
 import Image from "next/image";
 import { useReactToPrint } from "react-to-print";
+import { useRouter } from "next/navigation";
 
 function DemandDetailPage() {
   const params = useParams<{ id: string }>();
@@ -24,10 +25,24 @@ function DemandDetailPage() {
     documentTitle: () => `Demand_Notice_${new Date().toISOString().split('T')[0]}`,
   });
 
+  const router = useRouter();
+
   const fetchDemand = useCallback(async () => {
     setLoading(true);
+    let response: any;
     try {
-      const response = await getDemand(params.id);
+      if (!params.id) {
+        addToast("error", "Invalid demand ID");
+        setLoading(false);
+        return;
+      }
+
+      if (params.id.includes("MEB")) {
+        response = await getDemand(params.id);
+      } else {
+        response = await getDemandByPayment(params.id);
+      }
+
       if (response.ok && response.data) {
         setDemand(response.data);
       } else {
@@ -215,7 +230,7 @@ function DemandDetailPage() {
   const pricingName = demand?.payment?.pricing?.title || 'Revenue Assessment';
 
   // Calculate for single payment
-  const principal = Number(demand?.payment?.amount);
+  const principal = Number(demand?.payment?.debt > 0 ? demand?.payment?.debt : demand?.payment?.amount);
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
@@ -281,6 +296,13 @@ function DemandDetailPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-smfont-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+              >
+                <ArrowLeft size={16} />
+                <span className="hidden sm:inline">Print</span>
+              </button>
+              <button
                 onClick={() => fetchDemand()}
                 className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 cursor-pointer"
               >
@@ -302,13 +324,6 @@ function DemandDetailPage() {
                   >
                     <RefreshCw className="w-4 h-4" />
                     <span className="hidden sm:inline">Resend</span>
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">Download PDF</span>
                   </button>
                 </>
               ) : null}
@@ -359,7 +374,7 @@ function DemandDetailPage() {
           <div
             className="mb-3 bg-[#f0fff9] py-2.5 px-5 rounded-lg border-l-4 border-emerald-600"
           >
-            <div className="text-[#0f172a] text-[18px] font-extrabold tracking-tight">
+            <div className="text-[#0f172a] text-[16px] font-extrabold tracking-tight">
               DEMAND NOTICE
             </div>
           </div>
@@ -377,7 +392,7 @@ function DemandDetailPage() {
                 >{demand?.member?.businessName || demand?.member?.fullname}</strong
                 ><br />
                 {locationStr}<br /><br />
-                <strong className="font-bold">Taxpayer TIN:</strong> {demand?.member?.uid}
+                <strong className="font-bold">MEMBER ID:</strong> {demand?.member?.uid}
               </div>
             </div>
 
@@ -583,12 +598,12 @@ function DemandDetailPage() {
                 </div>
 
                 <div
-                  className="w-[140px] h-[140px] border border-[#e2e8f0] rounded-md mb-3 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden object-cover"
+                  className="w-45 h-45 border border-[#e2e8f0] rounded-md mb-3 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden object-cover"
                 >
                   <img
                     src={qrCodeUrl}
                     alt="QR Code"
-                    className="w-[140px] h-[140px] object-cover"
+                    className="w-45 h-45 object-cover"
                   />
                 </div>
 

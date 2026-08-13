@@ -34,6 +34,7 @@ export type Payment = {
   updatedAt?: Date;
   center?: string;
   company?: string;
+  isDemand?: boolean;
 };
 
 export type PaymentTransaction = {
