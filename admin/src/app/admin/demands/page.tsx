@@ -259,16 +259,43 @@ function DemandsListPage() {
             </div>
           ) : (
             <>
-              {demands.map((demand, index) => (
-                <div key={demand.id} className="block">
-                  <div
-                    className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${demand.isSent
-                      ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
-                      : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
-                      }`}
-                  >
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-3">
+              {demands.map((demand, index) => {
+
+                const principal = Number(demand?.payment?.debt > 0 ? demand?.payment?.debt : demand?.payment?.amount);
+                const vat = principal * 0.075;
+                const charges = principal * 0.015;
+                const subtotal = principal + vat + charges;
+
+                // Get payment date and current date
+                const paymentDate = new Date(demand?.payment?.date);
+                const currentDate = new Date();
+
+                // Calculate days overdue
+                let daysOverdue = 0;
+                // if (currentDate > paymentDate) {
+                //   const diffTime = currentDate - paymentDate;
+                //   daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+                // }
+                if (currentDate > paymentDate) {
+                  const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+                  daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+                }
+
+                // Penalty: 0.005% per day overdue
+                const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+                const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+                const totalAmount = subtotal + penalty;
+
+                return (
+                  <div key={demand.id} className="block">
+                    <div
+                      className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${demand.isSent
+                        ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
+                        : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
+                        }`}
+                    >
+                      <div className="p-5">
                         <div>
                           <p className="text-xs uppercase tracking-wide text-slate-500">
                             {getDemandIdentifier(demand, index)}
@@ -282,58 +309,58 @@ function DemandsListPage() {
                           <p className={`mt-2 ml-2 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${demand.status.toUpperCase() === 'PENDING' ? "text-amber-600 border-amber-200 bg-amber-50" : demand.status.toUpperCase() === 'PAID' ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-slate-600 border-slate-200 bg-slate-50"}`}>
                             {demand.status.toUpperCase()}
                           </p>
-                        </div> 
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${demand.isSent
-                            ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border border-amber-200 bg-amber-50 text-amber-700"
-                            }`}
-                        >
-                          {demand.isSent ? "Sent" : "Pending"}
-                        </span>
-                      </div>
-
-                      <div className="mt-5 border-b border-slate-200 pb-4">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-extrabold text-emerald-600">
-                            {formatCurrency(demand.amount)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Reference
-                          </p>
-                          <p className="mt-1 text-sm font-bold text-slate-900">
-                            AMAC/DN/{demand.reference || "N/A"}
+                          <p
+                            className={`mt-2 ml-2 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${demand.isSent
+                              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border border-amber-200 bg-amber-50 text-amber-700"
+                              }`}
+                          >
+                            {demand.isSent ? "SENT" : "NOT SENT"}
                           </p>
                         </div>
-                      </div>
 
-                      <div className="mt-5">
-                        <div className="grid gap-2">
-                          <Link href={`/admin/demands/${demand?.payment?.id || demand.id}`}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                          >
-                            <Eye size={16} />
-                            View Details
-                          </Link>
-                          <button
-                            onClick={(e) => demand.id && handleResend(demand.id, e)}
-                            disabled={resendLoading || !demand.id}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <RefreshCw className={resendLoading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
-                            Send Reminder
-                          </button>
+                        <div className="mt-5 border-b border-slate-200 pb-4">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-extrabold text-emerald-600">
+                              {formatCurrency(totalAmount)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Reference
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">
+                              AMAC/DN/{demand.reference || "N/A"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5">
+                          <div className="grid gap-2">
+                            <Link href={`/admin/demands/${demand?.payment?.id || demand.id}`}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                            >
+                              <Eye size={16} />
+                              View Details
+                            </Link>
+                            <button
+                              onClick={(e) => demand.id && handleResend(demand.id, e)}
+                              disabled={resendLoading || !demand.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <RefreshCw className={resendLoading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
+                              Send Reminder
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               <div className="border-t border-slate-100 pt-4 col-span-full ">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

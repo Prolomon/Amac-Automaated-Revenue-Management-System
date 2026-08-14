@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/context/ToastContext";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Landmark, Globe, Printer } from "lucide-react";
+import { ArrowLeft, RefreshCw, Landmark, Globe, Printer, AlarmClock } from "lucide-react";
 import { getDemand, Demand, resendDemand, getDemandByPayment } from "@/lib/services/demand";
 import { useAuth } from "@/context/AuthContext";
 import { useParams } from "next/navigation";
@@ -24,6 +24,7 @@ function DemandDetailPage() {
     contentRef: demandDocumentRef,
     documentTitle: () => `Demand_Notice_${new Date().toISOString().split('T')[0]}`,
   });
+  const [moreInfoVisible, setMoreInfoVisible] = useState(false);
 
   const router = useRouter();
 
@@ -73,34 +74,6 @@ function DemandDetailPage() {
       month: "long",
       year: "numeric",
     });
-  };
-
-  const handleDownload = async () => {
-    // 1. Dynamically import html2pdf inside the click handler
-    const html2pdf = (await import("html2pdf.js")).default;
-
-    const element = demandDocumentRef.current;
-    if (element) {
-      const a4HeightMm = 292;
-      const pxToMm = 0.264583; // conversion factor
-      const elementHeightMm = element.scrollHeight * pxToMm;
-      const scale = a4HeightMm / elementHeightMm;
-
-      element.style.transform = `print:scale(${scale})`;
-      element.style.transformOrigin = 'print:top print:left';
-
-      const opt = {
-        margin: 0,
-        filename: `${demand?.member?.businessName || demand?.member?.fullname}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.95 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: 'none' }
-      };
-
-      // 3. Generate the PDF
-      html2pdf().set(opt).from(element).save();
-    }
   };
 
   const handleResend = async () => {
@@ -323,10 +296,17 @@ function DemandDetailPage() {
                     className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100 cursor-pointer"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    <span className="hidden sm:inline">Resend</span>
+                    <span className="hidden sm:inline">Remind</span>
                   </button>
                 </>
               ) : null}
+              <button
+                onClick={() => setMoreInfoVisible(!moreInfoVisible)}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 cursor-pointer"
+              >
+                <AlarmClock size={16} />
+                <span className="hidden sm:inline">Record</span>
+              </button>
             </div>
           </div>
         </div>

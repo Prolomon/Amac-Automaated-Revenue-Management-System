@@ -20,7 +20,7 @@ export default function TerminalListPage() {
   const loadTerminals = useCallback(async () => {
     setLoading(true);
     try {
-      const query: any = { page: 1, limit: 100 };
+      const query: any = { page: 1, limit: 100, center: user?.center || user?.uid || uid || "" };
       if (search) query.search = search;
       if (filterStatus === "active") query.status = true;
       if (filterStatus === "inactive") query.status = false;
@@ -34,7 +34,7 @@ export default function TerminalListPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, filterStatus, addToast]);
+  }, [user?.center, user?.uid, uid, search, filterStatus, addToast]);
 
   useEffect(() => {
     loadTerminals();
