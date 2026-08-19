@@ -139,6 +139,7 @@ model Payment {
   centerId     String?
   transactions Transaction[]
   idDemand     Boolean?
+  timeline     Json[]           @default([])
 
   demandNotices Demand[]
 

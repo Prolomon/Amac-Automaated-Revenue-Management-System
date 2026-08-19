@@ -133,7 +133,7 @@ export default function PaymentPage() {
 
             const p = paymentData?.payments?.find(p => p?.payment?.reference === selectedPayment)
 
-            const res = await confirmPayment(id, p?.payment?.id, p?.payment?.debt ? p?.payment?.debt : totalAmount, paymentData?.member?.center, paymentData?.member?.company);
+            const res = await confirmPayment(paymentData?.member.uid || id, p?.payment?.id, p?.payment?.debt ? p?.payment?.debt : totalAmount, paymentData?.member?.center, paymentData?.member?.company);
             if (!res.ok) {
                 setFailureMessage(res.message || "Failed to confirm payment");
                 setShowFailureModal(true);

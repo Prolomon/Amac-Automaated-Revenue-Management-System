@@ -51,7 +51,7 @@ export default function Login({ role }: { role: string }) {
                         <span className="h-1.5 w-1.5 rounded-full bg-[#1B9E5A]" />
                         Revenue Management System
                     </span>
-                    <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] tracking-tight">Unified Portal</h1>
+                    <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-bold text-[#0E1F17] tracking-tight">Automated Portal</h1>
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit}>
