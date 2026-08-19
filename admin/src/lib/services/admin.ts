@@ -33,11 +33,31 @@ export type Admin = {
   ledger?: string;
 };
 
-export type CreateAdminInput = Pick< Admin, | "center" | "email" | "password" | "location" | "state" | "address" | "lga" | "country" | "prefix" > & {
+export type CreateAdminInput = Pick<
+  Admin,
+  | "center"
+  | "email"
+  | "password"
+  | "location"
+  | "state"
+  | "address"
+  | "lga"
+  | "country"
+  | "prefix"
+> & {
   status?: Admin["status"];
 };
 
-export async function login( email: string, password: string ): Promise<{ ok: boolean; admin?: Admin; message?: string, token: string, role: string }> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{
+  ok: boolean;
+  admin?: Admin;
+  message?: string;
+  token: string;
+  role: string;
+}> {
   const response = await fetch(`${API_URL}/admin/login`, {
     method: "POST",
     headers: {
@@ -75,7 +95,10 @@ export async function createAdmin(
   return data;
 }
 
-export async function getAdminProfile(): Promise<{ ok: boolean; admin?: Admin; message?: string;
+export async function getAdminProfile(): Promise<{
+  ok: boolean;
+  admin?: Admin;
+  message?: string;
 }> {
   const response = await fetch(`${API_URL}/admin/profile`, {
     // headers: buildHeaders(),
@@ -84,66 +107,87 @@ export async function getAdminProfile(): Promise<{ ok: boolean; admin?: Admin; m
   return data;
 }
 
-export async function updateStatus(id: string, status: boolean): Promise<{ ok: boolean; admin?: Admin; message?: string; }> {
-    const response = await fetch(`${API_URL}/admin/${id}/status`, {
-      method: "PUT",
-      headers: {...buildHeaders(true)},
-      body: JSON.stringify({ status })
-    });
-    const data = await response.json();
-    if(!response.ok) {
-      throw new Error(data.message || "Failed to update status");
-    }
-    return data;
-}
-
-export async function changePassword(id: string, currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ ok: boolean; message?: string; error?: string }> {
-  const response = await fetch(`${API_URL}/admin/${id}/change-password`, {
+export async function updateStatus(
+  id: string,
+  status: boolean,
+): Promise<{ ok: boolean; admin?: Admin; message?: string }> {
+  const response = await fetch(`${API_URL}/admin/${id}/status`, {
     method: "PUT",
-    headers: {...buildHeaders(true)},
-    body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ status }),
   });
   const data = await response.json();
-  if(!response.ok) {
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to update status");
+  }
+  return data;
+}
+
+export async function changePassword(
+  id: string,
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const response = await fetch(`${API_URL}/admin/${id}/change-password`, {
+    method: "PUT",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
     throw new Error(data.message || "Failed to change password");
   }
   return data;
 }
 
-export async function changeSecurityToken(id: string, oldSecurityToken: string, newSecurityToken: string, confirmSecurityToken: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+export async function changeSecurityToken(
+  id: string,
+  oldSecurityToken: string,
+  newSecurityToken: string,
+  confirmSecurityToken: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
   const response = await fetch(`${API_URL}/admin/${id}/change-security-token`, {
     method: "PUT",
-    headers: {...buildHeaders(true)},
-    body: JSON.stringify({ oldSecurityToken, newSecurityToken, confirmSecurityToken })
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({
+      oldSecurityToken,
+      newSecurityToken,
+      confirmSecurityToken,
+    }),
   });
   const data = await response.json();
-  if(!response.ok) {
-    throw new Error(data.message || "Failed to change security Token");
-  }
-  return data;
-} 
-
-export async function createSecurityToken(id: string, securityToken: string, confirmSecurityToken: string): Promise<{ ok: boolean; message?: string; error?: string }> {
-  const response = await fetch(`${API_URL}/admin/${id}/security-token`, {
-    method: "POST",
-    headers: {...buildHeaders(true)},
-    body: JSON.stringify({ securityToken, confirmSecurityToken })
-  });
-  const data = await response.json();
-  if(!response.ok) {
+  if (!response.ok) {
     throw new Error(data.message || "Failed to change security Token");
   }
   return data;
 }
 
-export async function verifySecurityCode(id: string, secureToken: string, ) {
+export async function createSecurityToken(
+  id: string,
+  securityToken: string,
+  confirmSecurityToken: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const response = await fetch(`${API_URL}/admin/${id}/security-token`, {
+    method: "POST",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ securityToken, confirmSecurityToken }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to change security Token");
+  }
+  return data;
+}
+
+export async function verifySecurityCode(id: string, secureToken: string) {
   if (!secureToken) {
     throw new Error("No authentication token found");
   }
 
   const response = await fetch(`${API_URL}/admin/${id}/verify-security-token`, {
     method: "POST",
-    headers: {...buildHeaders(true)},
+    headers: { ...buildHeaders(true) },
     body: JSON.stringify({ secureCode: secureToken }),
   });
   const data = await response.json();
@@ -154,41 +198,77 @@ export async function verifySecurityCode(id: string, secureToken: string, ) {
   return data;
 }
 
-export async function forgetPassword(id: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+export async function forgetPassword(
+  id: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
   const response = await fetch(`${API_URL}/admin/${id}/forget-password`, {
     method: "PUT",
-    headers: {...buildHeaders(true)},
+    headers: { ...buildHeaders(true) },
   });
   const data = await response.json();
-  if(!response.ok) {
+  if (!response.ok) {
     throw new Error(data.message || "Failed to change password");
   }
   return data;
 }
 
-export async function forgetSecureCode(id: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+export async function forgetSecureCode(
+  id: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
   const response = await fetch(`${API_URL}/admin/${id}/forget-secure-token`, {
     method: "PUT",
-    headers: {...buildHeaders(true)},
+    headers: { ...buildHeaders(true) },
   });
   const data = await response.json();
-  if(!response.ok) {
+  if (!response.ok) {
     throw new Error(data.message || "Failed to change secure code");
   }
   return data;
 }
 
-export async function getAdmin(id: string): Promise<{ ok: boolean; admin?: Admin; message?: string }> {
+export async function getAdmin(
+  id: string,
+): Promise<{ ok: boolean; admin?: Admin; message?: string }> {
   if (!id) {
     throw new Error("No user ID found");
   }
 
   const response = await fetch(`${API_URL}/admin/${id}`, {
-    headers: {...buildHeaders(false)},
+    headers: { ...buildHeaders(false) },
   });
 
   if (!response.ok) {
     throw new Error("Failed to fetch admin data");
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+type DashboardStats = {
+  admin: number;
+  member: number;
+  demand: number;
+  payment: number;
+  revenue: number;
+  partner: number;
+  agent: number;
+  paymentRate: number;
+};
+
+export async function dashboardStats(
+  center: string,
+): Promise<{ ok: boolean; stats?: DashboardStats; message?: string }> {
+  if (!center) {
+    throw new Error("No center ID found");
+  }
+
+  const response = await fetch(`${API_URL}/admin/dashboard/${center}/stats`, {
+    headers: { ...buildHeaders(false) },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch dashboard stats");
   }
 
   const data = await response.json();

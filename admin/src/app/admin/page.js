@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Eye } from "lucide-react";
 import KPI from "../../components/KPI";
 import LineChartCard from "../../components/LineChartCard";
@@ -9,8 +9,9 @@ import { getAllPayments } from "@/lib/api";
 import { getMembers } from "@/lib/services/member";
 import { getPricingByCenter } from "@/lib/services/pricing";
 import { useAuth } from "@/context/AuthContext";
-import {useWallet} from "@/context/WalletContext";
+import { useWallet } from "@/context/WalletContext";
 import { getCompanies } from "@/lib/services/company";
+import { dashboardStats } from "@/lib/services/admin";
 
 function Home() {
   const { user, role } = useAuth();
@@ -29,6 +30,35 @@ function Home() {
   });
 
   useEffect(() => {
+    let ignore = false;
+
+    const fetchStats = async () => {
+      try {
+        const statsResponse = await dashboardStats(userId || "");
+        if (!ignore && statsResponse.ok && statsResponse.stats) {
+          const { member, revenue, paymentRate, partner } = statsResponse.stats;
+          setTotals({
+            entities: member,
+            monthlyRevenue: revenue,
+            paymentRate,
+            companies: partner,
+          });
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Failed to fetch dashboard stats", error);
+        }
+      }
+    };
+
+    fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
     let isCancelled = false;
 
     const loadData = async () => {
@@ -37,7 +67,6 @@ function Home() {
         const memberData = await getMembers(1, 1000, userId || "");
         if (isCancelled) return;
         const membersList = memberData?.data || [];
-        const totalEntities = memberData?.meta?.total ?? membersList.length;
 
         // fetch payments for dashboard calculations
         const paymentsData = await getAllPayments();
@@ -48,55 +77,16 @@ function Home() {
         const companiesData = await getCompanies(userId || "");
         if (isCancelled) return;
         const companyList = companiesData?.data || [];
-        const totalCompanies = companiesData?.meta?.total ?? companyList.length;
 
         // fetch pricing tiers
         const pricingData = await getPricingByCenter(userId);
         if (isCancelled) return;
         const pricingList = pricingData?.data || pricingData || [];
 
-        // compute monthly revenue (current month)
-        const now = new Date();
-        const monthly = allPayments.reduce((sum, p) => {
-          const date = p.date
-            ? new Date(p.date)
-            : p.createdAt
-              ? new Date(p.createdAt)
-              : null;
-          if (!date) return sum;
-          if (
-            date.getFullYear() === now.getFullYear() &&
-            date.getMonth() === now.getMonth()
-          ) {
-            const amt =
-              typeof p.amount === "number"
-                ? p.amount
-                : parseFloat(p.amount) || 0;
-            return sum + amt;
-          }
-          return sum;
-        }, 0);
-
-        // compute payment success rate
-        const totalPayments = allPayments.length;
-        const successCount = allPayments.filter(
-          (p) => (p.status || "").toLowerCase() === "success",
-        ).length;
-        const paymentRate =
-          totalPayments > 0
-            ? Math.round((successCount / totalPayments) * 1000) / 10
-            : 0;
-
         setMembers(membersList);
         setPayments(allPayments);
         setCompanies(companyList);
         setPricing(pricingList);
-        setTotals({
-          entities: totalEntities,
-          monthlyRevenue: monthly,
-          paymentRate,
-          companies: totalCompanies,
-        });
 
       } catch (error) {
         if (!isCancelled) {
@@ -193,11 +183,10 @@ function Home() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div
-            className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm font-semibold ${
-              isLive
+            className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm font-semibold ${isLive
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-gray-100 text-blue-700"
-            }`}
+              }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${isLive ? "bg-emerald-500" : "bg-blue-500"} animate-pulse`}

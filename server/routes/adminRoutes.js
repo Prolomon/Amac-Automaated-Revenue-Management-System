@@ -11,6 +11,7 @@ import {
   changePassword,
   updatePaymentConfig,
   updateAdminStatus,
+  dashboardStats
 } from '../controller/adminController.js';
 import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
@@ -28,5 +29,6 @@ router.put('/:uid', authMiddleware, roleMiddleware(['admin']), updateAdmin);
 router.put('/:uid/status', authMiddleware, roleMiddleware(['admin']), updateAdminStatus);
 router.put('/:uid/payment-config', authMiddleware, roleMiddleware(['admin']), updatePaymentConfig);
 router.delete('/:uid', authMiddleware, roleMiddleware(['admin']), deleteAdmin);
+router.get('/dashboard/:center/stats', authMiddleware, roleMiddleware(['admin']), dashboardStats);
 
 export {router as adminRouter};

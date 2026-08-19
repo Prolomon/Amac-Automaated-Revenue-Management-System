@@ -501,15 +501,32 @@ export const getDemands = async (req, res) => {
     }
 
     // Get demands with payment and member info
-    const [demands, total] = await Promise.all([
-      prisma.demand.findMany({
+    const [paymentList, total] = await Promise.all([
+      prisma.payment.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip,
         take: Number(limit),
       }),
-      prisma.demand.count({ where }),
+      prisma.payment.count({ where }),
     ]);
+    
+    const demands = paymentList.map((payment) => ({
+      id: payment.id,
+      userId: payment.userId,
+      paymentId: payment.id,
+      reference: payment.reference || "",
+      amount: payment.amount,
+      center: payment.center,
+      walletId: payment.walletId || null,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      member: payment.member,
+      pricing: payment.pricing,
+      payment,
+      isSent: false
+    }));
 
     return res.status(200).json({
       ok: true,
@@ -541,20 +558,36 @@ export const getDemandById = async (req, res) => {
       });
     }
 
-    const demand = await prisma.demand.findUnique({
+    const payment = await prisma.payment.findFirst({
       where: { id },
       include: {
-        payment: true,
+        pricing: true,
         member: true,
-        wallet: true,
       },
     });
 
-    if (!demand) {
+    if (!payment) {
       return res.status(404).json({
         ok: false,
         message: "Demand not found",
       });
+    }
+
+    const demand = {
+      id: payment.id,
+      userId: payment.userId,
+      paymentId: payment.id,
+      reference: payment.reference || "",
+      amount: payment.amount,
+      center: payment.center,
+      walletId: payment.walletId || null,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      member: payment.member,
+      pricing: payment.pricing,
+      payment,
+      isSent: false
     }
 
     return res.status(200).json({
@@ -598,19 +631,36 @@ export const getDemandByCenter = async (req, res) => {
     }
 
     // Get demands with payment and member info
-    const [demands, total] = await Promise.all([
-      prisma.demand.findMany({
+    const [paymentList, total] = await Promise.all([
+      prisma.payment.findMany({
         where,
         include: {
-          payment: true,
+          pricing: true,
           member: true,
         },
         orderBy: { createdAt: "desc" },
         skip,
         take: Number(limit),
       }),
-      prisma.demand.count({ where }),
+      prisma.payment.count({ where }),
     ]);
+
+    const demands = paymentList.map((payment) => ({
+      id: payment.id,
+      userId: payment.userId,
+      paymentId: payment.id,
+      reference: payment.reference || "",
+      amount: payment.amount,
+      center: payment.center,
+      walletId: payment.walletId || null,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      member: payment.member,
+      pricing: payment.pricing,
+      payment,
+      isSent: false
+    }));
 
     return res.status(200).json({
       ok: true,
@@ -644,20 +694,39 @@ export const getDemandByPayment = async (req, res) => {
     }
 
     // Get demands with payment and member info
-    const demand = await prisma.demand.findFirst({
+    const payment = await prisma.payment.findFirst({
       where: {
-        paymentId: id,
+        OR: [{id: id}, {reference: id}]
       },
       include: {
-        payment: {
-          include: {
-            pricing: true,
-          },
-        },
+        pricing: true,
         member: true,
-        wallet: true,
       },
     })
+
+    if (!payment) {
+      return res.status(404).json({
+        ok: false,
+        message: "Demand not found",
+      });
+    }
+
+    const demand = {
+      id: payment.id,
+      userId: payment.userId,
+      paymentId: payment.id,
+      reference: payment.reference || "",
+      amount: payment.amount,
+      center: payment.center,
+      walletId: payment.walletId || null,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      member: payment.member,
+      pricing: payment.pricing,
+      payment,
+      isSent: false
+    }
 
     return res.status(200).json({
       ok: true,

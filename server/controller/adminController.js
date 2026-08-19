@@ -1,17 +1,16 @@
 import { prisma } from "../config/db.js";
 import argon2 from "argon2";
 import { TextEncoder } from "util";
-import { createAdminSchema, changePasswordSchema, loginAdminSchema, updateAdminSchema,updateAdminStatusSchema } from "../validator/adminValidator.js";
+import { createAdminSchema, changePasswordSchema, loginAdminSchema, updateAdminSchema, updateAdminStatusSchema } from "../validator/adminValidator.js";
 import { customAlphabet } from "nanoid";
 
 const joseImport = () => import("jose");
 const jwtSecret = process.env.JWT_SECRET;
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
 import { sendEmail } from "../service/mail.js";
-import { createCustomer, createAccount } from "../service/paystack.js";
 
 import { verifyProtocol } from "../service/mail.js";
-import { accountCreation, walletCreation, resetSuccessful, resetCode, loginAlert } from "../service/templates.js";
+import { accountCreation, resetSuccessful, resetCode } from "../service/templates.js";
 
 const random6Digit = () => {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
@@ -19,8 +18,8 @@ const random6Digit = () => {
 
 const generateAdminUidSuffix = customAlphabet(
   "0123456789",
-  10, 
-); 
+  10,
+);
 
 const generateAuthToken = async (payload) => {
   if (!jwtSecret) {
@@ -402,10 +401,10 @@ const loginAdmin = async (req, res) => {
 
     const { email, password } = value;
     const ip = req.headers['cf-connecting-ip'] ||
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress 
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.connection.remoteAddress ||
+      req.socket.remoteAddress
 
     // Find admin by email
     const admin = await prisma.admin.findUnique({
@@ -527,7 +526,7 @@ const forgotPassword = async (req, res) => {
         code,
       )
     )
-    .then((result) => {
+      .then((result) => {
         if (!result?.ok) {
           console.error(
             "Welcome email failed:",
@@ -770,6 +769,55 @@ const updateAdminStatus = async (req, res) => {
   }
 };
 
+const dashboardStats = async (req, res) => {
+  try {
+
+    const center = req.params.center;
+
+    if (!center) {
+      return res.status(400).json({
+        ok: false,
+        message: "Center parameter is required",
+      });
+    }
+
+    const totalAdmins = await prisma.admin.count();
+    const totalMembers = await prisma.member.count({ where: { center } });
+    const totalDemands = await prisma.demand.count({ where: { center } });
+    const totalPayments = await prisma.payment.count({ where: { center } });
+    const totalPartners = await prisma.company.count({ where: { center } });
+    const totalAgents = await prisma.agent.count({ where: { center } });
+    const revenue = await prisma.payment.aggregate({
+      where: { center },
+      _sum: {
+        amount: true,
+      },
+    });
+    const successfulPayments = await prisma.payment.count({
+      where: { OR: [{ status: "SUCCESS" }, { status: "PAID" }, { status: "COMPLETED" }], center } // or whatever your enum/field is
+    });
+    const paymentRate = totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0;
+
+    return res.status(200).json({
+      ok: true,
+      stats: {
+        admin: totalAdmins,
+        member: totalMembers,
+        demand: totalDemands,
+        payment: totalPayments,
+        revenue: revenue._sum.amount || 0,
+        partner: totalPartners,
+        agent: totalAgents,
+        paymentRate: paymentRate || 0,
+      },
+      message: "Dashboard stats fetched successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, message: "Server error" });
+  }
+};
+
 export {
   createAdmin,
   getAllAdmins,
@@ -782,4 +830,5 @@ export {
   changePassword,
   updatePaymentConfig,
   updateAdminStatus,
+  dashboardStats
 };

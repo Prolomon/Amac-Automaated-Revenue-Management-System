@@ -26,10 +26,23 @@ const initializePrisma = async () => {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not defined in environment variables');
     }
-    
+
     if (!prisma) {
       const { PrismaClient } = await import("@prisma/client");
-      prismaPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      prismaPool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        max: 10,
+        idleTimeoutMillis: 30000,        // recycle idle clients before the provider does
+        connectionTimeoutMillis: 10000,  // fail fast instead of hanging for minutes
+        keepAlive: true,                 // TCP keepalive so dead connections are detected quickly
+        keepAliveInitialDelayMillis: 10000,
+      });
+
+      prismaPool.on('error', (err) => {
+        console.error('Unexpected error on idle pg client', err);
+        // don't crash — pool will create a new client on next checkout
+      });
+
       const adapter = new PrismaPg(prismaPool);
       prisma = new PrismaClient({
         adapter,
@@ -37,7 +50,7 @@ const initializePrisma = async () => {
       });
       console.log('Prisma Client initialized successfully');
     }
-    
+
     return prisma;
   } catch (err) {
     console.error('Failed to initialize Prisma Client:', err);
@@ -50,13 +63,13 @@ const connectPrisma = async () => {
     if (!prisma) {
       await initializePrisma();
     }
-    
+
     if (!isConnected) {
       await prisma.$connect();
       isConnected = true;
       console.log('Prisma Client connected to database');
     }
-    
+
     return prisma;
   } catch (err) {
     console.error('Failed to connect Prisma Client:', err);
