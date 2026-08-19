@@ -21,249 +21,249 @@ export const processDemands = async () => {
     console.log('Demand cron started at', new Date().toISOString());
 
     // Find all demand records with CREATED status
-    const createdDemands = await prisma.demand.findMany({
-      where: {
-        status: 'CREATED',
-      },
-      include: {
-        payment: {
-          include: {
-            member: true,
-          },
-        },
-        wallet: true,
-      },
-    });
+    // const createdDemands = await prisma.demand.findMany({
+    //   where: {
+    //     status: 'CREATED',
+    //   },
+    //   include: {
+    //     payment: {
+    //       include: {
+    //         member: true,
+    //       },
+    //     },
+    //     wallet: true,
+    //   },
+    // });
 
-    if (createdDemands.length === 0) {
-      console.log('No CREATED demand notices found to process');
-      return;
-    }
+    // if (createdDemands.length === 0) {
+    //   console.log('No CREATED demand notices found to process');
+    //   return;
+    // }
 
-    // Process each demand individually - one email per demand/payment
-    for (const demand of createdDemands) {
-      try {
-        const member = demand.payment?.member;
-        if (!member || !member.email) {
-          console.error(`Member not found or no email for userId: ${demand.userId}`);
-          continue;
-        }
+    // // Process each demand individually - one email per demand/payment
+    // for (const demand of createdDemands) {
+    //   try {
+    //     const member = demand.payment?.member;
+    //     if (!member || !member.email) {
+    //       console.error(`Member not found or no email for userId: ${demand.userId}`);
+    //       continue;
+    //     }
 
-        // Fetch the single payment record for this demand
-        const payment = await prisma.payment.findUnique({
-          where: { id: demand.paymentId },
-        });
+    //     // Fetch the single payment record for this demand
+    //     const payment = await prisma.payment.findUnique({
+    //       where: { id: demand.paymentId },
+    //     });
 
-        if (!payment) {
-          console.error(`Payment not found for demand ${demand.id}`);
-          continue;
-        }
+    //     if (!payment) {
+    //       console.error(`Payment not found for demand ${demand.id}`);
+    //       continue;
+    //     }
 
-        // Fetch pricing record
-        const pricing = await prisma.pricing.findUnique({
-          where: { id: payment.payment },
-        });
-        const pricingName = pricing?.title || 'Revenue Assessment';
+    //     // Fetch pricing record
+    //     const pricing = await prisma.pricing.findUnique({
+    //       where: { id: payment.payment },
+    //     });
+    //     const pricingName = pricing?.title || 'Revenue Assessment';
 
-        // Calculate for single payment
-        const principal = Number(payment.debt ? payment.debt : payment.amount);
-        const vat = principal * 0.075;
-        const charges = principal * 0.015;
-        const subtotal = principal + vat + charges;
+    //     // Calculate for single payment
+    //     const principal = Number(payment.debt ? payment.debt : payment.amount);
+    //     const vat = principal * 0.075;
+    //     const charges = principal * 0.015;
+    //     const subtotal = principal + vat + charges;
 
-        // BUG FIX: was `payment?.date`, a field that doesn't exist on the
-        // payment model — new Date(undefined) produces an Invalid Date, and
-        // any comparison against an Invalid Date is always false, so
-        // daysOverdue silently stuck at 0 and penalty was always 0 for
-        // every demand notice, regardless of how overdue the payment
-        // actually was. Every other overdue calculation in this codebase
-        // uses `payment.due` — matched that here.
-        const paymentDate = new Date(payment?.due);
-        const currentDate = new Date();
+    //     // BUG FIX: was `payment?.date`, a field that doesn't exist on the
+    //     // payment model — new Date(undefined) produces an Invalid Date, and
+    //     // any comparison against an Invalid Date is always false, so
+    //     // daysOverdue silently stuck at 0 and penalty was always 0 for
+    //     // every demand notice, regardless of how overdue the payment
+    //     // actually was. Every other overdue calculation in this codebase
+    //     // uses `payment.due` — matched that here.
+    //     const paymentDate = new Date(payment?.due);
+    //     const currentDate = new Date();
 
-        // Calculate days overdue / penalty — skipped entirely when the
-        // payment is already fully settled (debt cleared and something has
-        // actually been paid), so a settled member's demand notice doesn't
-        // show a nonzero penalty just because `due` is in the past.
-        let daysOverdue = 0;
-        let penalty = 0;
+    //     // Calculate days overdue / penalty — skipped entirely when the
+    //     // payment is already fully settled (debt cleared and something has
+    //     // actually been paid), so a settled member's demand notice doesn't
+    //     // show a nonzero penalty just because `due` is in the past.
+    //     let daysOverdue = 0;
+    //     let penalty = 0;
 
-        const isFullySettled = Number(payment?.debt) === 0 && Number(payment?.paid) > 0;
+    //     const isFullySettled = Number(payment?.debt) === 0 && Number(payment?.paid) > 0;
 
-        if (!isFullySettled) {
-          if (currentDate > paymentDate) {
-            const diffTime = currentDate - paymentDate;
-            daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-          }
+    //     if (!isFullySettled) {
+    //       if (currentDate > paymentDate) {
+    //         const diffTime = currentDate - paymentDate;
+    //         daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+    //       }
 
-          // Penalty: 0.005% per day overdue
-          const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-          penalty = subtotal * penaltyRatePerDay * daysOverdue;
-        }
+    //       // Penalty: 0.005% per day overdue
+    //       const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+    //       penalty = subtotal * penaltyRatePerDay * daysOverdue;
+    //     }
 
-        const totalAmount = subtotal + penalty;
+    //     const totalAmount = subtotal + penalty;
 
-        const formatCurrency = (amount) => {
-          return Number(amount || 0).toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-        };
+    //     const formatCurrency = (amount) => {
+    //       return Number(amount || 0).toLocaleString('en-US', {
+    //         minimumFractionDigits: 2,
+    //         maximumFractionDigits: 2,
+    //       });
+    //     };
 
-        const formatDate = (date) => {
-          const d = new Date(date);
-          const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December',
-          ];
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = months[d.getMonth()];
-          const year = d.getFullYear();
-          return `${day} ${month} ${year}`;
-        };
+    //     const formatDate = (date) => {
+    //       const d = new Date(date);
+    //       const months = [
+    //         'January', 'February', 'March', 'April', 'May', 'June',
+    //         'July', 'August', 'September', 'October', 'November', 'December',
+    //       ];
+    //       const day = String(d.getDate()).padStart(2, '0');
+    //       const month = months[d.getMonth()];
+    //       const year = d.getFullYear();
+    //       return `${day} ${month} ${year}`;
+    //     };
 
-        const getAssessmentPeriod = (frequency) => {
-          const now = new Date();
-          const year = now.getFullYear();
-          const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December',
-          ];
-          const currentMonth = months[now.getMonth()];
+    //     const getAssessmentPeriod = (frequency) => {
+    //       const now = new Date();
+    //       const year = now.getFullYear();
+    //       const months = [
+    //         'January', 'February', 'March', 'April', 'May', 'June',
+    //         'July', 'August', 'September', 'October', 'November', 'December',
+    //       ];
+    //       const currentMonth = months[now.getMonth()];
 
-          switch ((frequency || 'MONTHLY').toUpperCase()) {
-            case 'YEARLY':
-              return `Jan - Dec ${year}`;
-            case 'QUARTERLY': {
-              const quarter = Math.floor(now.getMonth() / 3);
-              const qStart = months[quarter * 3];
-              const qEnd = months[quarter * 3 + 2];
-              return `${qStart} - ${qEnd} ${year}`;
-            }
-            case 'BIWEEKLY': {
-              const weekNum = Math.ceil(now.getDate() / 14);
-              return `Period ${weekNum} - ${currentMonth} ${year}`;
-            }
-            case 'WEEKLY': {
-              const weekNum = Math.ceil(now.getDate() / 7);
-              return `Week ${weekNum} - ${currentMonth} ${year}`;
-            }
-            case 'DAILY':
-              return formatDate(now);
-            case 'MONTHLY':
-            default:
-              return `${currentMonth} ${year}`;
-          }
-        };
+    //       switch ((frequency || 'MONTHLY').toUpperCase()) {
+    //         case 'YEARLY':
+    //           return `Jan - Dec ${year}`;
+    //         case 'QUARTERLY': {
+    //           const quarter = Math.floor(now.getMonth() / 3);
+    //           const qStart = months[quarter * 3];
+    //           const qEnd = months[quarter * 3 + 2];
+    //           return `${qStart} - ${qEnd} ${year}`;
+    //         }
+    //         case 'BIWEEKLY': {
+    //           const weekNum = Math.ceil(now.getDate() / 14);
+    //           return `Period ${weekNum} - ${currentMonth} ${year}`;
+    //         }
+    //         case 'WEEKLY': {
+    //           const weekNum = Math.ceil(now.getDate() / 7);
+    //           return `Week ${weekNum} - ${currentMonth} ${year}`;
+    //         }
+    //         case 'DAILY':
+    //           return formatDate(now);
+    //         case 'MONTHLY':
+    //         default:
+    //           return `${currentMonth} ${year}`;
+    //       }
+    //     };
 
-        const liabilityRows = `
-          <tr class="font-medium text-[#1e293b]">
-            <td class="py-2 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
-            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
-          </tr>
-          <tr class="font-medium text-[#1e293b]">
-            <td class="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
-            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
-          </tr>
-          <tr class="font-medium text-[#1e293b]">
-            <td class="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
-            <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
-          </tr>
-        `;
+    //     const liabilityRows = `
+    //       <tr class="font-medium text-[#1e293b]">
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
+    //       </tr>
+    //       <tr class="font-medium text-[#1e293b]">
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
+    //       </tr>
+    //       <tr class="font-medium text-[#1e293b]">
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
+    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
+    //       </tr>
+    //     `;
 
-        // Generate reference numbers - use demand's own reference
-        const now = new Date();
-        const year = now.getFullYear();
-        const referenceNo = demand.reference.replace(/[^A-Z0-9]/g, '/').substring(0, 20);
-        const auditTrack = `AUD/${year}/${Math.floor(Math.random() * 999)}`;
-        const paymentRef = payment.reference || payment.id.substring(0, 12).toUpperCase();
-        const wallet = demand.wallet;
+    //     // Generate reference numbers - use demand's own reference
+    //     const now = new Date();
+    //     const year = now.getFullYear();
+    //     const referenceNo = demand.reference.replace(/[^A-Z0-9]/g, '/').substring(0, 20);
+    //     const auditTrack = `AUD/${year}/${Math.floor(Math.random() * 999)}`;
+    //     const paymentRef = payment.reference || payment.id.substring(0, 12).toUpperCase();
+    //     const wallet = demand.wallet;
 
-        // Build location string
-        let locationStr = 'N/A';
-        if (member.location) {
-          try {
-            const loc = typeof member.location === 'string'
-              ? JSON.parse(member.location)
-              : member.location;
-            const parts = [];
-            if (loc.address) parts.push(loc.address);
-            if (loc.city) parts.push(loc.city);
-            if (loc.state) parts.push(loc.state);
-            if (loc.lga) parts.push(loc.lga);
-            if (loc.country) parts.push(loc.country);
-            locationStr = parts.length > 0 ? parts.join(', ') : 'N/A';
-          } catch {
-            locationStr = String(member.location);
-          }
-        }
+    //     // Build location string
+    //     let locationStr = 'N/A';
+    //     if (member.location) {
+    //       try {
+    //         const loc = typeof member.location === 'string'
+    //           ? JSON.parse(member.location)
+    //           : member.location;
+    //         const parts = [];
+    //         if (loc.address) parts.push(loc.address);
+    //         if (loc.city) parts.push(loc.city);
+    //         if (loc.state) parts.push(loc.state);
+    //         if (loc.lga) parts.push(loc.lga);
+    //         if (loc.country) parts.push(loc.country);
+    //         locationStr = parts.length > 0 ? parts.join(', ') : 'N/A';
+    //       } catch {
+    //         locationStr = String(member.location);
+    //       }
+    //     }
 
-        // Generate QR code URL
-        const qrData = `https://urms.afriverge.com/payment/${payment?.reference}/checkout`;
-        const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=240`;
+    //     // Generate QR code URL
+    //     const qrData = `https://urms.afriverge.com/payment/${payment?.reference}/checkout`;
+    //     const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=240`;
 
-        // Read HTML template
-        const templatePath = path.join(__dirname, '..', 'service', 'templates', 'index.html');
+    //     // Read HTML template
+    //     const templatePath = path.join(__dirname, '..', 'service', 'templates', 'index.html');
 
-        if (!fs.existsSync(templatePath)) {
-          console.error(`Email template not found at ${templatePath}`);
-          continue;
-        }
+    //     if (!fs.existsSync(templatePath)) {
+    //       console.error(`Email template not found at ${templatePath}`);
+    //       continue;
+    //     }
 
-        let htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
+    //     let htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
 
-        // Replace placeholders
-        const replacements = {
-          '{{MEMBER_NAME}}': member.businessName || member.fullname || 'N/A',
-          '{{MEMBER_LOCATION}}': locationStr,
-          '{{MEMBER_TIN}}': member.uid,
-          '{{REFERENCE_NO}}': 'AMAC' + '/' + 'DN' + '/' + referenceNo,
-          '{{DATE_OF_ISSUE}}': formatDate(now),
-          '{{ASSESSMENT_PERIOD}}': getAssessmentPeriod(payment.frequency || 'MONTHLY'),
-          '{{AUDIT_TRACK}}': auditTrack,
-          '{{LIABILITY_ROWS}}': liabilityRows,
-          '{{SUBTOTAL_AMOUNT}}': formatCurrency(subtotal),
-          '{{PENALTY_AMOUNT}}': formatCurrency(penalty),
-          '{{TOTAL_AMOUNT}}': formatCurrency(totalAmount),
-          '{{QR_CODE_URL}}': qrCodeUrl,
-          '{{PAYMENT_REFERENCE}}': paymentRef,
-          '{{SETTLEMENT_ACCOUNT_NAME}}': 'AMAC Revenue Account',
-          '{{SETTLEMENT_ACCOUNT_NUMBER}}': '1310770007',
-          '{{SETTLEMENT_BANK_NAME}}': 'Zenith Bank',
-          '{{PAYMENT_ACCOUNT_NAME}}': wallet?.accountName || `Zenith/Amac/${paymentRef}`,
-          '{{PAYMENT_ACCOUNT_NUMBER}}': wallet?.accountNo || 'N/A',
-          '{{PAYMENT_BANK_NAME}}': wallet?.bank?.name || 'N/A',
-        };
+    //     // Replace placeholders
+    //     const replacements = {
+    //       '{{MEMBER_NAME}}': member.businessName || member.fullname || 'N/A',
+    //       '{{MEMBER_LOCATION}}': locationStr,
+    //       '{{MEMBER_TIN}}': member.uid,
+    //       '{{REFERENCE_NO}}': 'AMAC' + '/' + 'DN' + '/' + referenceNo,
+    //       '{{DATE_OF_ISSUE}}': formatDate(now),
+    //       '{{ASSESSMENT_PERIOD}}': getAssessmentPeriod(payment.frequency || 'MONTHLY'),
+    //       '{{AUDIT_TRACK}}': auditTrack,
+    //       '{{LIABILITY_ROWS}}': liabilityRows,
+    //       '{{SUBTOTAL_AMOUNT}}': formatCurrency(subtotal),
+    //       '{{PENALTY_AMOUNT}}': formatCurrency(penalty),
+    //       '{{TOTAL_AMOUNT}}': formatCurrency(totalAmount),
+    //       '{{QR_CODE_URL}}': qrCodeUrl,
+    //       '{{PAYMENT_REFERENCE}}': paymentRef,
+    //       '{{SETTLEMENT_ACCOUNT_NAME}}': 'AMAC Revenue Account',
+    //       '{{SETTLEMENT_ACCOUNT_NUMBER}}': '1310770007',
+    //       '{{SETTLEMENT_BANK_NAME}}': 'Zenith Bank',
+    //       '{{PAYMENT_ACCOUNT_NAME}}': wallet?.accountName || `Zenith/Amac/${paymentRef}`,
+    //       '{{PAYMENT_ACCOUNT_NUMBER}}': wallet?.accountNo || 'N/A',
+    //       '{{PAYMENT_BANK_NAME}}': wallet?.bank?.name || 'N/A',
+    //     };
 
-        for (const [key, value] of Object.entries(replacements)) {
-          htmlTemplate = htmlTemplate.split(key).join(value);
-        }
+    //     for (const [key, value] of Object.entries(replacements)) {
+    //       htmlTemplate = htmlTemplate.split(key).join(value);
+    //     }
 
-        const memberName = member.businessName || member.fullname || 'Taxpayer';
-        const subject = `Demand Notice - ${referenceNo} - ${memberName}`;
-        const body = `Dear ${memberName},
-          Please find attached your demand notice for the assessment period ${getAssessmentPeriod(payment.frequency || 'MONTHLY')}. The total amount due is ${formatCurrency(totalAmount)}.`
+    //     const memberName = member.businessName || member.fullname || 'Taxpayer';
+    //     const subject = `Demand Notice - ${referenceNo} - ${memberName}`;
+    //     const body = `Dear ${memberName},
+    //       Please find attached your demand notice for the assessment period ${getAssessmentPeriod(payment.frequency || 'MONTHLY')}. The total amount due is ${formatCurrency(totalAmount)}.`
 
-        // Send email
-        const emailResult = await sendDemandNoticeEmail(member.email, subject, body, htmlTemplate, `${(memberName)}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,);
+    //     // Send email
+    //     const emailResult = await sendDemandNoticeEmail(member.email, subject, body, htmlTemplate, `${(memberName)}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,);
 
-        if (emailResult.ok) {
-          // Update this specific demand record to PENDING
-          await prisma.demand.update({
-            where: { id: demand.id },
-            data: {
-              status: 'PENDING',
-              isSent: true,
-            },
-          });
-          console.log(`Successfully sent demand notice to ${member.email} for demand ${demand.id}`);
-        } else {
-          console.error(`Failed to send demand notice to ${member.email} for demand ${demand.id}:`, emailResult.error);
-        }
-      } catch (err) {
-        console.error(`Error processing demand ${demand.id}:`, err);
-      }
-    }
+    //     if (emailResult.ok) {
+    //       // Update this specific demand record to PENDING
+    //       await prisma.demand.update({
+    //         where: { id: demand.id },
+    //         data: {
+    //           status: 'PENDING',
+    //           isSent: true,
+    //         },
+    //       });
+    //       console.log(`Successfully sent demand notice to ${member.email} for demand ${demand.id}`);
+    //     } else {
+    //       console.error(`Failed to send demand notice to ${member.email} for demand ${demand.id}:`, emailResult.error);
+    //     }
+    //   } catch (err) {
+    //     console.error(`Error processing demand ${demand.id}:`, err);
+    //   }
+    // }
 
     console.log('Demand cron completed at', new Date().toISOString());
   } catch (error) {

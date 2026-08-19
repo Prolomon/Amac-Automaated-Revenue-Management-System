@@ -498,13 +498,9 @@ const makePayment = async (req, res) => {
     const { amount, center, company } = value;
     const { userId, paymentId } = req.params;
 
-    console.log("Amount: ", amount, "Center: ", center, "Company: ", company, "userId: ", userId, "paymentId: ", paymentId)
-
     const member = await prisma.member.findUnique({
       where: { uid: userId },
     });
-
-    console.log(member)
 
     if (!member) {
       return res.status(404).json({ ok: false, message: "Member not found" });
@@ -1228,7 +1224,7 @@ const confirmPayment = async (req, res) => {
           },
         }),
         prisma.admin.findFirst({
-          where: { uid: member?.center },
+          where: { uid: member?.center || center },
           select: {
             id: true,
             uid: true,
@@ -1746,7 +1742,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.admin.findFirst({
-        where: { uid: center },
+        where: { uid: member?.center || center },
         select: {
           id: true,
           uid: true,
@@ -1772,7 +1768,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: center, role: "ADMIN" },
+        where: { userId: member?.center || center },
         select: {
           id: true,
           userId: true,
@@ -1791,7 +1787,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: company, role: "COMPANY" },
+        where: { userId: member?.company || company, role: "COMPANY" },
         select: {
           id: true,
           userId: true,
