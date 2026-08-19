@@ -771,7 +771,6 @@ const updateAdminStatus = async (req, res) => {
 
 const dashboardStats = async (req, res) => {
   try {
-
     const center = req.params.center;
 
     if (!center) {
@@ -784,17 +783,20 @@ const dashboardStats = async (req, res) => {
     const totalAdmins = await prisma.admin.count();
     const totalMembers = await prisma.member.count({ where: { center } });
     const totalDemands = await prisma.demand.count({ where: { center } });
-    const totalPayments = await prisma.payment.count({ where: { center } });
+    const totalPayments = await prisma.payment.count({ where: { centerId: center } });
     const totalPartners = await prisma.company.count({ where: { center } });
     const totalAgents = await prisma.agent.count({ where: { center } });
     const revenue = await prisma.payment.aggregate({
-      where: { center },
+      where: { centerId: center },
       _sum: {
         amount: true,
       },
     });
     const successfulPayments = await prisma.payment.count({
-      where: { OR: [{ status: "SUCCESS" }, { status: "PAID" }, { status: "COMPLETED" }], center } // or whatever your enum/field is
+      where: {
+        status: { in: ["SUCCESS", "PAID", "COMPLETED"] },
+        centerId: center,
+      },
     });
     const paymentRate = totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0;
 
@@ -817,7 +819,6 @@ const dashboardStats = async (req, res) => {
     return res.status(500).json({ ok: false, message: "Server error" });
   }
 };
-
 export {
   createAdmin,
   getAllAdmins,
