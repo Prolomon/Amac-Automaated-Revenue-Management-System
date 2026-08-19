@@ -34,7 +34,7 @@ function Home() {
 
     const fetchStats = async () => {
       try {
-        const statsResponse = await dashboardStats(userId || "");
+        const statsResponse = await dashboardStats(user?.uid || userId || "");
         if (!ignore && statsResponse.ok && statsResponse.stats) {
           const { member, revenue, paymentRate, partner } = statsResponse.stats;
           setTotals({
