@@ -38,6 +38,7 @@ model Member {
   agentData        Agent?          @relation(fields: [agent], references: [uid], onDelete: Cascade)
 
   demandNotices     Demand[]
+  requests  Request[]
 
   @@index([uid, email, center, status, type])
 }
@@ -135,15 +136,38 @@ model Payment {
   member       Member           @relation(fields: [userId], references: [uid], onDelete: Cascade)
   isVerify     Boolean          @default(false)
   companyId    String?
+  discount     Float            @default(0)
   paid         Float            @default(0)
   centerId     String?
   transactions Transaction[]
   idDemand     Boolean?
   timeline     Json[]           @default([])
+  request      Request[]
 
   demandNotices Demand[]
 
   @@index([reference, userId, status, payment, centerId, companyId])
+}
+
+model Request {
+  id          String   @id @default(cuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [uid], onDelete: Cascade)
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  adminId     String?
+  admin       Admin?   @relation("AdminRequests", fields: [adminId], references: [uid], onDelete: Cascade)
+  approverId  String?
+  approver    Admin?   @relation("AdminApprovedRequests", fields: [approverId], references: [uid], onDelete: Cascade)
+  reason      String
+  status      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  center      String
+
+  @@index([memberId, status])
+  @@index([adminId, status])
+  @@index([paymentId])
 }
 
 model Transaction {
@@ -200,7 +224,7 @@ model Admin {
   email         String   @unique
   password      String
   phone         String
-  adminName     String
+  adminName     String    @default("")
   adminEmail    String
   adminPhone    String
   adminLocation String
@@ -216,7 +240,8 @@ model Admin {
   paymentConfig Json?
   ledger        Float    @default(0.00)
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  requests         Request[] @relation("AdminRequests")
+  approvedRequests Request[] @relation("AdminApprovedRequests")
 
   @@index([uid, email, center, state, status])
 }

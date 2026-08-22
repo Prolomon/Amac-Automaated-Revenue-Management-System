@@ -135,10 +135,7 @@ export default function RegisterPage() {
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
-		if (!form.location) {
-			addToast("error", "Location is required. Click 'Use current location' before submitting.");
-			return;
-		}
+		
 
 		const payload: Admin = {
 			center: form.center.trim(),

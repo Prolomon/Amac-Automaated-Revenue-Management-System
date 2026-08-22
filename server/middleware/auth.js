@@ -98,7 +98,6 @@ const authMiddleware = async (req, res, next) => {
           role: true,
           paymentConfig: true,
           createdAt: true,
-          updatedAt: true,
           location: true,
           state: true,
           address: true,

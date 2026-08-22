@@ -1,4 +1,3 @@
-import { ref } from "process";
 import { prisma } from "../config/db.js";
 import { createTransactionSchema } from "../validator/transactionValidator.js";
 
@@ -20,22 +19,27 @@ const parseDateParam = (value, endOfDay = false) => {
   if (!value) return null;
 
   const raw = String(value).trim();
-  if (!raw) return null;
+  if (!raw || raw === "undefined" || raw === "null") return null;
 
-  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-
-  // For YYYY-MM-DD filters, include full end day or start day in UTC.
-  if (isDateOnly) {
-    if (endOfDay) {
-      date.setUTCHours(23, 59, 59, 999);
-    } else {
-      date.setUTCHours(0, 0, 0, 0);
-    }
+  const datePart = raw.split("T")[0];
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(datePart);
+  if (!isDateOnly) {
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  return date;
+  const [year, month, day] = datePart.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  if (endOfDay) {
+    // End of day in UTC with 4-hour timezone window buffer
+    const end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+    return new Date(end.getTime() + 4 * 60 * 60 * 1000);
+  } else {
+    // Start of day in UTC with 4-hour timezone window buffer
+    const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    return new Date(start.getTime() - 4 * 60 * 60 * 1000);
+  }
 };
 
 const createTransaction = async (req, res) => {
@@ -97,21 +101,41 @@ const createTransaction = async (req, res) => {
 const getAllTransactions = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 5000);
     const skip = (page - 1) * limit;
+
+    const fromDate = parseDateParam(req.query.fromDate || req.query.startDate);
+    const toDate = parseDateParam(req.query.toDate || req.query.endDate, true);
+
+    const where = {};
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) where.createdAt.gte = fromDate;
+      if (toDate) where.createdAt.lte = toDate;
+    }
 
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
+        include: {
+          payment: {
+            include: {
+              member: true,
+              pricing: true,
+            },
+          },
+        },
       }),
-      prisma.transaction.count(),
+      prisma.transaction.count({ where }),
     ]);
 
     return res.status(200).json({
       ok: true,
       data: transactions,
+      transactions,
       meta: {
         page,
         limit,
@@ -126,32 +150,69 @@ const getAllTransactions = async (req, res) => {
 
 const getTransactionsByUserId = async (req, res) => {
   try {
-    const { userId } = req.params; 
+    const { userId } = req.params;
 
     if (!userId) {
       return res.status(400).json({ ok: false, message: "User ID is required" });
     }
 
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 5000);
     const skip = (page - 1) * limit;
 
-    const sort = (String(req.query.sort || 'desc').toLowerCase() === 'asc') ? 'asc' : 'desc';
-    const eventFilter = req.query.event ? String(req.query.event).trim() : null;
-    const reference = req.query.reference ? String(req.query.reference).trim() : null;
-    const status = req.query.status ? String(req.query.status).trim() : null;
+    const sort = String(req.query.sort || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+    const eventFilter =
+      req.query.event && req.query.event !== "undefined" && req.query.event !== "null"
+        ? String(req.query.event).trim()
+        : null;
+    const reference =
+      req.query.reference && req.query.reference !== "undefined" && req.query.reference !== "null"
+        ? String(req.query.reference).trim()
+        : null;
+    const status =
+      req.query.status && req.query.status !== "undefined" && req.query.status !== "null"
+        ? String(req.query.status).trim()
+        : null;
 
-    const fromDate = parseDateParam(req.query.fromDate || req.query.formDate);
-    const toDate = parseDateParam(req.query.toDate, true);
+    const fromDate = parseDateParam(req.query.fromDate || req.query.formDate || req.query.startDate);
+    const toDate = parseDateParam(req.query.toDate || req.query.endDate, true);
+
+    // Resolve if userId belongs to an Admin/Center or Member/Agent
+    const adminRecord = await prisma.admin.findFirst({
+      where: {
+        OR: [{ uid: userId }, { center: userId }, { id: userId }],
+      },
+      select: { uid: true, center: true },
+    });
+
+    const userOrConditions = [
+      { userId },
+      { merchantTxRef: userId },
+    ];
+
+    if (adminRecord) {
+      if (adminRecord.uid) {
+        userOrConditions.push({ payment: { centerId: adminRecord.uid } });
+        userOrConditions.push({ payment: { member: { center: adminRecord.uid } } });
+        if (adminRecord.uid !== userId) {
+          userOrConditions.push({ userId: adminRecord.uid });
+          userOrConditions.push({ merchantTxRef: adminRecord.uid });
+        }
+      }
+      if (adminRecord.center) {
+        userOrConditions.push({ payment: { centerId: adminRecord.center } });
+        userOrConditions.push({ payment: { member: { center: adminRecord.center } } });
+      }
+    }
+
+    if (reference) {
+      userOrConditions.push({ reference: { contains: reference, mode: "insensitive" } });
+    }
 
     const where = {
       AND: [
         {
-          OR: [
-            { userId },
-            { merchantTxRef: userId },
-            ...(reference ? [{ reference }] : []),
-          ],
+          OR: userOrConditions,
         },
       ],
     };
@@ -179,6 +240,14 @@ const getTransactionsByUserId = async (req, res) => {
         skip,
         take: limit,
         orderBy: { createdAt: sort },
+        include: {
+          payment: {
+            include: {
+              member: true,
+              pricing: true,
+            },
+          },
+        },
       }),
       prisma.transaction.count({ where }),
     ]);
@@ -186,6 +255,7 @@ const getTransactionsByUserId = async (req, res) => {
     return res.status(200).json({
       ok: true,
       transactions,
+      data: transactions,
       meta: {
         page,
         limit,
@@ -194,6 +264,7 @@ const getTransactionsByUserId = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error("getTransactionsByUserId error:", err);
     return res.status(500).json({ ok: false, message: err?.message || "Server error" });
   }
 };
@@ -207,16 +278,19 @@ const getTransactionsByReference = async (req, res) => {
     }
 
     const transactions = await prisma.transaction.findMany({
-      where: { reference },
+      where: { reference: { contains: reference, mode: "insensitive" } },
       orderBy: { createdAt: "desc" },
       include: {
         payment: {
-          select: { reference: true, amount: true, status: true, userId: true },
+          include: {
+            member: true,
+            pricing: true,
+          },
         },
       },
     });
 
-    return res.status(200).json({ ok: true, transactions });
+    return res.status(200).json({ ok: true, transactions, data: transactions });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err?.message || "Server error" });
   }
@@ -230,20 +304,30 @@ const getTransactionById = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Transaction ID is required" });
     }
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { reference: id },
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        OR: [{ id }, { reference: id }],
+      },
+      include: {
+        payment: {
+          include: {
+            member: true,
+            pricing: true,
+          },
+        },
+      },
     });
 
     if (!transaction) {
       return res.status(404).json({ ok: false, message: "Transaction not found" });
     }
 
-    return res.status(200).json({ ok: true, transaction });
+    return res.status(200).json({ ok: true, transaction, data: transaction });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err?.message || "Server error" });
   }
 };
- 
+
 export {
   createTransaction,
   getAllTransactions,

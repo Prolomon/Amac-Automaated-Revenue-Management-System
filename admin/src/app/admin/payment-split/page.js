@@ -1,26 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Info, PieChart as PieChartIcon } from "lucide-react";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-} from "recharts";
+  Info,
+  PieChart as PieChartIcon,
+  Save,
+  RefreshCw,
+  Calendar,
+} from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/context/AuthContext";
 import { getTransactions } from "@/lib/services/payments";
 import { getMembers } from "@/lib/services/member";
 import { useToast } from "@/context/ToastContext";
-import { useRouter } from "next/navigation";
+import { updatePaymentConfig } from "@/lib/api";
 
 export default function PaymentSplit() {
-  const router = useRouter();
   const { user, uid, role } = useAuth();
-  const addToast = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const { addToast } = useToast();
+  const centerId =
+    role === "ADMIN" || role === "IT"
+      ? user?.center || user?.uid
+      : user?.center;
 
   const defaultSplits = [
     { key: "main", name: "Main Account", value: 65, color: "#10b981" },
@@ -31,34 +32,26 @@ export default function PaymentSplit() {
   const [transactions, setTransactions] = useState([]);
   const [splits, setSplits] = useState(defaultSplits);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [paymentChecks, setPaymentChecks] = useState([]);
   const [grossRevenue, setGrossRevenue] = useState(0);
   const [totalDebt, setTotalDebt] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [splitAmounts, setSplitAmounts] = useState({});
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  if (role !== "ADMIN" && user?.permission.canViewSplit !== true) {
-    router.push("/admin");
-  }
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0], // "YYYY-MM-DD", local browser date could still be off near midnight — see note below
+  );
 
   const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await getTransactions(1, 100, centerId);
-
-      if (response?.data) {
-        setTransactions(response.data.filter((tx) => {
-          const txDate = new Date(tx?.date || tx?.createdAt || null)
-          if (!txDate || isNaN(txDate.getTime())) return false;
-          const isToday =
-            txDate.getDate() === selectedDate.getDate() &&
-            txDate.getMonth() === selectedDate.getMonth() &&
-            txDate.getFullYear() === selectedDate.getFullYear();
-          return isToday;
-        }));
+      const response = await getTransactions(1, 1000, centerId, selectedDate);
+      console.log("Fetched transactions:", response);
+      if (response?.data || response?.transactions) {
+        setTransactions(response.data || response.transactions || []);
+      } else {
+        setTransactions([]);
       }
-
     } catch (e) {
       addToast("error", e.message || "Failed to fetch transactions");
     } finally {
@@ -96,7 +89,6 @@ export default function PaymentSplit() {
   };
 
   const normalizeSplits = (config) => {
-    // Only allow these three split keys (in this order)
     const allowedKeys = ["main", "agent", "technology"];
     const synonyms = { admin: "main" };
 
@@ -116,8 +108,14 @@ export default function PaymentSplit() {
       config.forEach((item, idx) => {
         const rawKey = item?.key || item?.name || item?.label;
         const key = toKey(rawKey);
-        const value = typeof item?.value === "number" ? item.value : typeof item?.percentage === "number" ? item.percentage : 0;
-        const name = item?.name || keyToDisplay[key] || item?.label || `Split ${idx + 1}`;
+        const value =
+          typeof item?.value === "number"
+            ? item.value
+            : typeof item?.percentage === "number"
+              ? item.percentage
+              : 0;
+        const name =
+          item?.name || keyToDisplay[key] || item?.label || `Split ${idx + 1}`;
         const color = item?.color || colorPalette[idx % colorPalette.length];
         if (key) itemsMap.set(key, { key, name, value, color });
       });
@@ -132,17 +130,24 @@ export default function PaymentSplit() {
       });
     }
 
-    // Ensure we always return the three allowed splits in the canonical order
     return allowedKeys.map((k, idx) => {
       if (itemsMap.has(k)) return itemsMap.get(k);
-      // fallback to default if not provided
       const def = defaultSplits.find((d) => d.key === k) || {};
-      return { key: k, name: keyToDisplay[k] || def.name || k, value: def.value || 0, color: def.color || colorPalette[idx % colorPalette.length] };
+      return {
+        key: k,
+        name: keyToDisplay[k] || def.name || k,
+        value: def.value || 0,
+        color: def.color || colorPalette[idx % colorPalette.length],
+      };
     });
   };
 
   const resolvePaymentName = (payment, memberLookup) => {
-    const userId = payment?.userId || payment?.uid || payment?.memberId || payment?.customerId;
+    const userId =
+      payment?.userId ||
+      payment?.uid ||
+      payment?.memberId ||
+      payment?.customerId;
     const member = memberLookup.get(String(userId || ""));
 
     return (
@@ -153,7 +158,7 @@ export default function PaymentSplit() {
       payment?.customerName ||
       payment?.paymentName ||
       payment?.reference ||
-      "Unknown user"
+      "Taxpayer"
     );
   };
 
@@ -174,23 +179,17 @@ export default function PaymentSplit() {
   };
 
   const loadConfig = async () => {
-    setLoading(true);
     try {
       const config = user?.paymentConfig;
-
       const normalized = normalizeSplits(config);
       setSplits(normalized);
-      if (!centerId) {
-        setPaymentChecks([]);
-        setGrossRevenue(0);
-        setTotalDebt(0);
-        calculateSplitAmounts(0, normalized);
-        addToast("error", "Failed to fetch transactions");
-        return;
-      }
 
-      const memberResponse = await getMembers(1, 1000, centerId);
-      const members = Array.isArray(memberResponse?.data) ? memberResponse.data : [];
+      const memberResponse = await getMembers(1, 1000, centerId).catch(() => ({
+        data: [],
+      }));
+      const members = Array.isArray(memberResponse?.data)
+        ? memberResponse.data
+        : [];
 
       const memberLookup = new Map(
         members
@@ -198,20 +197,39 @@ export default function PaymentSplit() {
           .map((member) => [String(member?.uid || member?.id), member]),
       );
 
-      // Using the transactions state directly as requested
       const mappedPayments = transactions.map((payment) => {
         const amount = Number(payment?.amount || 0);
         const debt = Number(payment?.debt || 0);
-        // Use netAmount from metadata receipt
-        const net = Number(payment?.metadata?.receipt?.netAmount || Math.max(amount - debt, 0));
+        const net = Number(
+          payment?.metadata?.receipt?.netAmount || Math.max(amount - debt, 0),
+        );
 
-        // Extracting split values directly from metadata.split or metadata.receipt.breakdown
-        const mainAmount = Number(payment?.metadata?.split?.mainAmount || payment?.metadata?.receipt?.breakdown?.main || 0);
-        const agentAmount = Number(payment?.metadata?.split?.agentAmount || payment?.metadata?.receipt?.breakdown?.agent || 0);
-        const technologyAmount = Number(payment?.metadata?.split?.technologyAmount || payment?.metadata?.receipt?.breakdown?.technology || 0);
+        const mainPct = normalized.find((s) => s.key === "main")?.value || 65;
+        const agentPct = normalized.find((s) => s.key === "agent")?.value || 25;
+        const techPct =
+          normalized.find((s) => s.key === "technology")?.value || 10;
+
+        const mainAmount = Number(
+          payment?.metadata?.split?.mainAmount ||
+            payment?.metadata?.receipt?.breakdown?.main ||
+            (net * mainPct) / 100,
+        );
+        const agentAmount = Number(
+          payment?.metadata?.split?.agentAmount ||
+            payment?.metadata?.receipt?.breakdown?.agent ||
+            (net * agentPct) / 100,
+        );
+        const technologyAmount = Number(
+          payment?.metadata?.split?.technologyAmount ||
+            payment?.metadata?.receipt?.breakdown?.technology ||
+            (net * techPct) / 100,
+        );
 
         return {
-          id: payment?.id || payment?.reference || `${payment?.userId}-${Date.now()}`,
+          id:
+            payment?.id ||
+            payment?.reference ||
+            `${payment?.userId}-${Date.now()}`,
           userId: payment?.userId || "",
           name: resolvePaymentName(payment, memberLookup),
           reference: payment?.reference || "",
@@ -226,14 +244,28 @@ export default function PaymentSplit() {
         };
       });
 
-      const grossTotal = mappedPayments.reduce((sum, item) => sum + item.amount, 0);
-      const debtTotal = mappedPayments.reduce((sum, item) => sum + item.debt, 0);
+      const grossTotal = mappedPayments.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
+      const debtTotal = mappedPayments.reduce(
+        (sum, item) => sum + item.debt,
+        0,
+      );
       const netTotal = mappedPayments.reduce((sum, item) => sum + item.net, 0);
 
-      // Aggregate specific split totals from metadata values
-      const totalMain = mappedPayments.reduce((sum, item) => sum + item.mainAmount, 0);
-      const totalAgent = mappedPayments.reduce((sum, item) => sum + item.agentAmount, 0);
-      const totalTech = mappedPayments.reduce((sum, item) => sum + item.technologyAmount, 0);
+      const totalMain = mappedPayments.reduce(
+        (sum, item) => sum + item.mainAmount,
+        0,
+      );
+      const totalAgent = mappedPayments.reduce(
+        (sum, item) => sum + item.agentAmount,
+        0,
+      );
+      const totalTech = mappedPayments.reduce(
+        (sum, item) => sum + item.technologyAmount,
+        0,
+      );
       const actualSplitTotal = totalMain + totalAgent + totalTech;
 
       setPaymentChecks(mappedPayments);
@@ -241,11 +273,10 @@ export default function PaymentSplit() {
       setTotalDebt(debtTotal);
       setTotalRevenue(actualSplitTotal || netTotal);
 
-      // Map actual split data to splitAmounts state to reflect real transaction breakdown
       const amounts = {};
       normalized.forEach((split) => {
         const key = split.key;
-        let amount = (netTotal * Number(split.value || 0)) / 100; // Fallback to calculation
+        let amount = (netTotal * Number(split.value || 0)) / 100;
         if (key === "main") amount = totalMain || amount;
         else if (key === "agent") amount = totalAgent || amount;
         else if (key === "technology") amount = totalTech || amount;
@@ -258,17 +289,13 @@ export default function PaymentSplit() {
         };
       });
       setSplitAmounts(amounts);
-
     } catch (e) {
-      console.log("Error loading config:", e);
-      addToast("error", e.message || "Failed to load config");
-    } finally {
-      setLoading(false);
+      console.error("Error loading config:", e);
+      addToast("error", e.message || "Failed to process transaction split");
     }
   };
 
   useEffect(() => {
-    if (!user) return;
     loadConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, uid, transactions]);
@@ -279,9 +306,27 @@ export default function PaymentSplit() {
       idx === index ? { ...split, value: val } : split,
     );
     setSplits(newSplits);
-
-    // Recalculate split amounts from the net distributable base.
     calculateSplitAmounts(totalRevenue, newSplits);
+  };
+
+  const handleSaveConfig = async () => {
+    if (totalAllocation !== 100) {
+      addToast("error", "Total allocation must equal 100%");
+      return;
+    }
+    setSaving(true);
+    try {
+      const configPayload = {};
+      splits.forEach((s) => {
+        configPayload[s.key] = s.value;
+      });
+      await updatePaymentConfig(configPayload);
+      addToast("success", "Payment split configuration saved successfully");
+    } catch (e) {
+      addToast("error", e.message || "Failed to save configuration");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalAllocation = splits.reduce((acc, curr) => acc + curr.value, 0);
@@ -289,7 +334,7 @@ export default function PaymentSplit() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       {/* Header Card */}
-      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100">
+      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100 shadow-xs">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -297,99 +342,104 @@ export default function PaymentSplit() {
               Payment Split Configuration
             </h1>
             <p className="mt-1 text-sm text-slate-600 md:text-base">
-              Define how collected revenue is automatically distributed across
-              departments.
+              Define and monitor how collected revenue is automatically
+              distributed across accounts for the selected date.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Date Picker */}
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+            {/* Date Picker Input */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-xs">
+              <Calendar size={16} className="text-slate-400" />
               <input
                 type="date"
-                value={
-                  selectedDate instanceof Date && !isNaN(selectedDate.getTime())
-                    ? selectedDate.toISOString().split("T")[0]
-                    : new Date().toISOString().split("T")[0]
-                }
+                value={selectedDate}
                 onChange={(e) => {
-                  const newDate = new Date(e.target.value + "T00:00:00");
-                  if (!isNaN(newDate.getTime())) {
-                    setSelectedDate(newDate);
-                  }
+                  if (e.target.value) setSelectedDate(e.target.value);
                 }}
-                className="text-sm text-slate-700 outline-none bg-transparent"
+                className="text-sm font-medium text-slate-700 outline-none bg-transparent cursor-pointer"
               />
             </div>
+
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${totalAllocation === 100
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                totalAllocation === 100
                   ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border border-rose-200 bg-rose-50 text-rose-700"
-                }`}
+              }`}
             >
               Total: {totalAllocation}%
             </span>
+
             <button
-              onClick={loadConfig}
+              onClick={() => fetchTransactions()}
               disabled={loading}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${loading
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
+                loading
                   ? "cursor-not-allowed bg-slate-200 text-slate-500"
                   : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-            >
-              Reload
-            </button>
-            {/* <button
-              onClick={handleSave}
-              disabled={saving || totalAllocation !== 100}
-              className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
-                saving
-                  ? "bg-emerald-500 text-white"
-                  : totalAllocation !== 100
-                    ? "cursor-not-allowed bg-slate-300 text-slate-500"
-                    : "bg-emerald-600 text-white hover:bg-emerald-700"
               }`}
             >
-              <Save size={17} />
-              {saving ? "Saving..." : "Save Changes"}
-            </button> */}
+              <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+              <span>Refresh</span>
+            </button>
+
+            <button
+              onClick={handleSaveConfig}
+              disabled={saving || totalAllocation !== 100}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
+                saving || totalAllocation !== 100
+                  ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
+              }`}
+            >
+              <Save size={15} />
+              <span>{saving ? "Saving..." : "Save Split"}</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Total Revenue Summary */}
-      <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
-        <p className="text-xs uppercase tracking-wide text-slate-500">
-          Total Revenue
+      {/* Total Revenue Summary Cards */}
+      <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-xs">
+        <p className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+          Total Net Revenue for Selected Date
         </p>
-        <h2 className="mt-2 text-3xl font-bold text-emerald-700">
+        <h2 className="mt-1 text-3xl font-extrabold text-emerald-700">
           {currencyFormatter.format(totalRevenue)}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Net distributable revenue after debt deduction
+        <p className="mt-1 text-xs text-slate-500">
+          Net revenue from {paymentChecks.length} transactions on{" "}
+          {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-NG", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
         </p>
+
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Gross payments
+          <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-100">
+            <p className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+              Gross Collections
             </p>
-            <p className="mt-1 text-lg font-semibold text-slate-800">
+            <p className="mt-1 text-lg font-bold text-slate-800">
               {currencyFormatter.format(grossRevenue)}
             </p>
           </div>
-          <div className="rounded-xl bg-rose-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-rose-600">
-              Total debt
+          <div className="rounded-xl bg-rose-50 p-3.5 border border-rose-100">
+            <p className="text-xs uppercase tracking-wider font-semibold text-rose-600">
+              Total Outstanding / Debt
             </p>
-            <p className="mt-1 text-lg font-semibold text-rose-700">
+            <p className="mt-1 text-lg font-bold text-rose-700">
               {currencyFormatter.format(totalDebt)}
             </p>
           </div>
-          <div className="rounded-xl bg-emerald-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-emerald-500">
-              Wallet share
+          <div className="rounded-xl bg-emerald-50 p-3.5 border border-emerald-100">
+            <p className="text-xs uppercase tracking-wider font-semibold text-emerald-600">
+              Main Account Share (
+              {splits.find((s) => s.key === "main")?.value || 65}%)
             </p>
-            <p className="mt-1 text-lg font-semibold text-emerald-700">
+            <p className="mt-1 text-lg font-bold text-emerald-700">
               {currencyFormatter.format(splitAmounts.main?.amount || 0)}
             </p>
           </div>
@@ -400,7 +450,7 @@ export default function PaymentSplit() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Left: Split Configuration */}
         <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-xs">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                 <PieChartIcon className="text-emerald-600" size={20} />
@@ -436,7 +486,7 @@ export default function PaymentSplit() {
                     <div className="flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2">
                       <input
                         type="number"
-                        min={split.key === "technology" ? 10 : 0}
+                        min={0}
                         max={100}
                         value={split.value}
                         onChange={(e) => handleSplitChange(idx, e.target.value)}
@@ -452,20 +502,22 @@ export default function PaymentSplit() {
             </div>
 
             <div
-              className={`mt-4 rounded-xl border p-4 transition-all ${totalAllocation === 100
+              className={`mt-4 rounded-xl border p-4 transition-all ${
+                totalAllocation === 100
                   ? "border-emerald-200 bg-emerald-50"
                   : "border-rose-200 bg-rose-50"
-                }`}
+              }`}
             >
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-800">
                   Total Allocation
                 </span>
                 <span
-                  className={`text-xl font-extrabold ${totalAllocation === 100
+                  className={`text-xl font-extrabold ${
+                    totalAllocation === 100
                       ? "text-emerald-700"
                       : "text-rose-700"
-                    }`}
+                  }`}
                 >
                   {totalAllocation}%
                 </span>
@@ -474,64 +526,89 @@ export default function PaymentSplit() {
 
             {totalAllocation !== 100 && (
               <p className="mt-2 text-xs font-medium text-rose-600">
-                ⚠ Total must equal 100% to save configuration.
+                ⚠ Total allocation percentage must equal exactly 100%.
               </p>
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-600">
-              Member Payment Check
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Daily Transactions Breakdown ({paymentChecks.length})
             </h4>
-            <div className="mt-3 max-h-72 space-y-2 overflow-auto pr-1">
+            <div className="mt-3 max-h-80 space-y-2.5 overflow-auto pr-1">
               {paymentChecks.length ? (
                 paymentChecks.map((payment) => (
-                  <div key={payment.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+                  <div
+                    key={payment.id}
+                    className="rounded-xl bg-slate-50 p-3 text-sm border border-slate-100"
+                  >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-slate-800 uppercase">{payment.name}</span>
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-bold text-slate-800 capitalize">
+                        {payment.name}
+                      </span>
+                      <span className="font-extrabold text-slate-900">
                         {currencyFormatter.format(payment.net)}
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <span>Amount: {currencyFormatter.format(payment.amount)}</span>
+                      <span>
+                        Gross: {currencyFormatter.format(payment.amount)}
+                      </span>
                       {payment.debt > 0 ? (
-                        <span>Debt: {currencyFormatter.format(payment.debt)}</span>
+                        <span className="text-rose-600 font-medium">
+                          Debt: {currencyFormatter.format(payment.debt)}
+                        </span>
                       ) : null}
                       {payment.reference ? (
-                        <span>Ref: {payment.reference}</span>
+                        <span className="font-mono text-[11px]">
+                          Ref: {payment.reference}
+                        </span>
                       ) : null}
                     </div>
-                    {/* Appended breakdown values per transaction */}
-                    <div className="mt-2 flex gap-3 border-t border-slate-200 pt-2 text-[10px]">
-                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
-                        <span className="text-slate-600 text-sm font-bold">Main</span>
-                        <span className="font-semibold text-emerald-600 text-base">{currencyFormatter.format(payment.mainAmount)}</span>
+                    {/* Breakdown values per transaction */}
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2 text-[11px]">
+                      <div className="flex flex-col rounded-lg bg-emerald-50 p-2 text-center items-center justify-center border border-emerald-100">
+                        <span className="text-emerald-700 text-[10px] font-bold uppercase">
+                          Main
+                        </span>
+                        <span className="font-bold text-emerald-800 text-xs">
+                          {currencyFormatter.format(payment.mainAmount)}
+                        </span>
                       </div>
-                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
-                        <span className="text-slate-600 text-sm font-bold">Agent</span>
-                        <span className="font-semibold text-blue-600 text-base">{currencyFormatter.format(payment.agentAmount)}</span>
+                      <div className="flex flex-col rounded-lg bg-blue-50 p-2 text-center items-center justify-center border border-blue-100">
+                        <span className="text-blue-700 text-[10px] font-bold uppercase">
+                          Agent
+                        </span>
+                        <span className="font-bold text-blue-800 text-xs">
+                          {currencyFormatter.format(payment.agentAmount)}
+                        </span>
                       </div>
-                       <div className="flex flex-col rounded-lg bg-slate-200 p-3 text-center items-center justify-center flex-1">
-                        <span className="text-slate-600 text-sm font-bold">Tech</span>
-                        <span className="font-semibold text-violet-600 text-base">{currencyFormatter.format(payment.technologyAmount)}</span>
+                      <div className="flex flex-col rounded-lg bg-purple-50 p-2 text-center items-center justify-center border border-purple-100">
+                        <span className="text-purple-700 text-[10px] font-bold uppercase">
+                          Tech
+                        </span>
+                        <span className="font-bold text-purple-800 text-xs">
+                          {currencyFormatter.format(payment.technologyAmount)}
+                        </span>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No matching payments found.</p>
+                <div className="py-8 text-center text-slate-400 text-sm">
+                  No transactions recorded on this date.
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* Right: Visual Breakdown */}
-        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-xs">
           <h3 className="text-lg font-semibold text-slate-900">
-            Visual Breakdown
+            Visual Allocation
           </h3>
-          <div className="h-64">
+          <div className="h-64 mt-2">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -539,8 +616,8 @@ export default function PaymentSplit() {
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
-                  outerRadius={100}
-                  paddingAngle={1}
+                  outerRadius={95}
+                  paddingAngle={2}
                   dataKey="value"
                 >
                   {(loading ? defaultSplits : splits).map((entry, index) => (
@@ -553,16 +630,15 @@ export default function PaymentSplit() {
                     name || props.payload.name,
                   ]}
                 />
-                {/* <Legend verticalAlign="bottom" height={30} /> */}
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-600">
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 mt-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
               Distribution Summary
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {(loading ? defaultSplits : splits).map((split) => {
                 const splitKey = split.key || split.name;
                 const splitAmount = splitAmounts[splitKey]?.amount || 0;
@@ -571,8 +647,16 @@ export default function PaymentSplit() {
                     key={split.name}
                     className="flex items-center justify-between text-sm"
                   >
-                    <span className="text-slate-600">{split.name}</span>
-                    <span className="font-semibold text-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: split.color }}
+                      />
+                      <span className="text-slate-700 font-medium">
+                        {split.name} ({split.value}%)
+                      </span>
+                    </div>
+                    <span className="font-bold text-slate-900">
                       {currencyFormatter.format(splitAmount)}
                     </span>
                   </div>
@@ -580,10 +664,12 @@ export default function PaymentSplit() {
               })}
             </div>
 
-            <div className="border-t border-slate-300 pt-3 mt-3">
+            <div className="border-t border-slate-200 pt-3 mt-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold text-slate-700">Total</span>
-                <span className="font-extrabold text-lg text-slate-900">
+                <span className="font-bold text-slate-800">
+                  Total Net Distributed
+                </span>
+                <span className="font-extrabold text-base text-emerald-700">
                   {currencyFormatter.format(totalRevenue)}
                 </span>
               </div>

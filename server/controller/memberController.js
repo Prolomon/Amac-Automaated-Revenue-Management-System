@@ -66,6 +66,37 @@ const memberSafeSelect = {
   zone: true,
 };
 
+// Compute next due date based on billing frequency
+const calculateDueDate = (frequency, from = new Date()) => {
+  const date = new Date(from);
+
+  switch (frequency) {
+    case "DAILY":
+      date.setDate(date.getDate() + 1);
+      break;
+    case "WEEKLY":
+      date.setDate(date.getDate() + 7);
+      break;
+    case "BIWEEKLY":
+      date.setDate(date.getDate() + 14);
+      break;
+    case "MONTHLY":
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case "QUARTERLY":
+      date.setMonth(date.getMonth() + 3);
+      break;
+    case "YEARLY":
+      date.setFullYear(date.getFullYear() + 1);
+      break;
+    default:
+      // fallback: treat unknown frequency as monthly
+      date.setMonth(date.getMonth() + 1);
+  }
+
+  return date;
+};
+
 const looksLikeJwt = (value) => typeof value === "string" && value.split(".").length === 3;
 
 const resolveTargetMemberUid = (req) => {
@@ -230,7 +261,7 @@ const createMember = async (req, res) => {
             frequency: pricing.frequency || "MONTHLY",
             sessions: [],
             debt: 0,
-            due: new Date(),
+            due: calculateDueDate(pricing.frequency || "MONTHLY"),
             amount: Number(pricing.price),
             payment: pricing.id,
             status: "PENDING",

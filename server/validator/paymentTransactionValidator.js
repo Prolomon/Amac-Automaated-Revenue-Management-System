@@ -48,4 +48,22 @@ const getPaymentTransactionSchema = Joi.object({
   limit: Joi.number().default(20),
 });
 
-export { createPaymentTransactionSchema, getPaymentTransactionSchema };
+const filterPaymentTransactionsSchema = Joi.object({
+  centerId: Joi.string().trim().optional().allow(null, ''),
+  userId: Joi.string().trim().optional().allow(null, ''),
+  date: Joi.string().trim().optional().allow(null, ''),
+  startDate: Joi.string().trim().optional().allow(null, ''),
+  endDate: Joi.string().trim().optional().allow(null, ''),
+  fromDate: Joi.string().trim().optional().allow(null, ''),
+  toDate: Joi.string().trim().optional().allow(null, ''),
+  status: Joi.string().trim().optional().allow(null, ''),
+  query: Joi.string().trim().optional().allow(null, ''),
+  page: Joi.number().min(1).default(1),
+  limit: Joi.number().min(1).max(5000).default(50),
+});
+
+export {
+  createPaymentTransactionSchema,
+  getPaymentTransactionSchema,
+  filterPaymentTransactionsSchema,
+};

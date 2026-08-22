@@ -1,6 +1,7 @@
 import { API_URL, buildHeaders } from "../api";
 import { Member } from "./member";
 import { Payment } from "./payments";
+import { Wallet } from "./wallet";
 
 export type Demand = {
   id?: string;
@@ -12,6 +13,8 @@ export type Demand = {
   createdAt?: Date;
   updatedAt?: Date;
   member: Member;
+  walletId: string;
+  wallet: Wallet;
   payment: Payment;
   isSent: Boolean;
   dates: Date[];

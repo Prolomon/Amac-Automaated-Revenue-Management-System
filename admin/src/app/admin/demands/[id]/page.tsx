@@ -264,7 +264,7 @@ function DemandDetailPage() {
                 Notice under Section 29 of the Tax Procedures Act, 2015
               </p>
               <p className="mt-0.5 text-xs text-slate-500">
-                Reference: AMAC/DN/{new Date().getFullYear()}/{demand.reference} | Issued on: {formatDate(demand.createdAt)}
+                Reference: {new Date().getFullYear()}/{demand.reference} | Issued on: {formatDate(demand.createdAt)}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -457,8 +457,12 @@ function DemandDetailPage() {
                       <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(principal)}</td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
-                      <td className="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 4%</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
                       <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(vat)}</td>
+                    </tr>
+                    <tr className="font-medium text-[#1e293b]">
+                      <td className="py-2 px-4 border-b border-[#e2e8f0]">Discount Approvied</td>
+                      <td className="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">{formatCurrency(demand?.payment?.discount || 0)}</td>
                     </tr>
                     <tr className="font-medium text-[#1e293b]">
                       <td className="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
@@ -532,9 +536,9 @@ function DemandDetailPage() {
                     <span><b>Payment Account</b></span>
                   </div>
                   <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                    <span><b>Account Number: </b>1310770007</span>
-                    <span><b>Bank Name: </b>Zenith Bank</span>
-                    <span><b>Account Name: </b>AMAC Revenue Account</span>
+                    <span><b>Account Number: </b>{demand?.wallet?.accountNo || "1310770007"}</span>
+                    <span><b>Bank Name: </b>{demand?.wallet?.bank?.name || "Zenith Bank"}</span>
+                    <span><b>Account Name: </b>{demand?.wallet?.accountName || "AMAC Revenue Account"}</span>
                   </div>
                 </div>
 
@@ -545,7 +549,7 @@ function DemandDetailPage() {
                     <span><b>Pay on Website</b></span>
                   </div>
                   <div className="text-[#1e293b] font-semibold text-[12px] flex flex-col items-start gap-1">
-                    <span><b>AMAC/DN/{demand?.reference}</b></span>
+                    <span><b>{demand?.reference}</b></span>
                   </div>
                 </div>
               </div>

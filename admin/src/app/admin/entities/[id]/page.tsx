@@ -268,14 +268,6 @@ export default function EntityDetailsPage({ params }) {
     }
   }, [centerId, member]);
 
-  // useEffect(() => {
-  //   fetchAgentData();
-  // }, [fetchAgentData]);
-
-  // useEffect(() => {
-  //   fetchCompanyData();
-  // }, [fetchCompanyData]);
-
   const handleChange = (k: string, v: string, p?: string) => {
     return setForm((s) => {
       if (p) {
@@ -1660,6 +1652,9 @@ export default function EntityDetailsPage({ params }) {
                     Date
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">
+                    Due Date
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">
                     Amount
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">
@@ -1691,11 +1686,20 @@ export default function EntityDetailsPage({ params }) {
                           ? new Date(p.createdAt).toLocaleDateString()
                           : "—"}
                     </td>
+                    <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm">
+                      {p.due
+                        ? new Date(p.due).toLocaleDateString()
+                        : p.date
+                          ? new Date(p.date).toLocaleDateString()
+                          : p.createdAt
+                            ? new Date(p.createdAt).toLocaleDateString()
+                            : "—"}
+                    </td>
                     <td className="px-4 py-4 text-xs font-semibold text-slate-900 md:px-6 md:text-sm">
                       {typeof p.amount === "number"
                         ? `₦${p.amount.toLocaleString()}`
                         : p.amount || "—"}
-                    </td>
+                    </td> 
                     <td className="px-4 py-4 text-xs md:px-6 md:text-sm">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${p.status?.toUpperCase() === "COMPLETED" ||

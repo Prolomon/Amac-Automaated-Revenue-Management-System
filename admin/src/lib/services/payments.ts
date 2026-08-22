@@ -25,6 +25,7 @@ export type Payment = {
     | "COMPLETED";
   due: Date | null;
   member?: Member;
+  discount: number;
   isVerified: boolean;
   pricing: Pricing;
   paid: number;
@@ -194,12 +195,40 @@ export async function getRecord(id: string): Promise<{
 }
 
 export const getTransactions = async (
-  page: number,
-  limit: number,
-  centerId: string,
+  page: number = 1,
+  limit: number = 50,
+  centerId?: string,
+  date?: string, // "YYYY-MM-DD"
+  params?: {
+    startDate?: string;
+    endDate?: string;
+    fromDate?: string;
+    toDate?: string;
+    status?: string;
+    query?: string;
+  }
 ) => {
+  const urlParams = new URLSearchParams();
+  urlParams.set("page", String(page));
+  urlParams.set("limit", String(limit));
+
+  if (centerId && centerId !== "ADMIN" && centerId !== "IT" && centerId !== "undefined" && centerId !== "null") {
+    urlParams.set("centerId", centerId);
+  }
+
+  if (date) {
+    urlParams.set("date", date);
+  }
+
+  if (params?.startDate) urlParams.set("startDate", params.startDate);
+  if (params?.endDate) urlParams.set("endDate", params.endDate);
+  if (params?.fromDate) urlParams.set("fromDate", params.fromDate);
+  if (params?.toDate) urlParams.set("toDate", params.toDate);
+  if (params?.status) urlParams.set("status", params.status);
+  if (params?.query) urlParams.set("query", params.query);
+
   const response = await fetch(
-    `${API_URL}/payment-transaction/?page=${page}&limit=${limit}&centerId=${centerId}`,
+    `${API_URL}/payment-transaction/?${urlParams.toString()}`,
     {
       headers: { ...buildHeaders() },
     },

@@ -13,6 +13,7 @@ import {
   Search,
   Flag,
   Monitor,
+  BadgePercent,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -70,6 +71,11 @@ export default function Sidebar({ onClose }) {
         href: "/admin/demands",
         label: "Demand Notice",
         icon: <Flag size={18} />,
+      },
+      {
+        href: "/admin/discounts",
+        label: "Discounts Requests",
+        icon: <BadgePercent size={18} />,
       },
       {
         href: "/admin/partners",

@@ -263,8 +263,7 @@ function DemandsListPage() {
 
                 const principal = Number(demand?.payment?.debt > 0 ? demand?.payment?.debt : demand?.payment?.amount);
                 const vat = principal * 0.075;
-                const charges = principal * 0.015;
-                const subtotal = principal + vat + charges;
+                const subtotal = principal + vat;
 
                 // Get payment date and current date
                 const paymentDate = new Date(demand?.payment?.date);
@@ -285,7 +284,7 @@ function DemandsListPage() {
                 const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
                 const penalty = subtotal * penaltyRatePerDay * daysOverdue;
 
-                const totalAmount = subtotal + penalty;
+                const totalAmount = subtotal + penalty + Number(demand?.payment?.discount || 0);
 
                 return (
                   <div key={demand.id} className="block">
@@ -333,7 +332,7 @@ function DemandsListPage() {
                               Reference
                             </p>
                             <p className="mt-1 text-sm font-bold text-slate-900">
-                              AMAC/DN/{demand.reference || "N/A"}
+                              {demand.reference || "N/A"}
                             </p>
                           </div>
                         </div>

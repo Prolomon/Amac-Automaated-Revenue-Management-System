@@ -43,6 +43,8 @@ function Home() {
             paymentRate,
             companies: partner,
           });
+
+          console.log("Dashboard stats fetched successfully:", statsResponse.stats);
         }
       } catch (error) {
         if (!ignore) {
@@ -212,7 +214,7 @@ function Home() {
         />
         <KPI
           title="Monthly Revenue"
-          value={`₦${wallet?.balance?.toLocaleString() || "0.00"}`}
+          value={`₦${totals.monthlyRevenue?.toLocaleString() || "0.00"}`}
           meta="Current month"
           colorClass="text-emerald-600"
         />

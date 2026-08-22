@@ -1,17 +1,65 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, RefreshCcw, CheckCircle, XCircle, Clock, Ban, RotateCcw, User, Hash, Calendar, CreditCard, Receipt, Bell, Search } from "lucide-react";
+import {
+  AlertCircle,
+  RefreshCcw,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Ban,
+  RotateCcw,
+  User,
+  Hash,
+  Calendar,
+  CreditCard,
+  Receipt,
+  Bell,
+  Search,
+} from "lucide-react";
 import { sendDemandByPayment } from "@/lib/services/demand";
 import { getAllPayments, Payment } from "@/lib/services/payments";
 import { useToast } from "@/context/ToastContext";
 import { useRouter } from "next/navigation";
 
-const statusConfig: Record<string, { label: string; bg: string; text: string; border: string; icon: any }> = {
-  SUCCESS: { label: "Success", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: CheckCircle },
-  PENDING: { label: "Pending", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: Clock },
-  FAILED: { label: "Failed", bg: "bg-red-50", text: "text-red-700", border: "border-red-200", icon: XCircle },
-  CANCELLED: { label: "Cancelled", bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", icon: Ban },
-  REFUNDED: { label: "Refunded", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: RotateCcw },
+const statusConfig: Record<
+  string,
+  { label: string; bg: string; text: string; border: string; icon: any }
+> = {
+  SUCCESS: {
+    label: "Success",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    icon: CheckCircle,
+  },
+  PENDING: {
+    label: "Pending",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    icon: Clock,
+  },
+  FAILED: {
+    label: "Failed",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
+    icon: XCircle,
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    bg: "bg-slate-50",
+    text: "text-slate-600",
+    border: "border-slate-200",
+    icon: Ban,
+  },
+  REFUNDED: {
+    label: "Refunded",
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    border: "border-blue-200",
+    icon: RotateCcw,
+  },
 };
 
 const frequencyLabels: Record<string, string> = {
@@ -35,35 +83,49 @@ export default function Payments() {
   const [paymentLoad, setPaymentLoad] = useState<string>("");
   const [search, setSearch] = useState<string>("");
 
-  const fetchPayments = useCallback(async (pageNum: number) => {
-    setLoading(true);
-    try {
-      const data = await getAllPayments(pageNum, limit, search);
-      const paymentsData = Array.isArray(data?.payments) ? data.payments : [];
-      setPayments(paymentsData);
-      if (data?.meta) {
-        setTotalPages(data.meta.totalPages);
-        setTotal(data.meta.total);
-        setPage(data.meta.page);
+  const fetchPayments = useCallback(
+    async (pageNum: number) => {
+      setLoading(true);
+      try {
+        const data = await getAllPayments(pageNum, limit, search);
+        const paymentsData = Array.isArray(data?.payments) ? data.payments : [];
+        setPayments(paymentsData);
+        if (data?.meta) {
+          setTotalPages(data.meta.totalPages);
+          setTotal(data.meta.total);
+          setPage(data.meta.page);
+        }
+      } catch (err) {
+        addToast(
+          "error",
+          err.message || "An error occurred while fetching payments",
+        );
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      addToast("error", err.message || "An error occurred while fetching payments");
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast, search]);
+    },
+    [addToast, search],
+  );
 
   useEffect(() => {
     fetchPayments(1);
   }, [fetchPayments]);
 
   const stats = useMemo(() => {
-    if (!payments) return { total: 0, success: 0, pending: 0, failed: 0, totalAmount: 0, totalDebt: 0 };
+    if (!payments)
+      return {
+        total: 0,
+        success: 0,
+        pending: 0,
+        failed: 0,
+        totalAmount: 0,
+        totalDebt: 0,
+      };
     return {
       total: payments.length,
-      success: payments.filter(p => p.status === "SUCCESS").length,
-      pending: payments.filter(p => p.status === "PENDING").length,
-      failed: payments.filter(p => p.status === "FAILED").length,
+      success: payments.filter((p) => p.status === "SUCCESS").length,
+      pending: payments.filter((p) => p.status === "PENDING").length,
+      failed: payments.filter((p) => p.status === "FAILED").length,
       totalAmount: payments.reduce((sum, p) => sum + Number(p.paid || 0), 0),
       totalDebt: payments.reduce((sum, p) => sum + Number(p.debt || 0), 0),
     };
@@ -88,13 +150,12 @@ export default function Payments() {
       } else {
         addToast("error", res.message || "Failed to send demand notice");
       }
-
     } catch (err) {
       addToast("error", err.message || "Failed to send demand notice");
     } finally {
       setPaymentLoad("");
     }
-  }
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4 md:space-y-5 md:p-6">
@@ -123,23 +184,39 @@ export default function Payments() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total Payments</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Total Payments
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {stats.total}
+          </p>
           <p className="mt-1 text-xs text-slate-500">All payment records</p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Successful</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-700">{stats.success}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Successful
+          </p>
+          <p className="mt-2 text-2xl font-bold text-emerald-700">
+            {stats.success}
+          </p>
           <p className="mt-1 text-xs text-slate-500">Completed payments</p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total Revenue</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">₦{stats.totalAmount.toLocaleString()}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Total Revenue
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            ₦{stats.totalAmount.toLocaleString()}
+          </p>
           <p className="mt-1 text-xs text-slate-500">Across all payments</p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Outstanding Debt</p>
-          <p className="mt-2 text-2xl font-bold text-amber-600">₦{stats.totalDebt.toLocaleString()}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Outstanding Debt
+          </p>
+          <p className="mt-2 text-2xl font-bold text-amber-600">
+            ₦{stats.totalDebt.toLocaleString()}
+          </p>
           <p className="mt-1 text-xs text-slate-500">Pending collections</p>
         </div>
       </div>
@@ -147,15 +224,19 @@ export default function Payments() {
       <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Transaction Log</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">All payment transactions</h2>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Transaction Log
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">
+              All payment transactions
+            </h2>
           </div>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className={`w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm outline-none transition border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`}
+              className={`w-full min-w-xl rounded-xl border py-2.5 pl-9 pr-3 text-sm outline-none transition border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100`}
               placeholder="Search by reference, member name, or plan"
             />
           </div>
@@ -168,25 +249,57 @@ export default function Payments() {
                 <div className="mb-4 animate-spin">
                   <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
                 </div>
-                <p className="font-medium text-slate-600">Loading payment records...</p>
+                <p className="font-medium text-slate-600">
+                  Loading payment records...
+                </p>
               </div>
             </div>
           ) : payments?.length > 0 ? (
             payments.map((payment, index) => {
-              const statusInfo = statusConfig[payment.status] || statusConfig.PENDING;
+              const statusInfo =
+                statusConfig[payment.status] || statusConfig.PENDING;
               const StatusIcon = statusInfo.icon;
+
+              const principal = Number(
+                payment.debt > 0 ? payment.debt : payment.amount,
+              );
+              const vat = principal * 0.075;
+              const subtotal = principal + vat;
+
+              // Get payment date and current date
+              const paymentDate = new Date(payment?.date);
+              const currentDate = new Date();
+
+              // Calculate days overdue
+              let daysOverdue = 0;
+              // if (currentDate > paymentDate) {
+              //   const diffTime = currentDate - paymentDate;
+              //   daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+              // }
+              if (currentDate > paymentDate) {
+                const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
+                daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+              }
+
+              // Penalty: 0.005% per day overdue
+              const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+              const penalty = subtotal * penaltyRatePerDay * daysOverdue;
+
+              const totalAmount =
+                subtotal + penalty - Number(payment.discount || 0);
 
               return (
                 <div
                   key={payment.id || index}
-                  className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${payment.status === "SUCCESS"
+                  className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${
+                    payment.status === "SUCCESS"
                       ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
                       : payment.status === "FAILED"
                         ? "border-red-200 shadow-sm"
                         : payment.status === "PENDING"
                           ? "border-amber-200 shadow-sm"
                           : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
-                    }`}
+                  }`}
                 >
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -215,10 +328,13 @@ export default function Payments() {
                     <div className="mt-4 border-b border-slate-200 pb-4">
                       <div className="flex items-baseline gap-1">
                         <span className="text-3xl font-extrabold text-emerald-600">
-                          ₦{Number(payment.amount || 0).toLocaleString()}
+                          ₦{Number(totalAmount || 0).toLocaleString()}
                         </span>
                         <span className="font-medium text-slate-500">
-                          /{frequencyLabels[payment.frequency]?.toLowerCase() || payment.frequency?.toLowerCase() || "month"}
+                          /
+                          {frequencyLabels[payment.frequency]?.toLowerCase() ||
+                            payment.frequency?.toLowerCase() ||
+                            "month"}
                         </span>
                       </div>
                     </div>
@@ -230,12 +346,19 @@ export default function Payments() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <Hash size={14} />
-                        <span>Date: {formatDate(payment.date || payment.createdAt)}</span>
+                        <span>
+                          Date: {formatDate(payment.date || payment.createdAt)}
+                        </span>
                       </div>
                       {payment.pricing && (
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <CreditCard size={14} />
-                          <span>Plan: {payment.pricing.title || payment.pricing.code || "N/A"}</span>
+                          <span>
+                            Plan:{" "}
+                            {payment.pricing.title ||
+                              payment.pricing.code ||
+                              "N/A"}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -246,7 +369,9 @@ export default function Payments() {
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Paid
                           </p>
-                          <p className={`mt-1 text-2xl font-bold ${Number(payment.paid || 0) > 0 ? "text-emerald-600" : "text-slate-900"}`}>
+                          <p
+                            className={`mt-1 text-2xl font-bold ${Number(payment.paid || 0) > 0 ? "text-emerald-600" : "text-slate-900"}`}
+                          >
                             ₦{Number(payment.paid || 0).toLocaleString()}
                           </p>
                         </div>
@@ -254,7 +379,9 @@ export default function Payments() {
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Debt
                           </p>
-                          <p className={`mt-1 text-2xl font-bold ${Number(payment.debt || 0) > 0 ? "text-amber-600" : "text-slate-900"}`}>
+                          <p
+                            className={`mt-1 text-2xl font-bold ${Number(payment.debt || 0) > 0 ? "text-amber-600" : "text-slate-900"}`}
+                          >
                             ₦{Number(payment.debt || 0).toLocaleString()}
                           </p>
                         </div>
@@ -264,7 +391,9 @@ export default function Payments() {
                     <div className="mt-4">
                       <div className="grid gap-2">
                         <button
-                          onClick={() => router.push(`/admin/payments/${payment.reference}`)}
+                          onClick={() =>
+                            router.push(`/admin/payments/${payment.reference}`)
+                          }
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600"
                           disabled={loading || paymentLoad === payment.id}
                         >
@@ -285,7 +414,9 @@ export default function Payments() {
                           ) : (
                             <Bell size={16} />
                           )}
-                          {payment.isDemand ? "Send Reminder" : "Send Payment Notice"}
+                          {payment.isDemand
+                            ? "Send Reminder"
+                            : "Send Payment Notice"}
                         </button>
                       </div>
                     </div>
@@ -297,8 +428,12 @@ export default function Payments() {
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
                 <AlertCircle className="mb-4 h-12 w-12 text-slate-300" />
-                <h3 className="mb-2 text-lg font-semibold text-slate-700">No Payment Records Found</h3>
-                <p className="mb-6 text-slate-600">No payment transactions have been recorded yet.</p>
+                <h3 className="mb-2 text-lg font-semibold text-slate-700">
+                  No Payment Records Found
+                </h3>
+                <p className="mb-6 text-slate-600">
+                  No payment transactions have been recorded yet.
+                </p>
               </div>
             </div>
           )}
@@ -318,7 +453,9 @@ export default function Payments() {
                 Previous
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .filter(
+                  (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1,
+                )
                 .reduce<(number | "...")[]>((acc, p, idx, arr) => {
                   if (idx > 0 && arr[idx - 1] !== p - 1) acc.push("...");
                   acc.push(p);
@@ -326,7 +463,10 @@ export default function Payments() {
                 }, [])
                 .map((p, idx) =>
                   p === "..." ? (
-                    <span key={`ellipsis-${idx}`} className="px-2 text-sm text-slate-400">
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="px-2 text-sm text-slate-400"
+                    >
                       ...
                     </span>
                   ) : (
@@ -334,14 +474,15 @@ export default function Payments() {
                       key={p}
                       onClick={() => fetchPayments(p)}
                       disabled={loading}
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${p === page
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${
+                        p === page
                           ? "bg-emerald-600 text-white"
                           : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       {p}
                     </button>
-                  )
+                  ),
                 )}
               <button
                 onClick={() => fetchPayments(page + 1)}

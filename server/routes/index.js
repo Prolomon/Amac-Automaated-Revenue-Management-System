@@ -19,6 +19,7 @@ import { payoutRouter } from './payoutRoutes.js';
 import paymentTransactionRoutes from './paymentTransactionRoutes.js';
 import { demandRouter } from './demandRoutes.js';
 import { terminalRouter } from './terminalRoutes.js';
+import { requestRouter } from './requestRoutes.js';
 
 // Apply database health check to all API routes
 router.use(checkDatabaseConnection);
@@ -42,6 +43,7 @@ router.use('/payout', payoutRouter);
 router.use('/recruitment', recruitmentRouter);
 router.use('/demand', demandRouter);
 router.use('/terminal', terminalRouter);
+router.use('/request', requestRouter);
 
 export  {router as apiRouter};
   
