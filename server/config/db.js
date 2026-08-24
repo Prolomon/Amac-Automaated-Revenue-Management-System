@@ -1,78 +1,67 @@
+import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 
-import dotenv from "dotenv";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config();
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
-
-// Prisma 7 may default to the "client" engine in some setups, which requires adapters.
-// This API uses direct PostgreSQL connections, so force the binary engine.
-if (!process.env.PRISMA_CLIENT_ENGINE_TYPE) {
-  process.env.PRISMA_CLIENT_ENGINE_TYPE = "binary";
-}
-
-let prisma;
-let prismaPool;
-let isConnected = false;
-
-const initializePrisma = async () => {
-  try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is not defined in environment variables');
-    }
-
-    if (!prisma) {
-      const { PrismaClient } = await import("@prisma/client");
-      prismaPool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        max: 10,
-        idleTimeoutMillis: 30000,        // recycle idle clients before the provider does
-        connectionTimeoutMillis: 10000,  // fail fast instead of hanging for minutes
-        keepAlive: true,                 // TCP keepalive so dead connections are detected quickly
-        keepAliveInitialDelayMillis: 10000,
-      });
-
-      prismaPool.on('error', (err) => {
-        console.error('Unexpected error on idle pg client', err);
-        // don't crash — pool will create a new client on next checkout
-      });
-
-      const adapter = new PrismaPg(prismaPool);
-      prisma = new PrismaClient({
-        adapter,
-        log: ['error', 'warn'],
-      });
-      console.log('Prisma Client initialized successfully');
-    }
-
-    return prisma;
-  } catch (err) {
-    console.error('Failed to initialize Prisma Client:', err);
-    throw err;
+const getDatabaseUrl = () => {
+  let dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.warn("DATABASE_URL is not defined in environment variables");
+    return "";
   }
+
+  try {
+    const parsed = new URL(dbUrl);
+    // Supabase Supavisor session mode on port 5432 has a hard limit of 15 connections (EMAXCONNSESSION).
+    // Port 6543 is Supabase's transaction pooler mode, designed for high-concurrency ORM/Node servers.
+    if (parsed.hostname.includes("pooler.supabase.com") && parsed.port === "5432") {
+      parsed.port = "6543";
+      if (!parsed.searchParams.has("pgbouncer")) {
+        parsed.searchParams.set("pgbouncer", "true");
+      }
+      dbUrl = parsed.toString();
+    }
+  } catch (err) {
+    // If URL parsing fails, fallback to raw string
+  }
+
+  return dbUrl;
 };
+
+const prismaPool = new Pool({
+  connectionString: getDatabaseUrl(),
+  max: 10,
+  idleTimeoutMillis: 30000,        // recycle idle clients before the provider does
+  connectionTimeoutMillis: 10000,  // fail fast instead of hanging for minutes
+  keepAlive: true,                 // TCP keepalive so dead connections are detected quickly
+  keepAliveInitialDelayMillis: 10000,
+  allowExitOnIdle: true,
+});
+
+prismaPool.on("error", (err) => {
+  console.error("Unexpected error on idle pg client:", err.message || err);
+});
+
+const adapter = new PrismaPg(prismaPool);
+const prisma = new PrismaClient({
+  adapter,
+  log: ["error", "warn"],
+});
+
+let isConnected = false;
 
 const connectPrisma = async () => {
   try {
-    if (!prisma) {
-      await initializePrisma();
-    }
-
     if (!isConnected) {
       await prisma.$connect();
       isConnected = true;
-      console.log('Prisma Client connected to database');
+      console.log("Prisma Client connected to database");
     }
-
     return prisma;
   } catch (err) {
-    console.error('Failed to connect Prisma Client:', err);
+    console.error("Failed to connect Prisma Client:", err.message || err);
     isConnected = false;
     throw err;
   }
@@ -80,39 +69,43 @@ const connectPrisma = async () => {
 
 const disconnectPrisma = async () => {
   try {
-    if (prisma && isConnected) {
+    if (isConnected) {
       await prisma.$disconnect();
       if (prismaPool) {
         await prismaPool.end();
-        prismaPool = undefined;
       }
       isConnected = false;
-      console.log('Prisma Client disconnected');
+      console.log("Prisma Client disconnected");
     }
   } catch (err) {
-    console.error('Error disconnecting Prisma Client:', err);
+    console.error("Error disconnecting Prisma Client:", err.message || err);
   }
 };
 
-// Initialize immediately
-connectPrisma().catch(err => {
-  console.error('Critical error initializing Prisma:', err.message);
-  console.log('Server will start but database operations may fail until connection is established');
+// Connect immediately on startup
+connectPrisma().catch((err) => {
+  console.error("Critical error initializing Prisma:", err.message || err);
+  console.log("Server will start but database operations may fail until connection is established");
 });
 
 // Handle graceful shutdown
-process.on('beforeExit', async () => {
+process.on("beforeExit", async () => {
   await disconnectPrisma();
 });
 
-process.on('SIGINT', async () => {
+process.on("SIGINT", async () => {
   await disconnectPrisma();
   process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   await disconnectPrisma();
   process.exit(0);
+});
+
+process.once("SIGUSR2", async () => {
+  await disconnectPrisma();
+  process.kill(process.pid, "SIGUSR2");
 });
 
 export { prisma, connectPrisma, disconnectPrisma };

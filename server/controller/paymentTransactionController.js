@@ -15,35 +15,47 @@ const generateTransactionReference = () => {
   return `TXN-${new Date().toISOString().split("T")[0]}-${transactionReferenceSuffix()}`;
 };
 
-const parseDateFilter = ({ date, fromDate, toDate, startDate, endDate }) => {
-  const dateFilter = {};
+const WAT_OFFSET_MS = 60 * 60 * 1000; // UTC+1, no DST in Nigeria
 
+// Given a "YYYY-MM-DD" string meant to represent a WAT calendar day,
+// return the UTC instant that day starts at.
+const getWatDayStartUtc = (dateStr) => {
+  return new Date(
+    new Date(`${dateStr}T00:00:00.000Z`).getTime() - WAT_OFFSET_MS,
+  );
+};
+
+const toDateStr = (input) => {
+  // Accept "YYYY-MM-DD" as-is; only re-derive via Date if it's some other format.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+  const parsed = new Date(input);
+  return isNaN(parsed.getTime()) ? null : parsed.toISOString().split("T")[0];
+};
+
+const parseDateFilter = ({ date, fromDate, toDate, startDate, endDate }) => {
+  // Single date: just return the parsed WAT day-start, no gte/lt wrapping.
   if (date) {
-    const parsedDate = new Date(date);
-    if (!isNaN(parsedDate.getTime())) {
-      const rawDateStr = parsedDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
-      dateFilter.gte = new Date(`${rawDateStr}T00:00:00.000Z`);
-      dateFilter.lte = new Date(`${rawDateStr}T23:59:59.999Z`);
-      return dateFilter;
-    }
+    const dateStr = toDateStr(date);
+    return dateStr ? getWatDayStartUtc(dateStr) : null;
   }
 
   const from = fromDate || startDate;
   const to = toDate || endDate;
 
+  const dateFilter = {};
+
   if (from) {
-    const parsedFrom = new Date(from);
-    if (!isNaN(parsedFrom.getTime())) {
-      const rawFromStr = parsedFrom.toISOString().split('T')[0];
-      dateFilter.gte = new Date(`${rawFromStr}T00:00:00.000Z`);
-    }
+    const fromStr = toDateStr(from);
+    if (fromStr) dateFilter.gte = getWatDayStartUtc(fromStr);
   }
 
   if (to) {
-    const parsedTo = new Date(to);
-    if (!isNaN(parsedTo.getTime())) {
-      const rawToStr = parsedTo.toISOString().split('T')[0];
-      dateFilter.lte = new Date(`${rawToStr}T23:59:59.999Z`);
+    const toStr = toDateStr(to);
+    if (toStr) {
+      // Range end is still inclusive of the whole "to" day, so use
+      // the start of the day AFTER `to` as an exclusive upper bound.
+      const toStart = getWatDayStartUtc(toStr);
+      dateFilter.lt = new Date(toStart.getTime() + 24 * 60 * 60 * 1000);
     }
   }
 
@@ -299,8 +311,21 @@ const getAllPaymentTransactions = async (req, res) => {
       startDate,
       endDate,
     });
+
+    // if (dateRange) {
+    //   where.createdAt = dateRange;
+    // }
+
     if (dateRange) {
-      where.date = dateRange;
+      if (dateRange instanceof Date) {
+        // single `date` case — build the WAT day range here
+        const start = dateRange;
+        const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+        where.createdAt = { gte: start, lt: end };
+      } else {
+        // from/to range case — already { gte, lt } shaped
+        where.createdAt = dateRange;
+      }
     }
 
     if (query) {

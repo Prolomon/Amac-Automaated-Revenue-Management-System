@@ -1,0 +1,312 @@
+[
+        {
+            "id": "cmt3ifrfg0006wvt54zjzh3et",
+            "reference": "TXN-2026-08-21-4A18RPMOGN-PAYMENT",
+            "userId": "MEB-3814613767",
+            "pricingId": "cms6qwbar0000lgoy51iksgqq",
+            "companyId": "PRT-4928279485",
+            "centerId": "URMSAD-7498668525",
+            "amount": 1079.1,
+            "currency": "NGN",
+            "paymentId": "296480787236",
+            "date": "2026-08-21T22:17:44.849Z",
+            "type": "PART_PAYMENT",
+            "category": null,
+            "name": null,
+            "billing": "YEARLY",
+            "status": "SUCCESS",
+            "metadata": {
+                "split": {
+                    "fee": 16.1865,
+                    "mainAmount": 690.8937749999999,
+                    "agentAmount": 265.72837499999997,
+                    "technologyAmount": 106.29134999999998
+                },
+                "receipt": {
+                    "fee": 16.1865,
+                    "date": "2026-08-21T22:17:41.778Z",
+                    "sender": {
+                        "bankCode": 110028,
+                        "bankName": "Nombank MFB",
+                        "accountName": "TR3-G/Taiwo Oyetade Solomon",
+                        "accountNumber": "3956670974"
+                    },
+                    "breakdown": {
+                        "main": 690.8937749999999,
+                        "agent": 265.72837499999997,
+                        "technology": 106.29134999999998
+                    },
+                    "netAmount": 1062.9134999999999,
+                    "paymentId": "296480787236",
+                    "reference": "TXN-2026-08-21-4A18RPMOGN",
+                    "recipients": {
+                        "admin": {
+                            "bankCode": "057",
+                            "bankName": "Zenith Bank",
+                            "accountName": "ABUJA MUNICIPAL AREA COUNCIL",
+                            "accountNumber": "1310770007"
+                        },
+                        "agent": {
+                            "bankCode": "305",
+                            "bankName": "Paycom (Opay)",
+                            "accountName": "TAIWO SOLOMON OYETADE",
+                            "accountNumber": "9023519514"
+                        }
+                    },
+                    "grossAmount": 1079.1,
+                    "paymentReference": "PAY|2026821342048576944"
+                },
+                "paymentReference": "PAY|2026821342048576944"
+            },
+            "createdAt": "2026-08-21T22:17:44.860Z",
+            "updatedAt": "2026-08-21T22:17:44.860Z"
+        },
+        {
+            "id": "cmt0m42w1000e1dpld6l6237f",
+            "reference": "TXN-2026-08-19-TG7K9KRMW4-PAYMENT",
+            "userId": "MEB-6130625253",
+            "pricingId": "cms6qwbar0000lgoy51iksgqq",
+            "companyId": "PRT-4928279485",
+            "centerId": "URMSAD-7498668525",
+            "amount": 1079.1,
+            "currency": "NGN",
+            "paymentId": "cmsx8r3ko00031juhsjyvzngn",
+            "date": "2026-08-19T21:37:19.776Z",
+            "type": "PART_PAYMENT",
+            "category": null,
+            "name": null,
+            "billing": "YEARLY",
+            "status": "SUCCESS",
+            "metadata": {
+                "split": {
+                    "fee": 16.1865,
+                    "mainAmount": 690.8937749999999,
+                    "agentAmount": 265.72837499999997,
+                    "technologyAmount": 106.29134999999998
+                },
+                "receipt": {
+                    "fee": 16.1865,
+                    "date": "2026-08-19T21:37:19.491Z",
+                    "sender": {
+                        "bankCode": 110028,
+                        "bankName": "Nombank MFB",
+                        "accountName": "TR3-G/Taiwo Oyetade",
+                        "accountNumber": "8774700661"
+                    },
+                    "breakdown": {
+                        "main": 690.8937749999999,
+                        "agent": 265.72837499999997,
+                        "technology": 106.29134999999998
+                    },
+                    "netAmount": 1062.9134999999999,
+                    "paymentId": "cmsx8r3ko00031juhsjyvzngn",
+                    "reference": "TXN-2026-08-19-TG7K9KRMW4",
+                    "recipients": {
+                        "admin": {
+                            "bankCode": "057",
+                            "bankName": "Zenith Bank",
+                            "accountName": "ABUJA MUNICIPAL AREA COUNCIL",
+                            "accountNumber": "1310770007"
+                        },
+                        "agent": {
+                            "bankCode": "305",
+                            "bankName": "Paycom (Opay)",
+                            "accountName": "TAIWO SOLOMON OYETADE",
+                            "accountNumber": "9023519514"
+                        }
+                    },
+                    "grossAmount": 1079.1,
+                    "paymentReference": "PAY|20268130031606794"
+                },
+                "paymentReference": "PAY|20268130031606794"
+            },
+            "createdAt": "2026-08-19T21:37:19.777Z",
+            "updatedAt": "2026-08-19T21:37:19.777Z"
+        },
+        {
+            "id": "cmt0eagiv00091dplnghbse41",
+            "reference": "TXN-2026-08-19-OVL8CE2YVA-PAYMENT",
+            "userId": "MEB-4985080040",
+            "pricingId": "cms6qwbar0000lgoy51iksgqq",
+            "companyId": "PRT-4928279485",
+            "centerId": "URMSAD-7498668525",
+            "amount": 1084.55,
+            "currency": "NGN",
+            "paymentId": "038361382386",
+            "date": "2026-08-19T17:58:20.454Z",
+            "type": "COMPLETE",
+            "category": null,
+            "name": null,
+            "billing": "YEARLY",
+            "status": "SUCCESS",
+            "metadata": {
+                "split": {
+                    "fee": 16.26825,
+                    "mainAmount": 694.3831374999999,
+                    "agentAmount": 267.07043749999997,
+                    "technologyAmount": 106.82817499999999
+                },
+                "receipt": {
+                    "fee": 16.26825,
+                    "date": "2026-08-19T17:58:20.236Z",
+                    "sender": {
+                        "bankCode": null,
+                        "bankName": null,
+                        "accountName": null,
+                        "accountNumber": null
+                    },
+                    "breakdown": {
+                        "main": 694.3831374999999,
+                        "agent": 267.07043749999997,
+                        "technology": 106.82817499999999
+                    },
+                    "netAmount": 1068.2817499999999,
+                    "paymentId": "038361382386",
+                    "reference": "TXN-2026-08-19-OVL8CE2YVA",
+                    "recipients": {
+                        "admin": {
+                            "bankCode": "057",
+                            "bankName": "Zenith Bank",
+                            "accountName": "ABUJA MUNICIPAL AREA COUNCIL",
+                            "accountNumber": "1310770007"
+                        },
+                        "agent": {
+                            "bankCode": "305",
+                            "bankName": "Paycom (Opay)",
+                            "accountName": "TAIWO SOLOMON OYETADE",
+                            "accountNumber": "9023519514"
+                        }
+                    },
+                    "grossAmount": 1084.55,
+                    "paymentReference": "PAY|202689114911313211"
+                },
+                "paymentReference": "PAY|202689114911313211"
+            },
+            "createdAt": "2026-08-19T17:58:20.455Z",
+            "updatedAt": "2026-08-19T17:58:20.455Z"
+        },
+        {
+            "id": "cmt0cvub800041dplru743hks",
+            "reference": "TXN-2026-08-19-AET7H6BBAH-PAYMENT",
+            "userId": "MEB-4985080040",
+            "pricingId": "cms6qwbar0000lgoy51iksgqq",
+            "companyId": "PRT-4928279485",
+            "centerId": "URMSAD-7498668525",
+            "amount": 1279,
+            "currency": "NGN",
+            "paymentId": "038361382386",
+            "date": "2026-08-19T17:18:58.864Z",
+            "type": "COMPLETE",
+            "category": null,
+            "name": null,
+            "billing": "YEARLY",
+            "status": "SUCCESS",
+            "metadata": {
+                "split": {
+                    "fee": 19.185,
+                    "mainAmount": 818.8797500000001,
+                    "agentAmount": 314.95375,
+                    "technologyAmount": 125.98150000000001
+                },
+                "receipt": {
+                    "fee": 19.185,
+                    "date": "2026-08-19T17:18:58.521Z",
+                    "sender": {
+                        "bankCode": 110028,
+                        "bankName": "Nombank MFB",
+                        "accountName": "TR3-G/Taiwo Oyetade Solomon",
+                        "accountNumber": "2773680775"
+                    },
+                    "breakdown": {
+                        "main": 818.8797500000001,
+                        "agent": 314.95375,
+                        "technology": 125.98150000000001
+                    },
+                    "netAmount": 1259.815,
+                    "paymentId": "038361382386",
+                    "reference": "TXN-2026-08-19-AET7H6BBAH",
+                    "recipients": {
+                        "admin": {
+                            "bankCode": "057",
+                            "bankName": "Zenith Bank",
+                            "accountName": "ABUJA MUNICIPAL AREA COUNCIL",
+                            "accountNumber": "1310770007"
+                        },
+                        "agent": {
+                            "bankCode": "305",
+                            "bankName": "Paycom (Opay)",
+                            "accountName": "TAIWO SOLOMON OYETADE",
+                            "accountNumber": "9023519514"
+                        }
+                    },
+                    "grossAmount": 1279,
+                    "paymentReference": "PAY|202689114911313211"
+                },
+                "paymentReference": "PAY|202689114911313211"
+            },
+            "createdAt": "2026-08-19T17:18:58.868Z",
+            "updatedAt": "2026-08-19T17:18:58.868Z"
+        },
+        {
+            "id": "cmszrr64v00041dqkxhx0kf6h",
+            "reference": "TXN-2026-08-19-E3TR0ZHZ5O-PAYMENT",
+            "userId": "MEB-4985080040",
+            "pricingId": "cms6qwbar0000lgoy51iksgqq",
+            "companyId": "PRT-4928279485",
+            "centerId": "URMSAD-7498668525",
+            "amount": 1084.55,
+            "currency": "NGN",
+            "paymentId": "cmsnatam700031j2gywcezdpr",
+            "date": "2026-08-19T07:27:28.974Z",
+            "type": "COMPLETE",
+            "category": null,
+            "name": null,
+            "billing": "YEARLY",
+            "status": "SUCCESS",
+            "metadata": {
+                "split": {
+                    "fee": 16.26825,
+                    "mainAmount": 694.3831374999999,
+                    "agentAmount": 267.07043749999997,
+                    "technologyAmount": 106.82817499999999
+                },
+                "receipt": {
+                    "fee": 16.26825,
+                    "date": "2026-08-19T07:27:28.731Z",
+                    "sender": {
+                        "bankCode": null,
+                        "bankName": null,
+                        "accountName": null,
+                        "accountNumber": null
+                    },
+                    "breakdown": {
+                        "main": 694.3831374999999,
+                        "agent": 267.07043749999997,
+                        "technology": 106.82817499999999
+                    },
+                    "netAmount": 1068.2817499999999,
+                    "paymentId": "cmsnatam700031j2gywcezdpr",
+                    "reference": "TXN-2026-08-19-E3TR0ZHZ5O",
+                    "recipients": {
+                        "admin": {
+                            "bankCode": "057",
+                            "bankName": "Zenith Bank",
+                            "accountName": "ABUJA MUNICIPAL AREA COUNCIL",
+                            "accountNumber": "1310770007"
+                        },
+                        "agent": {
+                            "bankCode": "305",
+                            "bankName": "Paycom (Opay)",
+                            "accountName": "TAIWO SOLOMON OYETADE",
+                            "accountNumber": "9023519514"
+                        }
+                    },
+                    "grossAmount": 1084.55,
+                    "paymentReference": "PAY|20268140082307225"
+                },
+                "paymentReference": "PAY|20268140082307225"
+            },
+            "createdAt": "2026-08-19T07:27:28.975Z",
+            "updatedAt": "2026-08-19T07:27:28.975Z"
+        }
+    ]

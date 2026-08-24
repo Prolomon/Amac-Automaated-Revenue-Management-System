@@ -359,22 +359,37 @@ const getMembers = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit, 10) || 20, 1),
-      100,
+      5000,
     );
     const skip = (page - 1) * limit;
 
+    const where = {};
+    if (
+      id &&
+      id !== "undefined" &&
+      id !== "null" &&
+      id !== "all" &&
+      id !== "ADMIN" &&
+      id !== "IT"
+    ) {
+      where.center = id;
+    }
+
     const [members, total] = await Promise.all([
       prisma.member.findMany({
+        where,
         skip,
         take: limit,
         select: memberSafeSelect,
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.member.count(),
+      prisma.member.count({ where }),
     ]);
 
     return res.status(200).json({
       ok: true,
       data: members,
+      members,
       meta: {
         page,
         limit,
@@ -383,10 +398,11 @@ const getMembers = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("getMembers error:", err);
+    res.status(500).json({ ok: false, message: err?.message || "Server error" });
   }
 };
+
 
 const getMember = async (req, res) => {
   try {

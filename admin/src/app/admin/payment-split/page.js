@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Info,
   PieChart as PieChartIcon,
@@ -15,21 +15,37 @@ import { getMembers } from "@/lib/services/member";
 import { useToast } from "@/context/ToastContext";
 import { updatePaymentConfig } from "@/lib/api";
 
+// Returns YYYY-MM-DD using the browser's LOCAL date, not UTC.
+// toISOString() converts to UTC first, which rolls back to "yesterday"
+// for WAT (UTC+1) users between 00:00–00:59 local time.
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function PaymentSplit() {
   const { user, uid, role } = useAuth();
   const { addToast } = useToast();
-  const centerId =
-    role === "ADMIN" || role === "IT"
-      ? user?.center || user?.uid
-      : user?.center;
+  const centerId = role === "STAFF" ? user?.center : user?.uid;
 
-  const defaultSplits = [
-    { key: "main", name: "Main Account", value: 65, color: "#10b981" },
-    { key: "agent", name: "Agent Commission", value: 25, color: "#3b82f6" },
-    { key: "technology", name: "Technology Fund", value: 10, color: "#8b5cf6" },
-  ];
+  const defaultSplits = useMemo(
+    () => [
+      { key: "main", name: "Main Account", value: 65, color: "#10b981" },
+      { key: "agent", name: "Agent Commission", value: 25, color: "#3b82f6" },
+      {
+        key: "technology",
+        name: "Technology Fund",
+        value: 10,
+        color: "#8b5cf6",
+      },
+    ],
+    [],
+  );
 
   const [transactions, setTransactions] = useState([]);
+  const [members, setMembers] = useState([]);
   const [splits, setSplits] = useState(defaultSplits);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,38 +54,7 @@ export default function PaymentSplit() {
   const [totalDebt, setTotalDebt] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [splitAmounts, setSplitAmounts] = useState({});
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0], // "YYYY-MM-DD", local browser date could still be off near midnight — see note below
-  );
-
-  const fetchTransactions = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await getTransactions(1, 1000, centerId, selectedDate);
-      console.log("Fetched transactions:", response);
-      if (response?.data || response?.transactions) {
-        setTransactions(response.data || response.transactions || []);
-      } else {
-        setTransactions([]);
-      }
-    } catch (e) {
-      addToast("error", e.message || "Failed to fetch transactions");
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast, selectedDate, centerId]);
-
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
-
-  // Currency formatter
-  const currencyFormatter = new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());
 
   const colorPalette = [
     "#10b981",
@@ -88,59 +73,65 @@ export default function PaymentSplit() {
     technology: "Technology Fund",
   };
 
-  const normalizeSplits = (config) => {
-    const allowedKeys = ["main", "agent", "technology"];
-    const synonyms = { admin: "main" };
+  const normalizeSplits = useCallback(
+    (config) => {
+      const allowedKeys = ["main", "agent", "technology"];
+      const synonyms = { admin: "main" };
 
-    const toKey = (k) => {
-      if (!k) return undefined;
-      const low = String(k).toLowerCase();
-      if (allowedKeys.includes(low)) return low;
-      if (synonyms[low]) return synonyms[low];
-      return undefined;
-    };
-
-    if (!config) return defaultSplits;
-
-    const itemsMap = new Map();
-
-    if (Array.isArray(config)) {
-      config.forEach((item, idx) => {
-        const rawKey = item?.key || item?.name || item?.label;
-        const key = toKey(rawKey);
-        const value =
-          typeof item?.value === "number"
-            ? item.value
-            : typeof item?.percentage === "number"
-              ? item.percentage
-              : 0;
-        const name =
-          item?.name || keyToDisplay[key] || item?.label || `Split ${idx + 1}`;
-        const color = item?.color || colorPalette[idx % colorPalette.length];
-        if (key) itemsMap.set(key, { key, name, value, color });
-      });
-    } else if (typeof config === "object" && config !== null) {
-      Object.entries(config).forEach(([k, v], idx) => {
-        const key = toKey(k);
-        if (!key) return;
-        const value = Number(v) || 0;
-        const name = keyToDisplay[key] || k;
-        const color = colorPalette[idx % colorPalette.length];
-        itemsMap.set(key, { key, name, value, color });
-      });
-    }
-
-    return allowedKeys.map((k, idx) => {
-      if (itemsMap.has(k)) return itemsMap.get(k);
-      const def = defaultSplits.find((d) => d.key === k) || {};
-      return {
-        key: k,
-        name: keyToDisplay[k] || def.name || k,
-        value: def.value || 0,
-        color: def.color || colorPalette[idx % colorPalette.length],
+      const toKey = (k) => {
+        if (!k) return undefined;
+        const low = String(k).toLowerCase();
+        if (allowedKeys.includes(low)) return low;
+        if (synonyms[low]) return synonyms[low];
+        return undefined;
       };
-    });
-  };
+
+      if (!config) return defaultSplits;
+
+      const itemsMap = new Map();
+
+      if (Array.isArray(config)) {
+        config.forEach((item, idx) => {
+          const rawKey = item?.key || item?.name || item?.label;
+          const key = toKey(rawKey);
+          const value =
+            typeof item?.value === "number"
+              ? item.value
+              : typeof item?.percentage === "number"
+                ? item.percentage
+                : 0;
+          const name =
+            item?.name ||
+            keyToDisplay[key] ||
+            item?.label ||
+            `Split ${idx + 1}`;
+          const color = item?.color || colorPalette[idx % colorPalette.length];
+          if (key) itemsMap.set(key, { key, name, value, color });
+        });
+      } else if (typeof config === "object" && config !== null) {
+        Object.entries(config).forEach(([k, v], idx) => {
+          const key = toKey(k);
+          if (!key) return;
+          const value = Number(v) || 0;
+          const name = keyToDisplay[key] || k;
+          const color = colorPalette[idx % colorPalette.length];
+          itemsMap.set(key, { key, name, value, color });
+        });
+      }
+
+      return allowedKeys.map((k, idx) => {
+        if (itemsMap.has(k)) return itemsMap.get(k);
+        const def = defaultSplits.find((d) => d.key === k) || {};
+        return {
+          key: k,
+          name: keyToDisplay[k] || def.name || k,
+          value: def.value || 0,
+          color: def.color || colorPalette[idx % colorPalette.length],
+        };
+      });
+    },
+    [defaultSplits],
+  );
 
   const resolvePaymentName = (payment, memberLookup) => {
     const userId =
@@ -162,40 +153,75 @@ export default function PaymentSplit() {
     );
   };
 
-  const calculateSplitAmounts = (baseAmount, currentSplits) => {
-    setTotalRevenue(baseAmount);
+  // ---- Currency formatter ----
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-NG", {
+        style: "currency",
+        currency: "NGN",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  );
 
-    const amounts = {};
-    currentSplits.forEach((split) => {
-      const splitKey = split.key || split.name;
-      amounts[splitKey] = {
-        name: split.name,
-        amount: (baseAmount * Number(split.value || 0)) / 100,
-        percentage: split.value,
-        color: split.color,
-      };
-    });
-    setSplitAmounts(amounts);
-  };
-
-  const loadConfig = async () => {
+  // ---- Fetch transactions for the selected date ----
+  const fetchTransactions = useCallback(async () => {
     try {
-      const config = user?.paymentConfig;
-      const normalized = normalizeSplits(config);
-      setSplits(normalized);
+      setLoading(true);
+      const response = await getTransactions(1, 1000, centerId, selectedDate);
+      if (response?.data || response?.transactions) {
+        setTransactions(response.data || response.transactions || []);
+      } else {
+        setTransactions([]);
+      }
+    } catch (e) {
+      addToast("error", e.message || "Failed to fetch transactions");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, selectedDate, centerId]);
 
-      const memberResponse = await getMembers(1, 1000, centerId).catch(() => ({
-        data: [],
-      }));
-      const members = Array.isArray(memberResponse?.data)
-        ? memberResponse.data
-        : [];
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
+  // ---- Fetch members (independent of splits, only depends on center) ----
+  useEffect(() => {
+    let cancelled = false;
+    getMembers(1, 1000, centerId)
+      .then((res) => {
+        if (!cancelled) setMembers(Array.isArray(res?.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [centerId]);
+
+  // ---- Load saved split config ONCE per user session ----
+  // This must not re-run whenever `transactions` changes, or it will
+  // silently discard any in-progress edits the user made to the sliders.
+  useEffect(() => {
+    const normalized = normalizeSplits(user?.paymentConfig);
+    setSplits(normalized);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, uid]);
+
+  // ---- Recompute breakdown whenever transactions, members, or splits change ----
+  useEffect(() => {
+    try {
       const memberLookup = new Map(
         members
           .filter((member) => member?.uid || member?.id)
           .map((member) => [String(member?.uid || member?.id), member]),
       );
+
+      const mainPct = splits.find((s) => s.key === "main")?.value || 0;
+      const agentPct = splits.find((s) => s.key === "agent")?.value || 0;
+      const techPct = splits.find((s) => s.key === "technology")?.value || 0;
 
       const mappedPayments = transactions.map((payment) => {
         const amount = Number(payment?.amount || 0);
@@ -204,32 +230,15 @@ export default function PaymentSplit() {
           payment?.metadata?.receipt?.netAmount || Math.max(amount - debt, 0),
         );
 
-        const mainPct = normalized.find((s) => s.key === "main")?.value || 65;
-        const agentPct = normalized.find((s) => s.key === "agent")?.value || 25;
-        const techPct =
-          normalized.find((s) => s.key === "technology")?.value || 10;
-
-        const mainAmount = Number(
-          payment?.metadata?.split?.mainAmount ||
-            payment?.metadata?.receipt?.breakdown?.main ||
-            (net * mainPct) / 100,
-        );
-        const agentAmount = Number(
-          payment?.metadata?.split?.agentAmount ||
-            payment?.metadata?.receipt?.breakdown?.agent ||
-            (net * agentPct) / 100,
-        );
-        const technologyAmount = Number(
-          payment?.metadata?.split?.technologyAmount ||
-            payment?.metadata?.receipt?.breakdown?.technology ||
-            (net * techPct) / 100,
-        );
+        const mainAmount = (net * mainPct) / 100;
+        const agentAmount = (net * agentPct) / 100;
+        const technologyAmount = (net * techPct) / 100;
 
         return {
           id:
             payment?.id ||
             payment?.reference ||
-            `${payment?.userId}-${Date.now()}`,
+            `${payment?.userId}-${payment?.date || payment?.createdAt || ""}`,
           userId: payment?.userId || "",
           name: resolvePaymentName(payment, memberLookup),
           reference: payment?.reference || "",
@@ -266,47 +275,43 @@ export default function PaymentSplit() {
         (sum, item) => sum + item.technologyAmount,
         0,
       );
-      const actualSplitTotal = totalMain + totalAgent + totalTech;
 
       setPaymentChecks(mappedPayments);
       setGrossRevenue(grossTotal);
       setTotalDebt(debtTotal);
-      setTotalRevenue(actualSplitTotal || netTotal);
+      setTotalRevenue(netTotal);
 
       const amounts = {};
-      normalized.forEach((split) => {
+      splits.forEach((split) => {
         const key = split.key;
         let amount = (netTotal * Number(split.value || 0)) / 100;
-        if (key === "main") amount = totalMain || amount;
-        else if (key === "agent") amount = totalAgent || amount;
-        else if (key === "technology") amount = totalTech || amount;
+        if (key === "main") amount = totalMain;
+        else if (key === "agent") amount = totalAgent;
+        else if (key === "technology") amount = totalTech;
 
         amounts[key] = {
           name: split.name,
-          amount: amount,
+          amount,
           percentage: split.value,
           color: split.color,
         };
       });
       setSplitAmounts(amounts);
     } catch (e) {
-      console.error("Error loading config:", e);
+      console.error("Error computing payment split breakdown:", e);
       addToast("error", e.message || "Failed to process transaction split");
     }
-  };
-
-  useEffect(() => {
-    loadConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, uid, transactions]);
+  }, [transactions, members, splits]);
 
   const handleSplitChange = (index, newValue) => {
-    const val = parseInt(newValue, 10) || 0;
+    let val = parseInt(newValue, 10);
+    if (Number.isNaN(val)) val = 0;
+    val = Math.min(100, Math.max(0, val)); // clamp to 0–100
     const newSplits = splits.map((split, idx) =>
       idx === index ? { ...split, value: val } : split,
     );
     setSplits(newSplits);
-    calculateSplitAmounts(totalRevenue, newSplits);
   };
 
   const handleSaveConfig = async () => {
