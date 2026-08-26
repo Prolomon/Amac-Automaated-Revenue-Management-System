@@ -82,6 +82,8 @@ const nombaWebhook = async (req, res) => {
   // ✅ Signature verified
   console.log('Webhook verified');
 
+  console.log("Log for the payment Event: ", req.body)
+
   try {
     const event = req.body;
 
@@ -204,6 +206,8 @@ const nombaWebhook = async (req, res) => {
 
       try {
         const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
+
+        console.log("Split log: ", splitResult)
 
         if (!splitResult.ok) {
           return res.status(400).json({ ok: false, message: splitResult.message });
