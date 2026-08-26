@@ -561,7 +561,7 @@ const makePayment = async (req, res) => {
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: center, role: "ADMIN" },
+        where: { userId: member.center || center, role: "ADMIN" },
         select: {
           id: true,
           userId: true,
@@ -650,8 +650,6 @@ const makePayment = async (req, res) => {
         .status(404)
         .json({ ok: false, message: "Payment record not found" });
     }
-
-    console.log("this is the center: ", main)
 
     if (!main) {
       return res
@@ -943,27 +941,12 @@ const makePayment = async (req, res) => {
 
     // Initiate Nomba transfer to admin's bank account if main wallet exists
     if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
-
-      const payout = await prisma.payout.findFirst({
-        where: {
-          userId: center,
-        },
-      })
-
-      // BUG FIX: `payout.accountNumber` etc. would throw if no payout record
-      // existed, silently swallowed by the catch below with a generic
-      // message. Guarded with optional chaining so it clearly falls back to
-      // mainWallet's own details instead.
-      if (!payout) {
-        console.error('No payout record found for admin transfer, falling back to mainWallet details');
-      }
-
       try {
         const adminTransfer = await nombaTransfer(
           mainAmount,
-          payout?.accountNumber || mainWallet.accountNo,
-          payout?.accountName || 'Admin',
-          payout?.bankCode || mainWallet.bank?.code,
+          mainWallet.accountNo,
+          mainWallet.accountName || 'main',
+          mainWallet.bank.code,
           `${receiptReference}-ADMIN-TRANSFER`,
           `${senderDetails.accountName || ' - Payment Split'}`,
           'Admin wallet payout'
@@ -1250,7 +1233,7 @@ const confirmPayment = async (req, res) => {
           },
         }),
         prisma.wallet.findFirst({
-          where: { userId: center, role: "ADMIN" },
+          where: { userId: member?.center || center, role: "ADMIN" },
           select: {
             id: true,
             userId: true,
@@ -1646,16 +1629,12 @@ const confirmPayment = async (req, res) => {
     }
 
     if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
-      const payout = await prisma.payout.findFirst({
-        where: { userId: center },
-      });
-
       try {
         const adminTransfer = await nombaTransfer(
           mainAmount,
-          payout?.accountNumber || mainWallet.accountNo,
-          payout?.accountName || "Admin",
-          payout?.bankCode || mainWallet.bank?.code,
+          mainWallet.accountNo,
+          mainWallet.accountName || 'main',
+          mainWallet.bank.code,
           `${receiptReference}-ADMIN-TRANSFER`,
           `${senderDetails.accountName || " - Payment Split"}`,
           "Admin wallet payout"
@@ -1703,14 +1682,10 @@ const confirmPayment = async (req, res) => {
 };
 
 const paymentSplit = async (amount, center, company, userId, paymentId, agentId) => {
-  console.log("|===   Started Payment Split   ===|")
-  console.log(amount, center, company, userId, paymentId, agentId)
   try {
     const member = await prisma.member.findUnique({
       where: { uid: userId },
     });
-
-    console.log("Member Data: ", member)
 
     if (!member) {
       return { ok: false, message: "Member not found" }
@@ -1772,7 +1747,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: member?.center || center },
+        where: { userId: member?.center || center, role: "ADMIN" },
         select: {
           id: true,
           userId: true,
@@ -1850,13 +1825,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
     ]);
-
-    console.log( paymentRecord,
-      main,
-      mainWallet,
-      agentWallet,
-      senderWallet,
-      technologyWallet)
 
     if (!paymentRecord) {
       return { ok: false, message: "Payment record not found" };
@@ -2080,8 +2048,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       });
 
-      console.log("payment Transaction: ", paymentTransaction)
-
       return { payment: updatedPayment, paymentTransaction };
     });
 
@@ -2109,40 +2075,12 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
     // Initiate Nomba transfer to admin's bank account if main wallet exists
     if (mainWallet && mainWallet.accountNo && mainWallet.bank?.code) {
 
-      const payout = await prisma.payout.findFirst({
-        where: {
-          userId: center,
-        },
-      })
-
-      if (!payout) {
-        try {
-          if (technologyWallet && technologyWallet.accountNo && technologyWallet.bank?.code) {
-            const techTransfer = await nombaTransfer(
-              mainAmount,
-              technologyWallet.accountNo,
-              technologyWallet.accountName || 'Admin',
-              technologyWallet.bank.code,
-              `${receiptReference}-Technology-TRANSFER`,
-              `${senderDetails.accountName || ' - Payment Split'}`,
-              'Technology wallet payout'
-            );
-            if (!techTransfer?.status) {
-              console.error('Tech fallback Nomba transfer failed:', techTransfer?.message);
-            }
-          } else {
-            console.error('No payout record and technology wallet unavailable for admin fallback transfer');
-          }
-        } catch (transferError) {
-          console.error('Tech fallback Nomba transfer error:', transferError?.message || transferError);
-        }
-      } else {
         try {
           const adminTransfer = await nombaTransfer(
             mainAmount,
-            payout.accountNumber || mainWallet.accountNo,
-            payout.accountName || 'Admin',
-            payout.bankCode || mainWallet.bank?.code,
+            mainWallet.accountNo,
+            mainWallet.accountName || 'main',
+            mainWallet.bank.code,
             `${receiptReference}-ADMIN-TRANSFER`,
             `${senderDetails.accountName || ' - Payment Split'}`,
             'Admin wallet payout'
@@ -2153,7 +2091,6 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         } catch (transferError) {
           console.error('Admin Nomba transfer error:', transferError?.message || transferError);
         }
-      }
     }
 
     return {
