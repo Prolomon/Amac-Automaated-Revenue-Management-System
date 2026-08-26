@@ -1110,7 +1110,7 @@ const changeMemberCompany = async (req, res) => {
 
     const updatedMember = await prisma.member.update({
       where: { uid: value.userId },
-      data: { company: value.companyId, agent: "" },
+      data: { company: value.companyId, agent: null },
       select: memberSafeSelect,
     });
 
