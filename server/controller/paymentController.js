@@ -1703,10 +1703,14 @@ const confirmPayment = async (req, res) => {
 };
 
 const paymentSplit = async (amount, center, company, userId, paymentId, agentId) => {
+  console.log("|===   Started Payment Split   ===|")
+  console.log(amount, center, company, userId, paymentId, agentId)
   try {
     const member = await prisma.member.findUnique({
       where: { uid: userId },
     });
+
+    console.log("Member Data: ", member)
 
     if (!member) {
       return { ok: false, message: "Member not found" }
@@ -1846,6 +1850,13 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
     ]);
+
+    console.log( paymentRecord,
+      main,
+      mainWallet,
+      agentWallet,
+      senderWallet,
+      technologyWallet)
 
     if (!paymentRecord) {
       return { ok: false, message: "Payment record not found" };
@@ -2068,6 +2079,8 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
           },
         },
       });
+
+      console.log("payment Transaction: ", paymentTransaction)
 
       return { payment: updatedPayment, paymentTransaction };
     });
