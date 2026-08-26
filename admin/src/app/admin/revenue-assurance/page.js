@@ -104,7 +104,7 @@ export default function AssurancePage() {
   const metrics = useMemo(() => {
     const totalVolume = normalizedPayments.reduce((sum, payment) => sum + payment._amount, 0);
     const completed = normalizedPayments.filter(
-      (payment) => payment._status === "COMPLETED" || payment._status === "SUCCESS",
+      (payment) => payment._status === "COMPLETED" || payment._status === "SUCCESS" || payment._status === "PAID",
     );
     const pending = normalizedPayments.filter((payment) => payment._status === "PENDING");
     const failed = normalizedPayments.filter((payment) => payment._status === "FAILED");
@@ -124,7 +124,7 @@ export default function AssurancePage() {
     const complianceRate = normalizedPayments.length > 0 ? (compliant.length / normalizedPayments.length) * 100 : 0;
 
     const overdueCount = normalizedPayments.filter((p) => {
-      if (p._status === "COMPLETED" || p._status === "SUCCESS") return false;
+      if (p._status === "COMPLETED" || p._status === "SUCCESS" || p._status === "PAID") return false;
       if (!p.due) return false;
       return new Date() > new Date(p.due);
     }).length;
@@ -167,7 +167,7 @@ export default function AssurancePage() {
       .slice(0, 3)
       .map((payment) => {
         const status = payment._status;
-        if (status === "COMPLETED" || status === "SUCCESS") {
+        if (status === "COMPLETED" || status === "SUCCESS" || status === "PAID") {
           return {
             tone: "emerald",
             icon: CheckCircle,
