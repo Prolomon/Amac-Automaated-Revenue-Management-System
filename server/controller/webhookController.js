@@ -65,18 +65,18 @@ function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
 
 const nombaWebhook = async (req, res) => {
 
-  // const signature = req.headers['nomba-signature'];
-  // const timeStamp = req.headers['nomba-timestamp'];
-  // const secret = process.env.NOMBA_PRIVATE_SECRET;
+  const signature = req.headers['nomba-signature'];
+  const timeStamp = req.headers['nomba-timestamp'];
+  const secret = process.env.NOMBA_PRIVATE_SECRET;
 
-  // console.log(`Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`);
-  // console.log(`Raw body: ${req.rawBody}`);
+  console.log(`Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`);
+  console.log(`Raw body: ${req.rawBody}`);
 
-  // const isVerify = verifySignature(secret, req.rawBody, signature, timeStamp);
-  // console.log(`Signature verification result: ${isVerify}`);
+  const isVerify = verifySignature(secret, req.rawBody, signature, timeStamp);
+  console.log(`Signature verification result: ${isVerify}`);
 
   // if (!isVerify) {
-  //   return res.status(401).json({ ok: false, message: 'Invalid signature' });
+  //   return res.status(401).json({ ok: false, message: 'Nice Try!!' });
   // }
 
   // ✅ Signature verified
@@ -111,7 +111,7 @@ const nombaWebhook = async (req, res) => {
 
     const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    if (String(txn.type).toLowerCase() === String('purchase').toLowerCase()) {
+    if (String(txn.type).toLowerCase() === 'purchase') {
       const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)?.[1];
       const paymentRefMatch = txn.merchantTxRef.match(/PAY\|?(.*?)-/);
 
@@ -120,103 +120,115 @@ const nombaWebhook = async (req, res) => {
       }
       const paymentRef = "PAY|" + paymentRefMatch[1];
 
-      // BUG FIX: no duplicate/idempotency check existed on this branch at all,
-      // unlike the wallet-credit branch below. Webhook redelivery would re-run
-      // paymentSplit — double debt reduction, double wallet credits, and a
-      // second real-money Nomba payout to the agent's bank account.
-      const existingPending = await prisma.transaction.findUnique({
-        where: { reference: `${transactionReference}-MERCHANT-PENDING` },
-      });
-      if (existingPending) {
-        return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+      // Atomic idempotency gate: insert a PENDING marker with a unique reference
+      // *before* calling paymentSplit(). A retried/concurrent webhook hits the
+      // unique constraint here and is ignored, instead of racing ahead to
+      // re-run paymentSplit(). (The old check looked for a "-MERCHANT-PENDING"
+      // reference — a suffix this branch never actually wrote — so it never
+      // caught anything.)
+      const pendingReference = `${transactionReference}-AGENT-PENDING`;
+      let pendingRecord;
+      try {
+        pendingRecord = await prisma.transaction.create({
+          data: {
+            reference: pendingReference,
+            status: 'PENDING',
+            gatewayResponse: 'Split pending',
+            merchantTxRef: agentId || null,
+            event: 'nomba.payment_success',
+            amount,
+            currency: 'NGN',
+            channel: 'card',
+            customerEmail,
+            paymentId: null,
+            userId: agentId || null,
+            metadata: { requestId: event.requestId || null, status: 'PENDING' },
+            rawPayload: event,
+          },
+        });
+      } catch (err) {
+        if (err?.code === 'P2002') {
+          const existing = await prisma.transaction.findUnique({ where: { reference: pendingReference } });
+          if (existing?.status === 'FAILED') {
+            // Previous attempt failed cleanly (paymentSplit's own $transaction
+            // should have rolled back) — safe to retry. Reopen the marker.
+            pendingRecord = await prisma.transaction.update({
+              where: { id: existing.id },
+              data: { status: 'PENDING', gatewayResponse: 'Retrying split' },
+            });
+          } else {
+            // SUCCESS, or still PENDING (a concurrent delivery is mid-flight) —
+            // don't re-run the split.
+            return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+          }
+        } else {
+          throw err;
+        }
       }
 
-      const payment = await prisma.payment.findFirst({
-        where: { reference: paymentRef },
-      });
-
+      const payment = await prisma.payment.findFirst({ where: { reference: paymentRef } });
       if (!payment) {
+        await prisma.transaction.update({
+          where: { id: pendingRecord.id },
+          data: { status: 'FAILED', gatewayResponse: 'Payment not found' },
+        });
         return res.status(404).json({ ok: false, message: `Payment not found for reference ${paymentRef}` });
       }
 
-      const member = await prisma.member.findFirst({
-        where: {
-          uid: payment.userId,
-        },
-      });
-
+      const member = await prisma.member.findFirst({ where: { uid: payment.userId } });
       if (!member) {
+        await prisma.transaction.update({
+          where: { id: pendingRecord.id },
+          data: { status: 'FAILED', gatewayResponse: 'Member not found' },
+        });
         return res.status(404).json({ ok: false, message: `Member not found for userId ${payment.userId}` });
       }
 
-      const baseTransactionData = {
-        merchantTxRef: agentId || member.agent,
-        event: 'nomba.payment_success',
-        amount,
-        currency: 'NGN',
-        channel: 'card',
-        customerEmail,
-        paymentId: payment.id || payment.reference,
-        userId: agentId || member.agent,
-        metadata: {
-          requestId: event.requestId || null,
-          role: 'AGENT',
-          transactionType: 'CREDIT',
-          creditedAmount: amount,
-          senderAccountNumber: senderDetails.accountNumber || null,
-          senderBankName: senderDetails.cardPan || null,
-          senderBankCode: senderDetails.productId || null,
-          senderName: senderDetails.cardPan || null,
-          aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
-          aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
-          aliasAccountReference: aliasRef,
-          aliasAccountType: txn?.aliasAccountType || null,
-          sessionId: txn?.sessionId || null,
-          transactionId: txn?.transactionId || null,
-          transactionTypeName: txn?.type || null,
-          narration: txn?.narration || null,
-          time: txn?.time || null,
-          originatingFrom: txn?.originatingFrom || null,
-          merchant,
-          transaction: txn,
-        },
-        rawPayload: event,
-      };
-
-      await prisma.transaction.create({
-        data: {
-          reference: `${transactionReference}-AGENT-SUCCESS`,
-          status: 'SUCCESS',
-          gatewayResponse: 'Wallet credit pending',
-          merchantTxRef: agentId || member.agent,
-          event: 'nomba.payment_success',
-          amount,
-          currency: 'NGN',
-          channel: 'card',
-          customerEmail,
-          paymentId: null,
-          userId: agentId || member.agent,
-          metadata: {
-            ...baseTransactionData.metadata,
-            status: 'PENDING',
-          },
-          rawPayload: event,
-        },
-      });
-
       try {
-        const splitResult = await paymentSplit(amount - fee, member.center, member.company, payment.userId, payment.reference, agentId || member?.agent);
+        const splitResult = await paymentSplit(
+          amount - fee,
+          member.center,
+          member.company,
+          payment.userId,
+          payment.reference,
+          agentId || member?.agent
+        );
 
-        console.log("Split log: ", splitResult)
+        console.log("Split log: ", splitResult);
 
         if (!splitResult.ok) {
+          // paymentSplit reported a handled failure (not a thrown error) — mark
+          // FAILED so a legitimate retry isn't blocked by the PENDING row.
+          await prisma.transaction.update({
+            where: { id: pendingRecord.id },
+            data: { status: 'FAILED', gatewayResponse: splitResult.message || 'Split failed' },
+          });
           return res.status(400).json({ ok: false, message: splitResult.message });
         }
+
+        // Split succeeded — flip the marker to SUCCESS so any future replay of
+        // this event is caught by the unique constraint and ignored.
+        await prisma.transaction.update({
+          where: { id: pendingRecord.id },
+          data: {
+            reference: `${transactionReference}-AGENT-SUCCESS`,
+            status: 'SUCCESS',
+            gatewayResponse: 'Split completed',
+            metadata: { ...pendingRecord.metadata, status: 'SUCCESS', splitResult: splitResult.data },
+          },
+        });
 
         return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
 
       } catch (err) {
         console.error('Error during payment split:', err);
+        // paymentSplit threw (network/db error) — its own $transaction should
+        // have rolled back, so nothing was actually credited. Mark FAILED so a
+        // retry is allowed instead of being permanently swallowed as a dup.
+        await prisma.transaction.update({
+          where: { id: pendingRecord.id },
+          data: { status: 'FAILED', gatewayResponse: err?.message || 'Split error' },
+        }).catch(() => { }); // best-effort; don't mask the original error
         return res.status(500).json({ ok: false, message: 'Error processing payment split' });
       }
     } else {
