@@ -25,11 +25,7 @@ export default function AddPartnerPage() {
   })
   const [priceLoading, setPriceLoading] = useState(false);
   const { resolveBankAccount } = useWallet();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
-
-  if (user?.permission?.canAddPartner === false) {
-    router.push("/admin");
-  }
+  const centerId = role === "ADMIN" ? user?.uid : user?.center;
 
   const [bankList, setBankList] = useState<{ code: string, logo: string, name: string, nipCode: null }[]>([]);
 
