@@ -99,7 +99,7 @@ export default function Sidebar({ onClose }) {
       },
       {
         href: "/admin/search",
-        label: "Advanced Search", 
+        label: "Finance Tracker", 
         icon: <Search size={18} />,
       },
       { href: "/admin/wallet", label: "Wallet", icon: <Wallet2 size={18} /> },
