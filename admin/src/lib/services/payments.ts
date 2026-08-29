@@ -22,6 +22,7 @@ export type Payment = {
     | "FAILED"
     | "CANCELLED"
     | "REFUNDED"
+    | "PAID"
     | "COMPLETED";
   due: Date | null;
   member?: Member;

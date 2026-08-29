@@ -567,7 +567,7 @@ export default function PaymentPage() {
                     <p className="text-xs text-[#5B6B62]">Payment Status</p>
                     <span
                       className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                        paymentData.status === "SUCCESS"
+                        paymentData.status === "SUCCESS" || paymentData.status === "PAID" || paymentData.status === "COMPLETED"
                           ? "bg-[#E4F5EB] text-[#158049]"
                           : paymentData.status === "PENDING"
                             ? "bg-[#E8A33D]/15 text-[#8A5A17]"
@@ -592,15 +592,12 @@ export default function PaymentPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-[#5B6B62]">Date</p>
+                    <p className="text-xs text-[#5B6B62]">Discount</p>
                     <p className="text-sm font-medium text-[#0E1F17]">
-                      {new Date(paymentData.date).toLocaleDateString("en-NG", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {paymentData.discount || 0}
                     </p>
                   </div>
+                  
                   {paymentData.due && (
                     <div>
                       <p className="text-xs text-[#5B6B62]">Due Date</p>

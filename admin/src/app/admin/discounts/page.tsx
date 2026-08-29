@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, CheckCircle2, Clock, Search, Tag, User, CreditCard } from "lucide-react";
+import { Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, CheckCircle2, Clock, Search, Tag, User, CreditCard } from "lucide-react";
 import { getRequests, Request } from "@/lib/services/request";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/context/AuthContext";
@@ -13,7 +13,7 @@ function DiscountRequestsListPage() {
   const [loading, setLoading] = useState(true);
   const { user, role } = useAuth();
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? user?.center : user?.center;
+  const centerId = role === "ADMIN" || role === "IT" ? user?.uid : user?.center;
 
   const [meta, setMeta] = useState<{ total: string | number; page: string | number; limit: string | number; totalPages: number }>({
     total: 0,
@@ -268,7 +268,7 @@ function DiscountRequestsListPage() {
           ) : (
             <>
               {requests.map((req) => {
-                const isApproved = req.status === true;
+                const isApproved = req.status === "APPROVED";
                 const originalAmount = req.payment?.amount || 0;
                 const currentDiscount = req.payment?.discount || 0;
                 const pricingTitle = req.payment?.pricing?.title || "Revenue Assessment";

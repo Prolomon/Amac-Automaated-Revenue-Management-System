@@ -16,25 +16,13 @@ export type Staff = {
   role?: "STAFF";
   createdAt?: Date;
   updatedAt?: Date;
-  permission?: { 
-    canViewWallet: boolean;
-    canCreateEntity: boolean;
-    canViewEntity: boolean;
-    canEditEntity: boolean;
-    canDeleteEntity: boolean;
-    canCreatePartner: boolean;
-    canViewPartner: boolean;
-    canEditPartner: boolean;
-    canDeletePartner: boolean;
-    canCreatePricing: boolean;
-    canViewPricing: boolean;
-    canEditPricing: boolean;
-    canDeletePricing: boolean;
-    canViewSplit: boolean;
-    canSearch: boolean;
-    canViewAssurance: boolean;
-    canSupport: boolean;
-  };
+  departmentId?: string | null;
+  department?: {
+    uid?: string;
+    name?: string;
+    role?: string;
+    status?: boolean;
+  } | null;
 };
 
 export async function getStaffs(

@@ -23,6 +23,7 @@ import {
 } from "@/lib/services/staff";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { getDepartmentsByCenter, Department } from "@/lib/services/department";
 import { useParams } from "next/navigation";
 
 export default function StaffDetailsPage() {
@@ -39,30 +40,27 @@ export default function StaffDetailsPage() {
         phone: "",
         gender: "",
         location: "",
-        permission: {
-            canViewWallet: false,
-            canCreateEntity: false,
-            canViewEntity: false,
-            canEditEntity: false,
-            canDeleteEntity: false,
-            canCreatePartner: false,
-            canViewPartner: false,
-            canEditPartner: false,
-            canDeletePartner: false,
-            canCreatePricing: false,
-            canViewPricing: false,
-            canEditPricing: false,
-            canDeletePricing: false,
-            canViewSplit: false,
-            canSearch: false,
-            canViewAssurance: false,
-            canSupport: false,
-        },
+        departmentId: "",
     });
     const { addToast } = useToast();
     const [saving, setSaving] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [departments, setDepartments] = useState<Department[]>([]);
+
+    useEffect(() => {
+        const centerId = staff?.center || "";
+        if (!centerId) return;
+        const loadDepartments = async () => {
+            try {
+                const data = await getDepartmentsByCenter(centerId, { page: 1, limit: 100 });
+                setDepartments(Array.isArray(data?.data) ? data.data : []);
+            } catch (e) {
+                setDepartments([]);
+            }
+        };
+        loadDepartments();
+    }, [staff?.center]);
 
     useEffect(() => {
         let mounted = true;
@@ -80,25 +78,7 @@ export default function StaffDetailsPage() {
                     phone: data?.phone || "",
                     gender: data?.gender || "",
                     location: data?.location || "",
-                    permission: (data?.permission as any) || {
-                        canViewWallet: false,
-                        canCreateEntity: false,
-                        canViewEntity: false,
-                        canEditEntity: false,
-                        canDeleteEntity: false,
-                        canCreatePartner: false,
-                        canViewPartner: false,
-                        canEditPartner: false,
-                        canDeletePartner: false,
-                        canCreatePricing: false,
-                        canViewPricing: false,
-                        canEditPricing: false,
-                        canDeletePricing: false,
-                        canViewSplit: false,
-                        canSearch: false,
-                        canViewAssurance: false,
-                        canSupport: false,
-                    },
+                    departmentId: data?.departmentId || "",
                 });
             } catch (e) {
                 console.error(e);
@@ -136,7 +116,8 @@ export default function StaffDetailsPage() {
         setSaving(true);
         try {
             const payload = {
-                ...form
+                ...form,
+                departmentId: form.departmentId || null,
             };
 
             await updateStaff(id as string, payload);
@@ -181,25 +162,7 @@ export default function StaffDetailsPage() {
                 phone: data?.phone || "",
                 gender: data?.gender || "",
                 location: data?.location || "",
-                permission: (data?.permission as any) || {
-                    canViewWallet: false,
-                    canCreateEntity: false,
-                    canViewEntity: false,
-                    canEditEntity: false,
-                    canDeleteEntity: false,
-                    canCreatePartner: false,
-                    canViewPartner: false,
-                    canEditPartner: false,
-                    canDeletePartner: false,
-                    canCreatePricing: false,
-                    canViewPricing: false,
-                    canEditPricing: false,
-                    canDeletePricing: false,
-                    canViewSplit: false,
-                    canSearch: false,
-                    canViewAssurance: false,
-                    canSupport: false,
-                },
+                departmentId: data?.departmentId || "",
             });
             addToast("success", "Staff loaded");
         } catch (e) {
@@ -216,25 +179,7 @@ export default function StaffDetailsPage() {
             phone: staff?.phone || "",
             gender: staff?.gender || "",
             location: staff?.location || "",
-            permission: (staff?.permission as typeof form.permission) || {
-                canViewWallet: false,
-                canCreateEntity: false,
-                canViewEntity: false,
-                canEditEntity: false,
-                canDeleteEntity: false,
-                canCreatePartner: false,
-                canViewPartner: false,
-                canEditPartner: false,
-                canDeletePartner: false,
-                canCreatePricing: false,
-                canViewPricing: false,
-                canEditPricing: false,
-                canDeletePricing: false,
-                canViewSplit: false,
-                canSearch: false,
-                canViewAssurance: false,
-                canSupport: false,
-            },
+            departmentId: staff?.departmentId || "",
         });
         setAvatarFileName("");
         setEditing(false);
@@ -550,237 +495,29 @@ export default function StaffDetailsPage() {
                         </div>
                     </div>
 
-                    {/* Permissions Section */}
+                    {/* Department Section */}
                     <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
                         <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                            Staff Permissions
+                            Department
                         </h3>
-                        <div className="space-y-4">
-                            {/* Staff Management */}
-                            <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Staff Management</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "canCreateStaff", label: "Create" },
-                                        { key: "canViewStaff", label: "View" },
-                                        { key: "canEditStaff", label: "Edit" },
-                                        { key: "canDeleteStaff", label: "Delete" },
-                                    ].map((perm) => (
-                                        editing ? (
-                                            <button
-                                                key={perm.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        permission: {
-                                                            ...prev.permission,
-                                                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                                                        },
-                                                    }))
-                                                }
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </button>
-                                        ) : (
-                                            <span
-                                                key={perm.key}
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
+                        {editing ? (
+                            <select
+                                value={form.departmentId || ""}
+                                onChange={(e) => handleChange("departmentId", e.target.value)}
+                                className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                            >
+                                <option value="">No Department</option>
+                                {departments.map((department) => (
+                                    <option key={department.uid} value={department.uid}>
+                                        {department.name}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                {staff?.department?.name || "No Department"}
                             </div>
-
-                            {/* Entity Management */}
-                            <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Entity Management</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "canCreateEntity", label: "Create" },
-                                        { key: "canViewEntity", label: "View" },
-                                        { key: "canEditEntity", label: "Edit" },
-                                        { key: "canDeleteEntity", label: "Delete" },
-                                    ].map((perm) => (
-                                        editing ? (
-                                            <button
-                                                key={perm.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        permission: {
-                                                            ...prev.permission,
-                                                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                                                        },
-                                                    }))
-                                                }
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </button>
-                                        ) : (
-                                            <span
-                                                key={perm.key}
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Partner Management */}
-                            <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Partner Management</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "canCreatePartner", label: "Create" },
-                                        { key: "canViewPartner", label: "View" },
-                                        { key: "canEditPartner", label: "Edit" },
-                                        { key: "canDeletePartner", label: "Delete" },
-                                    ].map((perm) => (
-                                        editing ? (
-                                            <button
-                                                key={perm.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        permission: {
-                                                            ...prev.permission,
-                                                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                                                        },
-                                                    }))
-                                                }
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </button>
-                                        ) : (
-                                            <span
-                                                key={perm.key}
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Pricing Management */}
-                            <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Pricing Management</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "canCreatePricing", label: "Create" },
-                                        { key: "canViewPricing", label: "View" },
-                                        { key: "canEditPricing", label: "Edit" },
-                                        { key: "canDeletePricing", label: "Delete" },
-                                    ].map((perm) => (
-                                        editing ? (
-                                            <button
-                                                key={perm.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        permission: {
-                                                            ...prev.permission,
-                                                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                                                        },
-                                                    }))
-                                                }
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </button>
-                                        ) : (
-                                            <span
-                                                key={perm.key}
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Other Permissions */}
-                            <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Other</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { key: "canViewWallet", label: "View Wallet" },
-                                        { key: "canViewSplit", label: "View Split" },
-                                        { key: "canSearch", label: "Search" },
-                                        { key: "canViewAssurance", label: "View Assurance" },
-                                    ].map((perm) => (
-                                        editing ? (
-                                            <button
-                                                key={perm.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        permission: {
-                                                            ...prev.permission,
-                                                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                                                        },
-                                                    }))
-                                                }
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </button>
-                                        ) : (
-                                            <span
-                                                key={perm.key}
-                                                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 ${form.permission[perm.key as keyof typeof form.permission]
-                                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                                    }`}
-                                            >
-                                                {perm.label}
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* detail summary */}

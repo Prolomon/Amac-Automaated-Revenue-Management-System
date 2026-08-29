@@ -32,12 +32,11 @@ const getDatabaseUrl = () => {
 
 const prismaPool = new Pool({
   connectionString: getDatabaseUrl(),
-  max: 10,
-  idleTimeoutMillis: 30000,        // recycle idle clients before the provider does
-  connectionTimeoutMillis: 10000,  // fail fast instead of hanging for minutes
+  max: 15,                         // more headroom for health probes + crons + requests
+  idleTimeoutMillis: 60000,        // keep warm connections longer (handshakes to Supabase are expensive)
+  connectionTimeoutMillis: 20000,  // fail slower instead of killing the request mid-flight
   keepAlive: true,                 // TCP keepalive so dead connections are detected quickly
   keepAliveInitialDelayMillis: 10000,
-  allowExitOnIdle: true,
 });
 
 prismaPool.on("error", (err) => {

@@ -191,7 +191,7 @@ export default function PaymentPage() {
   const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
   const penalty = subtotal * penaltyRatePerDay * daysOverdue;
 
-  const totalAmount = subtotal + penalty - payment?.payment?.discount;
+  const totalAmount = subtotal + penalty - Number(payment?.payment?.discount || 0);
 
   const handleConfirmPayment = async () => {
     if (!id) {
@@ -495,7 +495,7 @@ export default function PaymentPage() {
                 </p>
               </div>
             </div>
-          )} 
+          )}
 
           {/* Wallet & Agent Info */}
           <div className="mb-8 grid gap-6 grid-cols-2 max-lg:grid-cols-1-2">
@@ -662,25 +662,67 @@ export default function PaymentPage() {
           </div>
 
           {/* Discount Requests */}
-          {selectedPayment && (<div className="my-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">
-            <div className="border-b border-[#E1E7E2] bg-[#F5F7F5] px-6 py-4">
-              <h2 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">
-                Discount Requests
-              </h2>
-            </div>
-            <div className="grid gap-6 divide-y divide-[#E1E7E2] px-6 py-8 grid-cols-2 max-lg:grid-cols-1 md:divide-y-0">
-              {requests.length === 0 ? (
-                <div className="px-6 py-8 text-center text-sm text-[#5B6B62]">
-                  No discount requests found.
-                </div>
-              ) : (
-                requests.map((request, index) => (
-                  <button
-                    key={request?.id || index}
-                    onClick={() =>
-                      setSelectedPayment(request?.id)
-                    }
-                    className={`rounded-2xl border border-[#E1E7E2] px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === request?.id && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
+          {selectedPayment && (
+            <div className="my-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">
+              <div className="border-b border-[#E1E7E2] bg-[#F5F7F5] px-6 py-4">
+                <h2 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">
+                  Discount Requests
+                </h2>
+              </div>
+
+              <div className="grid gap-6 divide-y divide-[#E1E7E2] px-6 py-8 grid-cols-2 max-lg:grid-cols-1 md:divide-y-0">
+                {requests.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-[#5B6B62]">
+                    No discount requests found.
+                  </div>
+                ) : (
+                  requests.map((request, index) => (
+                    <button
+                      key={request?.id || index}
+                      onClick={() => setSelectedPayment(request?.id)}
+                      className={`rounded-2xl border border-[#E1E7E2] px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === request?.id && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-left text-sm font-medium text-[#0E1F17]">
+                              {request?.payment?.pricing.title.trim() ||
+                                "Payment"}
+                            </p>
+                            <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
+                              Request ID: {request?.id}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-[#0E1F17]">
+                              {formatCurrency(request?.amount || 0)}
+                            </p>
+                            <span
+                              className={`w-auto inline-block items-center justify-center text-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(request?.status)}`}
+                            >
+                              {request?.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] mt-2">
+                        <p className="text-sm text-[#5B6B62]">
+                          {request?.reason ||
+                            "No Comment available for this request."}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+
+                {payment?.payment?.status != "PAID" || payment.payment.discount > 0 && (
+                  <div
+                    className={`rounded-2xl border border-[#E1E7E2] object-fit w-full px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -689,89 +731,54 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <p className="text-left text-sm font-medium text-[#0E1F17]">
-                            {request?.payment?.pricing.title.trim() ||
+                            {payment?.payment?.pricing.title.trim() ||
                               "Payment"}
                           </p>
                           <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
-                            Request ID: {request?.id}
+                            Ref: {payment?.payment?.reference}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <p className="text-sm font-semibold text-[#0E1F17]">
-                            {formatCurrency(request?.amount || 0)}
+                            {formatCurrency(totalAmount)}
                           </p>
-                          <span
-                            className={`w-auto inline-block items-center justify-center text-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(request?.status)}`}
-                          >
-                            {request?.status}
-                          </span>
+                          <p className="text-xs text-[#5B6B62]">
+                            Due: {formatDate(payment?.payment?.due)}
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] mt-2">
-                      <p className="text-sm text-[#5B6B62]">
-                        {request?.reason || "No Comment available for this request."}
-                      </p>
-                    </div>
-                  </button>
-                ))
-              )}
-
-              <div
-                className={`rounded-2xl border border-[#E1E7E2] object-fit w-full px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-left text-sm font-medium text-[#0E1F17]">
-                        {payment?.payment?.pricing.title.trim() || "Payment"}
-                      </p>
-                      <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
-                        Ref: {payment?.payment?.reference}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-[#0E1F17]">
-                        {formatCurrency(totalAmount)}
-                      </p>
-                      <p className="text-xs text-[#5B6B62]">
-                        Due: {formatDate(payment?.payment?.due)}
-                      </p>
+                    <div className="flex w-full mt-3 text-xs text-[#5B6B62] items-center gap-2">
+                      <input
+                        id="identifier"
+                        type="text"
+                        value={discountRequests}
+                        onChange={(e) => setDiscountRequests(e.target.value)}
+                        placeholder="Enter reason for request"
+                        className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] relative"
+                        disabled={requestLoad}
+                      />
+                      <button
+                        onClick={handleDiscount}
+                        disabled={requestLoad}
+                        className="cursor-pointer rounded-xl border border-transparent bg-[#158049] px-4 py-2.5 text-white transition hover:bg-[#0B3B26] focus:ring-2 focus:ring-[#1B9E5A]/40"
+                      >
+                        {requestLoad ? (
+                          <span className="text-sm font-bold">
+                            Requesting...
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold">Request</span>
+                        )}
+                      </button>
                     </div>
                   </div>
-                </div>
-                <div className="flex w-full mt-3 text-xs text-[#5B6B62] items-center gap-2">
-                  <input
-                    id="identifier"
-                    type="text"
-                    value={discountRequests}
-                    onChange={(e) => setDiscountRequests(e.target.value)}
-                    placeholder="Enter reason for request"
-                    className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] relative"
-                    disabled={requestLoad}
-                  />
-                  <button
-                    onClick={handleDiscount}
-                    disabled={requestLoad}
-                    className="cursor-pointer rounded-xl border border-transparent bg-[#158049] px-4 py-2.5 text-white transition hover:bg-[#0B3B26] focus:ring-2 focus:ring-[#1B9E5A]/40"
-                  >
-                    {requestLoad ? (
-                      <span className="text-sm font-bold">Applying...</span>
-                    ) : (
-                      <span className="text-sm font-bold">Apply</span>
-                    )}
-                  </button>
-                </div>
+                )}
               </div>
             </div>
-          </div>)}
+          )}
         </div>
       </section>
 

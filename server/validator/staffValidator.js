@@ -45,8 +45,8 @@ const createStaffSchema = Joi.object({
   role: Joi.string().trim().optional().default("STAFF").messages({
     "string.base": "Role must be a string",
   }),
-  permission: Joi.object().optional().messages({
-    "object.base": "Permission must be an object",
+  departmentId: Joi.string().trim().optional().allow(null, "").messages({
+    "string.base": "Department ID must be a string",
   }),
 });
 
@@ -85,8 +85,8 @@ const updateStaffSchema = Joi.object({
   role: Joi.string().trim().optional().messages({
     "string.base": "Role must be a string",
   }),
-  permission: Joi.object().optional().messages({
-    "object.base": "Permission must be an object",
+  departmentId: Joi.string().trim().optional().allow(null, "").messages({
+    "string.base": "Department ID must be a string",
   }),
 });
 

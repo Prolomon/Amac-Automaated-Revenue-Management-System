@@ -79,7 +79,8 @@ model Staff {
   avatar     String?
   center     String
   role       String   @default("STAFF")
-  permission Json?
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [uid], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -239,11 +240,14 @@ model Admin {
   address       String?
   lga           String?
   country       String?
+  departmentId    String?
+  departmet     Department? @relation(fields: [departmentId], references: [uid], onDelete: Cascade)
   status        Boolean  @default(true)
   paymentConfig Json?
   ledger        Float    @default(0.00)
   createdAt     DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+
   requests         Request[] @relation("AdminRequests")
   approvedRequests Request[] @relation("AdminApprovedRequests")
 
@@ -435,4 +439,20 @@ enum RequestStatus {
   APPROVED
   PENDING
   REJECTED
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  uid       String   @unique
+  name      String
+  center    String
+  role      String
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Admins Admin[]
+  Staffs Staff[]
+
+  @@index([uid, center, status])
 }

@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { createStaff, Staff } from "@/lib/services/staff";
+import { getDepartmentsByCenter, Department } from "@/lib/services/department";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
@@ -12,6 +13,7 @@ export default function AddStaffPage() {
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const { addToast } = useToast();
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   const [formData, setFormData] = useState<Omit<Staff, "id" | "uid" | "role">>({
     fullname: "",
@@ -19,26 +21,22 @@ export default function AddStaffPage() {
     phone: "",
     gender: "",
     location: "",
-    permission: {
-      canViewWallet: false,
-      canCreateEntity: false,
-      canViewEntity: false,
-      canEditEntity: false,
-      canDeleteEntity: false,
-      canCreatePartner: false,
-      canViewPartner: false,
-      canEditPartner: false,
-      canDeletePartner: false,
-      canCreatePricing: false,
-      canViewPricing: false,
-      canEditPricing: false,
-      canDeletePricing: false,
-      canViewSplit: false,
-      canSearch: false,
-      canViewAssurance: false,
-      canSupport: false,
-    }
+    departmentId: "",
   });
+
+  useEffect(() => {
+    const centerId = user?.uid || "";
+    if (!centerId) return;
+    const loadDepartments = async () => {
+      try {
+        const data = await getDepartmentsByCenter(centerId, { page: 1, limit: 100 });
+        setDepartments(Array.isArray(data?.data) ? data.data : []);
+      } catch (e) {
+        setDepartments([]);
+      }
+    };
+    loadDepartments();
+  }, [user?.uid]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -70,6 +68,7 @@ export default function AddStaffPage() {
 
       const payload = {
         ...formData,
+        departmentId: formData.departmentId || null,
         center: user?.uid,
         // avatar: avatarFile,
       };
@@ -199,151 +198,26 @@ export default function AddStaffPage() {
             )}
           </div>
 
-          {/* Permissions Section */}
+          {/* Department */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-3">
-              Staff Permissions
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Department
             </label>
-            <div className="space-y-4">
-
-              {/* Entity Management */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Entity Management</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "canCreateEntity", label: "Create" },
-                    { key: "canViewEntity", label: "View" },
-                    { key: "canEditEntity", label: "Edit" },
-                    { key: "canDeleteEntity", label: "Delete" },
-                  ].map((perm) => (
-                    <button
-                      key={perm.key}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          permission: {
-                            ...prev.permission,
-                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                          },
-                        }))
-                      }
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${
-                        formData.permission[perm.key as keyof typeof formData.permission]
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                      }`}
-                    >
-                      {perm.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Partner Management */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Partner Management</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "canCreatePartner", label: "Create" },
-                    { key: "canViewPartner", label: "View" },
-                    { key: "canEditPartner", label: "Edit" },
-                    { key: "canDeletePartner", label: "Delete" },
-                  ].map((perm) => (
-                    <button
-                      key={perm.key}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          permission: {
-                            ...prev.permission,
-                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                          },
-                        }))
-                      }
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${
-                        formData.permission[perm.key as keyof typeof formData.permission]
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                      }`}
-                    >
-                      {perm.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pricing Management */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Pricing Management</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "canCreatePricing", label: "Create" },
-                    { key: "canViewPricing", label: "View" },
-                    { key: "canEditPricing", label: "Edit" },
-                    { key: "canDeletePricing", label: "Delete" },
-                  ].map((perm) => (
-                    <button
-                      key={perm.key}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          permission: {
-                            ...prev.permission,
-                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                          },
-                        }))
-                      }
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${
-                        formData.permission[perm.key as keyof typeof formData.permission]
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                      }`}
-                    >
-                      {perm.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Other Permissions */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Other</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "canViewWallet", label: "View Wallet" },
-                    { key: "canViewSplit", label: "View Split" },
-                    { key: "canSearch", label: "Search" },
-                    { key: "canViewAssurance", label: "View Assurance" },
-                    { key: "canSupport", label: "Provide Support" },
-                  ].map((perm) => (
-                    <button
-                      key={perm.key}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          permission: {
-                            ...prev.permission,
-                            [perm.key]: !prev.permission[perm.key as keyof typeof prev.permission],
-                          },
-                        }))
-                      }
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${
-                        formData.permission[perm.key as keyof typeof formData.permission]
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                      }`}
-                    >
-                      {perm.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <select
+              name="departmentId"
+              value={formData.departmentId}
+              onChange={handleInputChange}
+              className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="">No Department</option>
+              {departments.map((department) => (
+                <option key={department.uid} value={department.uid}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
           </div>
+
 
           {/* Form Actions */}
           <div className="flex gap-3 border-t border-slate-200 pt-6">

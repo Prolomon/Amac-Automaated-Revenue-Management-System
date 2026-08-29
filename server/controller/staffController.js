@@ -54,7 +54,15 @@ const staffSafeSelect = {
   role: true,
   createdAt: true,
   updatedAt: true,
-  permission: true,
+  departmentId: true,
+  department: {
+    select: {
+      uid: true,
+      name: true,
+      role: true,
+      status: true,
+    },
+  },
 };
 
 const createStaff = async (req, res) => {
@@ -79,6 +87,17 @@ const createStaff = async (req, res) => {
 
     if (existing) {
       return res.status(409).json({ ok: false, message: "Email already exists" });
+    }
+
+    if (value.departmentId) {
+      const department = await prisma.department.findUnique({
+        where: { uid: value.departmentId },
+        select: { uid: true },
+      });
+
+      if (!department) {
+        return res.status(404).json({ ok: false, message: "Department not found" });
+      }
     }
 
     let uid;
@@ -120,7 +139,7 @@ const createStaff = async (req, res) => {
         avatar: value.avatar,
         center: value.center,
         role: value.role || "STAFF",
-        permission: value.permission || {},
+        departmentId: value.departmentId || null,
       },
       select: staffSafeSelect,
     });
@@ -255,6 +274,19 @@ const updateStaff = async (req, res) => {
     }
 
     const updateData = { ...value };
+    if (updateData.departmentId === "") {
+      updateData.departmentId = null;
+    }
+    if (updateData.departmentId) {
+      const department = await prisma.department.findUnique({
+        where: { uid: updateData.departmentId },
+        select: { uid: true },
+      });
+
+      if (!department) {
+        return res.status(404).json({ ok: false, message: "Department not found" });
+      }
+    }
     if (value.password) {
       updateData.password = await argon2.hash(value.password);
     }

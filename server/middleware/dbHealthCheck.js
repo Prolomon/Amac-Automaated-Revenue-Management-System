@@ -18,7 +18,7 @@ let lastHealthCheck = {
 
 let healthCheckInFlight = null;
 
-const runHealthCheck = async () => {
+const runHealthCheck = async (attempt = 1) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     lastHealthCheck = {
@@ -27,6 +27,12 @@ const runHealthCheck = async () => {
       errorMessage: null,
     };
   } catch (err) {
+    // A single dropped pooler connection (common with transaction-mode
+    // poolers) shouldn't fail the request — retry once after a short delay.
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return runHealthCheck(attempt + 1);
+    }
     lastHealthCheck = {
       checkedAt: Date.now(),
       ok: false,
@@ -34,7 +40,9 @@ const runHealthCheck = async () => {
     };
     throw err;
   } finally {
-    healthCheckInFlight = null;
+    if (attempt >= 2 || !lastHealthCheck.ok) {
+      healthCheckInFlight = null;
+    }
   }
 };
 
