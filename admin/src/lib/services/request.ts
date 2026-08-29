@@ -8,24 +8,31 @@ export type Request = {
   memberId: string;
   paymentId: string;
   adminId?: string | null;
+  adminComment?: string | null;
   approverId?: string | null;
+  approverComment?: string | null;
   reason: string;
-  status: boolean;
+  status: RequestStatus;
   createdAt: string | Date;
   updatedAt: string | Date;
   member?: Member;
   payment?: Payment;
   admin?: Admin;
   approver?: Admin;
+  center: string;
+  amount?: number;
 };
+
+enum RequestStatus {
+  APPROVED = "APPROVED",
+  PENDING = "PENDING",
+  REJECTED = "REJECTED",
+}
 
 export type CreateRequestPayload = {
   memberId: string;
   paymentId: string;
-  adminId?: string | null;
-  approverId?: string | null;
   reason: string;
-  status?: boolean;
 };
 
 export type UpdateRequestPayload = {

@@ -157,13 +157,16 @@ model Request {
   payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   adminId     String?
   admin       Admin?   @relation("AdminRequests", fields: [adminId], references: [uid], onDelete: Cascade)
+  adminComment String?
   approverId  String?
   approver    Admin?   @relation("AdminApprovedRequests", fields: [approverId], references: [uid], onDelete: Cascade)
+  approverComment String?
   reason      String
-  status      Boolean  @default(false)
+  status      RequestStatus @default(PENDING)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   center      String
+  amount      Float?
 
   @@index([memberId, status])
   @@index([adminId, status])
@@ -426,4 +429,10 @@ model Terminal {
   company     Company?  @relation(fields: [companyId], references: [uid], onDelete: Cascade)
 
   @@index([uid, center, status, agentId, companyId])
+}
+
+enum RequestStatus {
+  APPROVED
+  PENDING
+  REJECTED
 }

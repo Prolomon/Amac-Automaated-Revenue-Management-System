@@ -11,20 +11,9 @@ const createRequestSchema = Joi.object({
     'string.empty': 'Payment ID is required',
     'any.required': 'Payment ID is required',
   }),
-  adminId: Joi.string().optional().allow(null, '').messages({
-    'string.base': 'Admin ID must be a string',
-  }),
-  approverId: Joi.string().optional().allow(null, '').messages({
-    'string.base': 'Approver ID must be a string',
-  }),
-  reason: Joi.string().min(3).required().messages({
+  reason: Joi.string().min(3).optional().messages({
     'string.base': 'Reason must be a string',
-    'string.empty': 'Reason is required',
     'string.min': 'Reason must be at least 3 characters long',
-    'any.required': 'Reason is required',
-  }),
-  status: Joi.boolean().optional().messages({
-    'boolean.base': 'Status must be a boolean',
   }),
 });
 

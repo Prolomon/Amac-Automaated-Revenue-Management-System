@@ -74,39 +74,12 @@ const createRequest = async (req, res) => {
       });
     }
 
-    let resolvedAdminId = null;
-    if (value.adminId) {
-      resolvedAdminId = await resolveAdminUid(value.adminId);
-      if (!resolvedAdminId) {
-        return res.status(404).json({
-          ok: false,
-          message: "Admin not found",
-        });
-      }
-    } else if (memberRecord.center) {
-      // Find admin associated with member's center if not specified
-      const centerAdmin = await prisma.admin.findFirst({
-        where: { center: memberRecord.center },
-        select: { uid: true },
-      });
-      if (centerAdmin) {
-        resolvedAdminId = centerAdmin.uid;
-      }
-    }
-
-    let resolvedApproverId = null;
-    if (value.approverId) {
-      resolvedApproverId = await resolveAdminUid(value.approverId);
-    }
-
     const newRequest = await prisma.request.create({
       data: {
         memberId: memberRecord.uid,
         paymentId: paymentRecord.id,
-        adminId: resolvedAdminId,
-        approverId: resolvedApproverId,
+        center: memberRecord.center,
         reason: value.reason,
-        status: value.status ?? false,
       },
       include: {
         member: true,

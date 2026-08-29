@@ -18,7 +18,7 @@ import { roleMiddleware } from '../middleware/role.js';
 const router = express.Router();
 
 // Create request (member, agent, company, admin, staff, it)
-router.post('/', authMiddleware, roleMiddleware(['user', 'member', 'admin', 'agent', 'company', 'staff', 'it']), createRequest);
+router.post('/', createRequest);
 
 // Get all requests with filters & pagination
 router.get('/', authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'member', 'agent', 'company']), getAllRequests);
@@ -33,7 +33,7 @@ router.get('/member/:memberId', authMiddleware, roleMiddleware(['admin', 'it', '
 router.get('/admin/:adminId', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), getRequestsByAdmin);
 
 // Get requests by Payment ID
-router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'member', 'agent', 'company']), getRequestsByPayment);
+router.get('/payment/:paymentId', getRequestsByPayment);
 
 // Get requests by Center ID
 router.get('/center/:centerId', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), getRequestsByCenter);
