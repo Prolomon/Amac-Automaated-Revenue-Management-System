@@ -116,6 +116,10 @@ export const AuthProvider = ({ children }) => {
       Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
       Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
 
+      if (res.admin.role === "IT") {
+          router.replace("/super-admin");
+      }
+
       router.replace("/admin");
     } catch (err) {
       setError(err.message);
