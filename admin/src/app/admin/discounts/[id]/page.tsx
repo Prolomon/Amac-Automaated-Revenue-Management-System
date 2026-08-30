@@ -25,13 +25,14 @@ import {
 import {
   getRequest,
   approveRequest,
-  updateRequestStatus,
+  adminApproveRequest,
+  rejectRequest,
   Request as RequestData,
 } from "@/lib/services/request";
 import { useAuth } from "@/context/AuthContext";
+import { usePageAccess } from "@/components/PageGuard";
 import { useParams, useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
-import Image from "next/image";
 import { useReactToPrint } from "react-to-print";
 
 function DiscountRequestDetailPage() {
@@ -41,8 +42,10 @@ function DiscountRequestDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [discountAmount, setDiscountAmount] = useState<string>("");
   const [decisionNotes, setDecisionNotes] = useState<string>("");
+  const [executiveNotes, setExecutiveNotes] = useState<string>("");
 
   const { user, role } = useAuth();
+  const { departmentRole } = usePageAccess();
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -69,6 +72,8 @@ function DiscountRequestDetailPage() {
         setRequest(reqData);
         if (reqData?.payment?.discount) {
           setDiscountAmount(String(reqData.payment.discount));
+        } else if (reqData?.amount) {
+          setDiscountAmount(String(reqData.amount));
         }
       } else {
         addToast("error", response.message || "Request not found");
@@ -114,7 +119,7 @@ function DiscountRequestDetailPage() {
     });
   };
 
-  const handleApprove = async () => {
+  const handleAdminApprove = async () => {
     if (!request?.id) return;
     const discountVal = parseFloat(discountAmount);
     if (isNaN(discountVal) || discountVal < 0) {
@@ -133,11 +138,45 @@ function DiscountRequestDetailPage() {
 
     setActionLoading(true);
     try {
-      const response = await approveRequest(request.id, {
-        status: true,
+      const response = await adminApproveRequest(request.id, {
         discount: discountVal,
         reason: decisionNotes || request.reason,
-        approverId: user?.uid || undefined,
+        adminId: user?.uid || null,
+      });
+
+      if (response.ok) {
+        addToast("success", "Request submitted for executive approval");
+        fetchRequestDetail();
+      } else {
+        addToast(
+          "error",
+          response.message || "Failed to submit request for approval",
+        );
+      }
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof Error ? err.message : "An error occurred",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!request?.id) return;
+    const discountVal = parseFloat(discountAmount) || Number(request.amount || 0);
+    if (isNaN(discountVal) || discountVal < 0) {
+      addToast("error", "Please enter a valid discount amount");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await approveRequest(request.id, {
+        discount: discountVal,
+        reason: executiveNotes || request.reason,
+        approverId: user?.uid || null,
       });
 
       if (response.ok) {
@@ -163,19 +202,18 @@ function DiscountRequestDetailPage() {
     if (!request?.id) return;
     setActionLoading(true);
     try {
-      const response = await updateRequestStatus(request.id, {
-        status: false,
+      const response = await rejectRequest(request.id, {
         reason: decisionNotes || request.reason,
-        approverId: user?.uid || undefined,
+        adminId: user?.uid || null,
       });
 
       if (response.ok) {
-        addToast("success", "Request marked as pending / rejected");
+        addToast("success", "Request rejected");
         fetchRequestDetail();
       } else {
         addToast(
           "error",
-          response.message || "Failed to update request status",
+          response.message || "Failed to reject request",
         );
       }
     } catch (err) {
@@ -253,9 +291,25 @@ function DiscountRequestDetailPage() {
   }
 
   const isApproved = request.status === "APPROVED";
+  const isRejected = request.status === "REJECTED";
   const assessmentAmount = Number(request.payment?.amount || 0);
   const currentDiscount = Number(request.payment?.discount || 0);
   const pricingTitle = request.payment?.pricing?.title || "Revenue Assessment";
+
+  // Role / step-resolution for the two-card executive approval flow.
+  const isExecutiveRole = departmentRole === "Executive Administrator / Viewer";
+  const isSuperAdminRole = departmentRole === "Financial Controller / Super Admin";
+  const isAdminLogin = role === "ADMIN";
+  const canEvaluate = isExecutiveRole || isSuperAdminRole || isAdminLogin;
+  const hasAdminId = !!request.adminId;
+  const hasApproverId = !!request.approverId;
+  const hasApproverComment = !!request.approverComment;
+  // Card A (first-level admin form) shows only when no admin has reviewed it yet.
+  const showAdminForm = !hasAdminId && canEvaluate && !isApproved && !isRejected;
+  // Card B (executive) shows only after the first-level admin reviewed, and only
+  // for the Executive Administrator / a super role, or if the exec already commented.
+  const showExecutivePanel =
+    hasAdminId && !isApproved && !isRejected && (canEvaluate || hasApproverComment);
 
   const principal = Number(
     request.payment?.debt > 0 ? request.payment?.debt : request.payment?.amount,
@@ -554,174 +608,134 @@ function DiscountRequestDetailPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {request?.approverId ? (
+            {/* Card A: First-level admin review (propose discount) */}
+            {showAdminForm ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl bg-white p-5 md:p-6 border border-slate-200 shadow-xs">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                      Discount Amount (Proposed)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Total assessment: {formatCurrency(assessmentAmount)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-slate-500">Quick calculate:</span>
+                      <button type="button" onClick={() => setDiscountAmount(String(Math.round(assessmentAmount * 0.1)))} className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200">10%</button>
+                      <button type="button" onClick={() => setDiscountAmount(String(Math.round(assessmentAmount * 0.25)))} className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200">25%</button>
+                      <button type="button" onClick={() => setDiscountAmount(String(Math.round(assessmentAmount * 0.5)))} className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200">50%</button>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                      Review Note (Optional)
+                    </label>
+                    <textarea rows={3} value={decisionNotes} onChange={(e) => setDecisionNotes(e.target.value)} placeholder="Enter remarks or justification for the proposed waiver..." className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none" />
+                  </div>
+                  <button onClick={handleAdminApprove} disabled={actionLoading} className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                    <Check size={16} />
+                    {actionLoading ? "Processing..." : "Submit for Executive Approval"}
+                  </button>
+                </div>
+              </div>
+            ) : hasAdminId ? (
               <div className="grid gap-4">
                 <div className="rounded-2xl bg-white p-5 md:p-6 border border-slate-200 shadow-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                      <span className="rounded-lg bg-blue-100 p-2 text-blue-700">
-                        <User size={22} />
-                      </span>
+                      <span className="rounded-lg bg-emerald-100 p-2 text-emerald-700"><ShieldCheck size={22} /></span>
                       <div>
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          Name
-                        </span>
-                        <p className="font-bold text-slate-900 text-base">
-                          {request.member?.businessName ||
-                            request.member?.fullname ||
-                            "N/A"}
-                        </p>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">First-Level Review</span>
+                        <p className="font-bold text-slate-900 text-base">{request.admin?.adminName || "Reviewed"}</p>
                       </div>
                     </div>
-
                     <div className="mt-4 space-y-3 text-sm">
                       <div className="flex items-center gap-2 text-xs text-slate-600">
-                        <span className="rounded bg-slate-100 px-2 py-0.5 font-bold uppercase">
-                          Department
-                        </span>
-                        <span className="rounded bg-slate-100 px-2 py-0.5 font-medium">
-                          UID: {request.member?.uid || request.memberId}
-                        </span>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 font-bold uppercase">Proposed Discount</span>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 font-medium">{formatCurrency(request.amount || 0)}</span>
                       </div>
-
                       <div>
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          Admin Reason / Justification
-                        </span>
-                        <p className="mt-1 rounded-xl bg-amber-50/60 p-3 text-slate-800 border border-amber-200/60 text-xs leading-relaxed font-medium">
-                          {request.reason ||
-                            "No detailed justification supplied."}
-                        </p>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Reviewer Note</span>
+                        <p className="mt-1 rounded-xl bg-amber-50/60 p-3 text-slate-800 border border-amber-200/60 text-xs font-medium">{request.adminComment || "No note supplied."}</p>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100">
-                    <Link
-                      href={`/admin/staffs/${request.member?.uid || request.memberId}`}
-                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700 transition-colors inline-flex items-center gap-1"
-                    >
-                      View Full Admin Profile →
-                    </Link>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="grid gap-4 h-48 items-center justify-center border border-slate-200 rounded-xl bg-slate-50">
-                <div className="text-center text-slate-500">
-                  <p>No approver assigned to this request.</p>
-                </div>
+                <div className="text-center text-slate-500"><p>Awaiting first-level review.</p></div>
               </div>
             )}
 
-            {!request?.approverId ? (
+            {/* Card B: Executive Administrator final approval */}
+            {showExecutivePanel ? (
               <div className="grid gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                    Discount Amount to Grant (₦)
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400">
-                      ₦
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      max={assessmentAmount}
-                      value={discountAmount}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
-                      placeholder="e.g. 50000"
-                      className="w-full rounded-xl border border-slate-300 py-3 pl-9 pr-4 text-base font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    />
+                <div className="rounded-2xl bg-white p-5 md:p-6 border border-slate-200 shadow-xs">
+                  {request.approver ? (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 pb-1">
+                        <span className="rounded-lg bg-emerald-100 p-2 text-emerald-700"><ShieldCheck size={20} /></span>
+                        <div>
+                          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Executive Administrator</span>
+                          <p className="font-bold text-slate-900 text-sm">{request.approver?.adminName || "Executive"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                      Discount Amount Approved
+                    </label>
+                    <input type="number" min={0} value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} disabled={!canEvaluate || hasApproverId} placeholder="0.00" className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-emerald-500 disabled:bg-slate-50" />
+                    <p className="mt-1 text-xs text-slate-500">Proposed by reviewer: {formatCurrency(request.amount || 0)}</p>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-slate-500 text-lg">
-                      Quick calculate:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDiscountAmount(
-                          String(Math.round(assessmentAmount * 0.1)),
-                        )
-                      }
-                      className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200"
-                    >
-                      10% ({formatCurrency(assessmentAmount * 0.1)})
+                  {!hasApproverId ? (
+                    <div className="mt-4">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                        Executive Approval Note (Optional)
+                      </label>
+                      <textarea rows={2} value={executiveNotes} onChange={(e) => setExecutiveNotes(e.target.value)} placeholder="Official note from the Executive Administrator..." className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none" />
+                    </div>
+                  ) : null}
+                  {!hasApproverId && canEvaluate ? (
+                    <button onClick={handleApprove} disabled={actionLoading} className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60">
+                      <Check size={16} />
+                      {actionLoading ? "Processing..." : "Approve Discount"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDiscountAmount(
-                          String(Math.round(assessmentAmount * 0.25)),
-                        )
-                      }
-                      className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200"
-                    >
-                      25% ({formatCurrency(assessmentAmount * 0.25)})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDiscountAmount(
-                          String(Math.round(assessmentAmount * 0.5)),
-                        )
-                      }
-                      className="rounded-lg bg-slate-100 py-2 px-4 font-semibold text-slate-600 hover:bg-slate-200"
-                    >
-                      50% ({formatCurrency(assessmentAmount * 0.5)})
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                    Approval / Audit Notes (Optional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={decisionNotes}
-                    onChange={(e) => setDecisionNotes(e.target.value)}
-                    placeholder="Enter remarks or justification for the granted waiver..."
-                    className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none"
-                  />
+                  ) : null}
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4">
-                <div className="text-center text-slate-500">
-                  <p>No approver assigned to this request.</p>
-                </div>
+              <div className="grid gap-4 h-48 items-center justify-center border border-slate-200 rounded-xl bg-slate-50">
+                <div className="text-center text-slate-500"><p>Executive approval pending.</p></div>
               </div>
             )}
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-3 pt-5 border-t border-slate-100">
-            <button
-              onClick={handleReject}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 cursor-pointer"
-            >
-              <X size={16} />
-              <span>
-                {isApproved ? "Revoke / Set Pending" : "Reject Request"}
+          {canEvaluate && !isApproved && !isRejected ? (
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3 pt-5 border-t border-slate-100">
+              <button onClick={handleReject} disabled={actionLoading} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 cursor-pointer">
+                <X size={16} />
+                Reject Request
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3 pt-5 border-t border-slate-100">
+              <span className="text-xs text-slate-500">
+                {isApproved ? "This request is approved." : isRejected ? "This request was rejected." : ""}
               </span>
-            </button>
-            <button
-              onClick={handleApprove}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60 cursor-pointer"
-            >
-              <Check size={16} />
-              <span>
-                {actionLoading
-                  ? "Processing..."
-                  : isApproved
-                    ? "Update Approved Discount"
-                    : "Approve Discount"}
-              </span>
-            </button>
-          </div>
+            </div>
+          )}
+
         </div>
 
         {/* Printable Official Document Layout (Hidden from screen view, shown on print) */}

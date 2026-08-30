@@ -12,11 +12,11 @@ import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, roleMiddleware(['admin']), createPricing);
+router.post('/', authMiddleware, roleMiddleware(['admin', "staff"]), createPricing);
 router.get('/:id/all', getAllPricing);
 router.get('/:id', getPricing);
-router.put('/:id/toggle-status', authMiddleware, roleMiddleware(['admin']), toggleStatus);
-router.put('/:id', authMiddleware, roleMiddleware(['admin']), updatePricing);
-router.delete('/:id', authMiddleware, roleMiddleware(['admin']), deletePricing);
+router.put('/:id/toggle-status', authMiddleware, roleMiddleware(['admin', "staff"]), toggleStatus);
+router.put('/:id', authMiddleware, roleMiddleware(['admin', "staff"]), updatePricing);
+router.delete('/:id', authMiddleware, roleMiddleware(['admin', "staff"]), deletePricing);
 
 export {router as pricingRouter};

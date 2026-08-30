@@ -3,6 +3,9 @@ import {
   createRequestSchema,
   updateRequestSchema,
   updateRequestStatusSchema,
+  adminApproveRequestSchema,
+  approveRequestSchema,
+  rejectRequestSchema,
 } from "../validator/requestValidator.js";
 
 const validationErrorResponse = (res, error) => {
@@ -74,12 +77,19 @@ const createRequest = async (req, res) => {
       });
     }
 
+    const id = "REQ" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    while (await prisma.request.findUnique({ where: { id } })) {
+      id = "REQ" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
     const newRequest = await prisma.request.create({
       data: {
         memberId: memberRecord.uid,
         paymentId: paymentRecord.id,
         center: memberRecord.center,
         reason: value.reason,
+        id: id,
       },
       include: {
         member: true,
@@ -129,7 +139,7 @@ const getAllRequests = async (req, res) => {
     const where = {};
 
     if (status !== undefined && status !== "") {
-      where.status = status === "true" || status === true;
+      where.status = String(status);
     }
 
     if (memberId) {
@@ -279,7 +289,7 @@ const getRequestsByMember = async (req, res) => {
     };
 
     if (status !== undefined && status !== "") {
-      where.status = status === "true" || status === true;
+      where.status = String(status);
     }
 
     const [requests, total] = await Promise.all([
@@ -342,7 +352,7 @@ const getRequestsByAdmin = async (req, res) => {
     };
 
     if (status !== undefined && status !== "") {
-      where.status = status === "true" || status === true;
+      where.status = String(status);
     }
 
     const [requests, total] = await Promise.all([
@@ -452,7 +462,7 @@ const getRequestsByCenter = async (req, res) => {
     };
 
     if (status !== undefined && status !== "") {
-      where.status = status === "true" || status === true;
+      where.status = String(status);
     }
 
     if (startDate || endDate) {
@@ -535,7 +545,14 @@ const updateRequest = async (req, res) => {
     const updateData = {};
 
     if (value.reason !== undefined) updateData.reason = value.reason;
-    if (value.status !== undefined) updateData.status = value.status;
+    if (value.status !== undefined) {
+      updateData.status =
+        value.status === true
+          ? "APPROVED"
+          : value.status === false
+            ? "PENDING"
+            : String(value.status);
+    }
 
     if (value.adminId !== undefined) {
       updateData.adminId = value.adminId ? await resolveAdminUid(value.adminId) : null;
@@ -585,6 +602,236 @@ const updateRequest = async (req, res) => {
   }
 };
 
+const adminApproveRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: "Request ID is required",
+      });
+    }
+
+    const { error, value } = adminApproveRequestSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      return validationErrorResponse(res, error);
+    }
+
+    const existingRequest = await prisma.request.findUnique({
+      where: { id },
+      include: { payment: true },
+    });
+
+    if (!existingRequest) {
+      return res.status(404).json({
+        ok: false,
+        message: "Request not found",
+      });
+    }
+
+    let adminUid = null;
+    if (value.adminId) {
+      adminUid = await resolveAdminUid(value.adminId);
+    } else if (req.userId) {
+      adminUid = await resolveAdminUid(req.userId);
+    }
+
+    const discount =
+      value.discount !== undefined ? Number(value.discount) : Number(existingRequest.amount || 0);
+
+    // First-level approval: record the reviewing admin + proposed discount, but keep
+    // the request PENDING for the Executive Administrator's sign-off.
+    const updatedRequest = await prisma.request.update({
+      where: { id },
+      data: {
+        adminId: adminUid || existingRequest.adminId,
+        adminComment: value.reason || existingRequest.adminComment,
+        amount: discount,
+        status: "PENDING",
+      },
+      include: {
+        member: true,
+        payment: { include: { pricing: true } },
+        admin: true,
+        approver: true,
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Request submitted for executive approval",
+      request: updatedRequest,
+      data: updatedRequest,
+    });
+  } catch (err) {
+    console.error("adminApproveRequest error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error submitting request for approval",
+    });
+  }
+};
+
+const approveRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: "Request ID is required",
+      });
+    }
+
+    const { error, value } = approveRequestSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      return validationErrorResponse(res, error);
+    }
+
+    const existingRequest = await prisma.request.findUnique({
+      where: { id },
+      include: { payment: true },
+    });
+
+    if (!existingRequest) {
+      return res.status(404).json({
+        ok: false,
+        message: "Request not found",
+      });
+    }
+
+    let approverUid = null;
+    if (value.approverId) {
+      approverUid = await resolveAdminUid(value.approverId);
+    } else if (req.userId) {
+      approverUid = await resolveAdminUid(req.userId);
+    }
+
+    const discount =
+      value.discount !== undefined ? Number(value.discount) : Number(existingRequest.amount || 0);
+
+    // Final Executive-Administrator approval: apply the approved discount to the payment.
+    if (existingRequest.paymentId) {
+      await prisma.payment.update({
+        where: { id: existingRequest.paymentId },
+        data: { discount },
+      });
+    }
+
+    const updatedRequest = await prisma.request.update({
+      where: { id },
+      data: {
+        approverId: approverUid || existingRequest.approverId,
+        approverComment: value.reason || existingRequest.approverComment,
+        amount: discount,
+        status: "APPROVED",
+      },
+      include: {
+        member: true,
+        payment: { include: { pricing: true } },
+        admin: true,
+        approver: true,
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Request approved successfully",
+      request: updatedRequest,
+      data: updatedRequest,
+    });
+  } catch (err) {
+    console.error("approveRequest error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error approving request",
+    });
+  }
+};
+
+const rejectRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: "Request ID is required",
+      });
+    }
+
+    const { error, value } = rejectRequestSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      return validationErrorResponse(res, error);
+    }
+
+    const existingRequest = await prisma.request.findUnique({
+      where: { id },
+    });
+
+    if (!existingRequest) {
+      return res.status(404).json({
+        ok: false,
+        message: "Request not found",
+      });
+    }
+
+    const updateData = { status: "REJECTED" };
+    if (value.reason) updateData.adminComment = value.reason;
+
+    if (value.approverId) {
+      const approverUid = await resolveAdminUid(value.approverId);
+      if (approverUid) updateData.approverId = approverUid;
+    } else if (value.adminId) {
+      const adminUid = await resolveAdminUid(value.adminId);
+      if (adminUid) updateData.adminId = adminUid;
+    } else if (req.userId) {
+      const actorUid = await resolveAdminUid(req.userId);
+      if (actorUid) {
+        updateData.adminId = existingRequest.adminId || actorUid;
+        updateData.approverId = existingRequest.approverId || actorUid;
+      }
+    }
+
+    const updatedRequest = await prisma.request.update({
+      where: { id },
+      data: updateData,
+      include: {
+        member: true,
+        payment: { include: { pricing: true } },
+        admin: true,
+        approver: true,
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Request rejected",
+      request: updatedRequest,
+      data: updatedRequest,
+    });
+  } catch (err) {
+    console.error("rejectRequest error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error rejecting request",
+    });
+  }
+};
+
 const updateRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -607,9 +854,7 @@ const updateRequestStatus = async (req, res) => {
 
     const existingRequest = await prisma.request.findUnique({
       where: { id },
-      include: {
-        payment: true,
-      },
+      include: { payment: true },
     });
 
     if (!existingRequest) {
@@ -626,8 +871,9 @@ const updateRequestStatus = async (req, res) => {
       approverUid = await resolveAdminUid(req.userId);
     }
 
+    const newStatus = value.status ? "APPROVED" : "PENDING";
     const updateData = {
-      status: value.status,
+      status: newStatus,
       approverId: approverUid || existingRequest.approverId,
     };
 
@@ -635,13 +881,10 @@ const updateRequestStatus = async (req, res) => {
       updateData.reason = value.reason;
     }
 
-    // If discount was provided and request is approved, optionally apply discount to payment
-    if (value.discount !== undefined && value.status === true && existingRequest.paymentId) {
+    if (value.discount !== undefined && newStatus === "APPROVED" && existingRequest.paymentId) {
       await prisma.payment.update({
         where: { id: existingRequest.paymentId },
-        data: {
-          discount: Number(value.discount),
-        },
+        data: { discount: Number(value.discount) },
       });
     }
 
@@ -650,11 +893,7 @@ const updateRequestStatus = async (req, res) => {
       data: updateData,
       include: {
         member: true,
-        payment: {
-          include: {
-            pricing: true,
-          },
-        },
+        payment: { include: { pricing: true } },
         admin: true,
         approver: true,
       },
@@ -662,7 +901,7 @@ const updateRequestStatus = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      message: value.status
+      message: newStatus === "APPROVED"
         ? "Request approved successfully"
         : "Request status updated successfully",
       request: updatedRequest,
@@ -725,7 +964,9 @@ export {
   getRequestsByPayment,
   getRequestsByCenter,
   updateRequest,
+  adminApproveRequest,
+  approveRequest,
+  rejectRequest,
   updateRequestStatus,
-  updateRequestStatus as approveRequest,
   deleteRequest,
 };

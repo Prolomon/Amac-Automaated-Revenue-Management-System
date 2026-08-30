@@ -11,15 +11,12 @@ import {
   Link2,
   Trash2,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   RefreshCcw,
   Mail,
   Phone,
   MapPin,
   Calendar,
-  Tag,
-  ShieldCheck
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { getTerminal, updateTerminal, unassignTerminal, deleteTerminal, Terminal } from "@/lib/services/terminal";

@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getCenterId } from "@/lib/permissions";
 import { Plus, Check, RefreshCcw, AlertCircle, Monitor, UserCheck, Building2, UserX, Eye, Link2, Unlink } from "lucide-react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { getTerminals, Terminal, unassignTerminal, updateTerminal } from "@/lib/services/terminal";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
 
+
 export default function TerminalListPage() {
   const router = useRouter();
   const { uid, user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const [terminals, setTerminals] = useState<Terminal[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -20,7 +24,7 @@ export default function TerminalListPage() {
   const loadTerminals = useCallback(async () => {
     setLoading(true);
     try {
-      const query: any = { page: 1, limit: 100, center: user?.center || user?.uid || uid || "" };
+      const query: any = { page: 1, limit: 100, center: getCenterId(user) || uid || "" };
       if (search) query.search = search;
       if (filterStatus === "active") query.status = true;
       if (filterStatus === "inactive") query.status = false;
@@ -117,7 +121,7 @@ export default function TerminalListPage() {
               Refresh
             </button>
             <button
-              onClick={() => router.push("/admin/terminal/assign")}
+              onClick={() => { if (readOnly) return; router.push("/admin/terminal/assign"); }}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-emerald-300"
             >
               <Plus size={18} />
@@ -316,7 +320,7 @@ export default function TerminalListPage() {
 
                       {isAssigned ? (
                         <button
-                          onClick={() => handleQuickUnassign(term)}
+                          onClick={() => { if (readOnly) return; handleQuickUnassign(term); }}
                           disabled={actionLoadingId === cardId}
                           className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
                         >
@@ -325,7 +329,7 @@ export default function TerminalListPage() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => router.push(`/admin/terminal/assign?serial=${encodeURIComponent(term.name)}`)}
+                          onClick={() => { if (readOnly) return; router.push(`/admin/terminal/assign?serial=${encodeURIComponent(term.name)}`); }}
                           className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                         >
                           <Link2 size={15} />
@@ -346,7 +350,7 @@ export default function TerminalListPage() {
                   No terminals match your filter or search criteria. Assign your first terminal now.
                 </p>
                 <button
-                  onClick={() => router.push("/admin/terminal/assign")}
+                  onClick={() => { if (readOnly) return; router.push("/admin/terminal/assign"); }}
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 shadow-md"
                 >
                   <Plus size={18} />

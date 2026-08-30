@@ -16,15 +16,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast }from "@/context/ToastContext";
-import { useRouter } from "next/navigation";
+import { getCenterId } from "@/lib/permissions";
 
 export default function AssurancePage() {
-  const { user, role } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const centerId = role === "ADMIN" || role === "IT" ? user?.uid : user?.center;
+  const centerId = getCenterId(user);
   const { addToast } = useToast();
 
   useEffect(() => {

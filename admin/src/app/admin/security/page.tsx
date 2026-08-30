@@ -7,7 +7,6 @@ import {
     KeyRound,
     Lock,
     ShieldCheck,
-    ShieldEllipsis,
     SwitchCamera,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";

@@ -17,9 +17,12 @@ import {
   Search,
 } from "lucide-react";
 import { sendDemandByPayment } from "@/lib/services/demand";
-import { getAllPayments, Payment } from "@/lib/services/payments";
+import { getPayments, Payment } from "@/lib/services/payments";
+import { usePageAccess } from "@/components/PageGuard";
 import { useToast } from "@/context/ToastContext";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { getCenterId } from "@/lib/permissions";
 
 const statusConfig: Record<
   string,
@@ -80,14 +83,17 @@ export default function Payments() {
   const [total, setTotal] = useState(0);
   const limit = 12;
   const { addToast } = useToast();
+  const { readOnly } = usePageAccess();
   const [paymentLoad, setPaymentLoad] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+  const { user } = useAuth();
+  const centerId = getCenterId(user);
 
   const fetchPayments = useCallback(
     async (pageNum: number) => {
       setLoading(true);
       try {
-        const data = await getAllPayments(pageNum, limit, search);
+        const data = await getPayments(centerId, pageNum, limit, search);
         const paymentsData = Array.isArray(data?.payments) ? data.payments : [];
         setPayments(paymentsData);
         if (data?.meta) {
@@ -405,7 +411,7 @@ export default function Payments() {
                           View Payment
                         </button>
                         <button
-                          onClick={() => handleSendDemandNotice(payment)}
+                          onClick={() => { if (readOnly) return; handleSendDemandNotice(payment); }}
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100"
                           disabled={loading || paymentLoad === payment.id}
                         >

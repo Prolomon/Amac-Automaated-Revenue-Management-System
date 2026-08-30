@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { createCompany, Company } from "@/lib/services/company";
 import { useRouter } from "next/navigation";
@@ -9,10 +10,12 @@ import { useWallet } from "@/context/WalletContext";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import { useToast } from "@/context/ToastContext";
 import bankData from "@/lib/jsons/banklist.json";
+import { getCenterId } from "@/lib/permissions";
 
 export default function AddPartnerPage() {
   const router = useRouter();
   const { user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
   const [pricingOptions, setPricingOptions] = useState<Pricing[]>([]);
@@ -25,7 +28,7 @@ export default function AddPartnerPage() {
   })
   const [priceLoading, setPriceLoading] = useState(false);
   const { resolveBankAccount } = useWallet();
-  const centerId = role === "ADMIN" ? user?.uid : user?.center;
+  const centerId = getCenterId(user);
 
   const [bankList, setBankList] = useState<{ code: string, logo: string, name: string, nipCode: null }[]>([]);
 
@@ -154,6 +157,7 @@ export default function AddPartnerPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (readOnly) return;
     setLoading(true);
 
     try {

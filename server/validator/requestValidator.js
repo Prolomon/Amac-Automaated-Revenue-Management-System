@@ -56,8 +56,49 @@ const updateRequestStatusSchema = Joi.object({
   }),
 });
 
+const adminApproveRequestSchema = Joi.object({
+  discount: Joi.number().optional().min(0).messages({
+    'number.base': 'Discount must be a number',
+    'number.min': 'Discount cannot be negative',
+  }),
+  reason: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Reason must be a string',
+  }),
+  adminId: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Admin ID must be a string',
+  }),
+});
+
+const approveRequestSchema = Joi.object({
+  approverId: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Approver ID must be a string',
+  }),
+  discount: Joi.number().optional().min(0).messages({
+    'number.base': 'Discount must be a number',
+    'number.min': 'Discount cannot be negative',
+  }),
+  reason: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Reason must be a string',
+  }),
+});
+
+const rejectRequestSchema = Joi.object({
+  reason: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Reason must be a string',
+  }),
+  adminId: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Admin ID must be a string',
+  }),
+  approverId: Joi.string().optional().allow(null, '').messages({
+    'string.base': 'Approver ID must be a string',
+  }),
+});
+
 export {
   createRequestSchema,
   updateRequestSchema,
   updateRequestStatusSchema,
+  adminApproveRequestSchema,
+  approveRequestSchema,
+  rejectRequestSchema,
 };

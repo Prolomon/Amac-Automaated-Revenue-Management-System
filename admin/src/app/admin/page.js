@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye } from "lucide-react";
 import KPI from "../../components/KPI";
 import LineChartCard from "../../components/LineChartCard";
@@ -9,14 +9,13 @@ import { getAllPayments } from "@/lib/api";
 import { getMembers } from "@/lib/services/member";
 import { getPricingByCenter } from "@/lib/services/pricing";
 import { useAuth } from "@/context/AuthContext";
-import { useWallet } from "@/context/WalletContext";
 import { getCompanies } from "@/lib/services/company";
 import { dashboardStats } from "@/lib/services/admin";
+import { getCenterId } from "@/lib/permissions";
 
 function Home() {
   const { user, role } = useAuth();
-  const { wallet } = useWallet();
-  const userId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const userId = getCenterId(user);
   const [isLive, setIsLive] = useState(true);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -26,7 +25,7 @@ function Home() {
     entities: 0,
     monthlyRevenue: 0,
     paymentRate: 0,
-    companies: 0,
+    companies: 0, 
   });
 
   useEffect(() => {
@@ -34,7 +33,7 @@ function Home() {
 
     const fetchStats = async () => {
       try {
-        const statsResponse = await dashboardStats(user?.uid || userId || "");
+        const statsResponse = await dashboardStats(userId || "");
         if (!ignore && statsResponse.ok && statsResponse.stats) {
           const { member, revenue, paymentRate, partner } = statsResponse.stats;
           setTotals({
@@ -44,7 +43,6 @@ function Home() {
             companies: partner,
           });
 
-          console.log("Dashboard stats fetched successfully:", statsResponse.stats);
         }
       } catch (error) {
         if (!ignore) {

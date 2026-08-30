@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { getCenterId } from "@/lib/permissions";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { createStaff, Staff } from "@/lib/services/staff";
 import { getDepartmentsByCenter, Department } from "@/lib/services/department";
@@ -10,6 +12,7 @@ import { useToast } from "@/context/ToastContext";
 export default function AddStaffPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { readOnly } = usePageAccess();
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const { addToast } = useToast();
@@ -25,7 +28,7 @@ export default function AddStaffPage() {
   });
 
   useEffect(() => {
-    const centerId = user?.uid || "";
+    const centerId = getCenterId(user);
     if (!centerId) return;
     const loadDepartments = async () => {
       try {
@@ -57,6 +60,7 @@ export default function AddStaffPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (readOnly) return;
     setLoading(true);
 
     try {

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import {
   Search,
   Plus,
@@ -13,10 +14,12 @@ import { getMembers, Member } from "@/lib/services/member";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
 
 export default function EntitiesPage() {
   const router = useRouter();
-  const { role, user } = useAuth();
+  const { user } = useAuth();
+  const { readOnly } = usePageAccess();
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
@@ -31,7 +34,7 @@ export default function EntitiesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [statusFilter, setStatusFilter] = useState("All");
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const centerId = getCenterId(user);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -39,18 +42,13 @@ export default function EntitiesPage() {
       const memberData = await getMembers(page, limit, centerId);
 
       setMembers(memberData?.data || []);
-      setMeta(
-        memberData?.meta || { page, limit, total: 0, totalPages: 1 },
-      );
-
+      setMeta(memberData?.meta || { page, limit, total: 0, totalPages: 1 });
     } catch (error) {
       addToast("error", "Failed to fetch entities. Please try again.");
     } finally {
       setLoading(false);
     }
   }, [centerId, page, limit, addToast]);
-
-  console.log(members)
 
   useEffect(() => {
     fetchData();
@@ -198,7 +196,7 @@ export default function EntitiesPage() {
       return str;
     }
     return str.slice(0, maxLength) + "...";
-  }
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4 md:p-6">
@@ -217,14 +215,20 @@ export default function EntitiesPage() {
               onClick={() => fetchData()}
               className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4 cursor-pointer"
             >
-              <RefreshCw size={18} className={`${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                size={18}
+                className={`${loading ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </button>
-            {role === "ADMIN" || (role === "STAFF" && user?.permission?.canCreateEntity) ? (
+            {!readOnly ? (
               <>
-                <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4 cursor-pointer" onClick={() => {
-                  router.push("/admin/entities/add");
-                }}>
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4 cursor-pointer"
+                  onClick={() => {
+                    router.push("/admin/entities/add");
+                  }}
+                >
                   <Plus size={18} />
                   <span className="hidden sm:inline">Add Entity</span>
                 </button>
@@ -338,7 +342,7 @@ export default function EntitiesPage() {
                         className="transition-colors hover:bg-slate-50"
                       >
                         <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate">
-                          {role === "ADMIN" || (role === "STAFF" && user?.permission?.canViewEntity) ? (
+                          {true ? (
                             <Link
                               href={`/admin/entities/${entity.uid}`}
                               className="rounded-lg text-xs font-medium text-slate-600 transition-colors hover:text-emerald-600 md:text-sm"
@@ -350,7 +354,10 @@ export default function EntitiesPage() {
                           )}
                         </td>
                         <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate capitalize">
-                          {truncateString(entity.businessName || entity.fullname, 20)}
+                          {truncateString(
+                            entity.businessName || entity.fullname,
+                            20,
+                          )}
                         </td>
                         <td className="py-4 px-2 md:px-4">
                           <span
@@ -439,7 +446,6 @@ export default function EntitiesPage() {
                   <ChevronRight size={18} />
                 </button>
               </div>
-
             </div>
           </div>
         </div>

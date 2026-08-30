@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { getCenterId } from "@/lib/permissions";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { Pricing as PricingType, createPricing } from "@/lib/services/pricing";
 import { useRouter } from "next/navigation";
@@ -111,10 +113,11 @@ const categoryOptions = [
 export default function Pricing() {
   const router = useRouter();
   const { user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
 
-  const uid = user?.center || user?.uid;
+  const uid = getCenterId(user);
 
   const [formData, setFormData] = useState<PricingType>({
     title: "",
@@ -179,6 +182,7 @@ export default function Pricing() {
       return;
     }
     e.preventDefault();
+    if (readOnly) return;
     setLoading(true);
 
     try {

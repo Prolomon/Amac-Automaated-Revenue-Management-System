@@ -19,15 +19,15 @@ router.post('/', authMiddleware, roleMiddleware(['member', 'admin', 'company', '
 router.get('/', authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'company', 'member']), getAllPaymentTransactions);
 
 // Get payment transactions by user ID
-router.get('/user/:type/:userId', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company']), getPaymentTransactionsByUserId);
+router.get('/user/:type/:userId', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company', "staff"]), getPaymentTransactionsByUserId);
 
 // Get payment transactions by payment ID
-router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company']), getPaymentTransactionsByPaymentId);
+router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company', "staff"]), getPaymentTransactionsByPaymentId);
 
 // Get a single payment transaction by reference
-router.get('/reference/:reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company']), getPaymentTransactionByReference);
+router.get('/reference/:reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company', "staff"]), getPaymentTransactionByReference);
 
 // Update a payment transaction
-router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it']), updatePaymentTransaction);
+router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updatePaymentTransaction);
 
 export default router;

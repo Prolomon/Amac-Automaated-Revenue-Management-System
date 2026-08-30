@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import Link from "next/link";
 import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check } from "lucide-react";
 import { getDemandsByCenter, resendDemand } from "@/lib/services/demand";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
 
 function DemandsListPage() {
   const [demands, setDemands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [resendLoading, setResendLoading] = useState(false);
-  const { user, role } = useAuth();
+  const { user, } = useAuth();
+    const { readOnly } = usePageAccess();
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const centerId = getCenterId(user);
   const [meta, setMeta] = useState<{ total: string; page: string; limit: string; totalPages: number }>({
     total: "0",
     page: "0",
@@ -158,7 +161,7 @@ function DemandsListPage() {
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
-            {role === "ADMIN" || (role === "STAFF" && user?.permission?.canCreateEntity) ? (
+            {!readOnly ? (
               <>
                 <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4">
                   <Download size={18} />
@@ -346,7 +349,7 @@ function DemandsListPage() {
                               View Details
                             </Link>
                             <button
-                              onClick={(e) => demand.id && handleResend(demand.id, e)}
+                              onClick={(e) => { if (readOnly) return; demand.id && handleResend(demand.id, e); }}
                               disabled={resendLoading || !demand.id}
                               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
                             >

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, use, useCallback, useRef } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useRouter } from "next/navigation";
 import {
   Edit2,
@@ -35,11 +36,13 @@ import { Agent, getAgents } from "@/lib/services/agent";
 import { Company, getCompanies } from "@/lib/services/company";
 import { useToast } from "@/context/ToastContext";
 import Link from "next/link";
+import { getCenterId } from "@/lib/permissions";
 
 export default function EntityDetailsPage({ params }) {
   const parameter: any = use(params);
   const id = parameter?.id;
   const { user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const { addToast } = useToast();
 
   const router = useRouter();
@@ -83,7 +86,7 @@ export default function EntityDetailsPage({ params }) {
   const [companyLoading, setCompanyLoading] = useState(false);
   const isFetchingRef = useRef(false);
   const lastFetchAtRef = useRef(0);
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const centerId = getCenterId(user);
 
   const normalizePricingIds = (value: unknown): string[] => {
     if (typeof value === "string") {
@@ -105,10 +108,10 @@ export default function EntityDetailsPage({ params }) {
             const pricingItem = item as Record<string, unknown>;
             return String(
               pricingItem.id ||
-              pricingItem._id ||
-              pricingItem.uid ||
-              pricingItem.pricingId ||
-              "",
+                pricingItem._id ||
+                pricingItem.uid ||
+                pricingItem.pricingId ||
+                "",
             ).trim();
           })
           .filter(Boolean),
@@ -117,9 +120,15 @@ export default function EntityDetailsPage({ params }) {
   };
 
   const memberType = (member?.type || form.type || "BUSINESS").toUpperCase();
-  const memberCategory = (member?.category || form.category || "").toUpperCase();
+  const memberCategory = (
+    member?.category ||
+    form.category ||
+    ""
+  ).toUpperCase();
   const isIndividual = memberType === "INDIVIDUAL";
-  const pricingOptions = Array.isArray(pricing) ? Array.from(new Set(pricing.map((item) => item.category).filter(Boolean))) : [];
+  const pricingOptions = Array.isArray(pricing)
+    ? Array.from(new Set(pricing.map((item) => item.category).filter(Boolean)))
+    : [];
   const [availablePricing, setAvailablePricing] = useState<Pricing[]>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -143,7 +152,9 @@ export default function EntityDetailsPage({ params }) {
         const [m, p, pr] = await Promise.all([
           getMember(id),
           getPaymentsByUser(id),
-          centerId ? getPricingByCenter(centerId) : Promise.resolve({ data: [] }),
+          centerId
+            ? getPricingByCenter(centerId)
+            : Promise.resolve({ data: [] }),
         ]);
         if (!mounted) return;
 
@@ -153,10 +164,10 @@ export default function EntityDetailsPage({ params }) {
         setMember(data);
         const resolvedMemberPricing = normalizePricingIds(
           data?.pricing ||
-          (data as any)?.pricings ||
-          (data as any)?.memberPricing ||
-          (data as any)?.memberPrices ||
-          [],
+            (data as any)?.pricings ||
+            (data as any)?.memberPricing ||
+            (data as any)?.memberPrices ||
+            [],
         );
         setMemberPrices(resolvedMemberPricing);
 
@@ -198,7 +209,7 @@ export default function EntityDetailsPage({ params }) {
   }, [addToast, centerId, id]);
 
   useEffect(() => {
-    fetchData()
+    fetchData();
   }, [fetchData]);
 
   const customerCode = member?.uid || "";
@@ -215,17 +226,20 @@ export default function EntityDetailsPage({ params }) {
       if (walletData?.ok) {
         setWallet(walletData?.wallet);
       } else {
-        setWallet(null)
+        setWallet(null);
       }
     } catch (error: any) {
-      console.log(error)
-      addToast("error", error?.message || error?.error || "Failed to fetch wallet data");
+      console.log(error);
+      addToast(
+        "error",
+        error?.message || error?.error || "Failed to fetch wallet data",
+      );
     }
-  }, [addToast, customerCode])
+  }, [addToast, customerCode]);
 
   useEffect(() => {
     fetchWalletData();
-  }, [fetchWalletData])
+  }, [fetchWalletData]);
 
   const fetchAgentData = useCallback(async () => {
     if (!user?.uid || !member) {
@@ -275,11 +289,9 @@ export default function EntityDetailsPage({ params }) {
       }
       return { ...s, [k]: v };
     });
-
-  }
+  };
 
   const handleAgentChange = async (agentId: string) => {
-
     if (!agentId) {
       addToast("error", "Please select an agent");
       return;
@@ -298,7 +310,6 @@ export default function EntityDetailsPage({ params }) {
     } catch (error) {
       addToast("error", error?.message || "Failed to update agent");
     }
-
   };
 
   const handleCompanyChange = async (companyId: string) => {
@@ -391,10 +402,10 @@ export default function EntityDetailsPage({ params }) {
       setMember(data);
       const resolvedMemberPricing = normalizePricingIds(
         data?.pricing ||
-        (data as any)?.pricings ||
-        (data as any)?.memberPricing ||
-        (data as any)?.memberPrices ||
-        [],
+          (data as any)?.pricings ||
+          (data as any)?.memberPricing ||
+          (data as any)?.memberPrices ||
+          [],
       );
       setMemberPrices(resolvedMemberPricing);
       setPayments(paymentsData);
@@ -516,28 +527,32 @@ export default function EntityDetailsPage({ params }) {
 
   const getExpectedPricing = useCallback(() => {
     if (memberPrices.length > 0 && pricing) {
-      const matchedPricing = pricing.filter((p) => memberPrices.includes(p.id || ""));
+      const matchedPricing = pricing.filter((p) =>
+        memberPrices.includes(p.id || ""),
+      );
       setMemberPricing(matchedPricing);
     } else {
       setMemberPricing([]);
     }
 
     if (pricing) {
-      const filteredPricing = pricing.filter((p) => p.category?.toUpperCase() === memberCategory?.toUpperCase() && p?.type?.toUpperCase() == memberType?.toUpperCase());
+      const filteredPricing = pricing.filter(
+        (p) =>
+          p.category?.toUpperCase() === memberCategory?.toUpperCase() &&
+          p?.type?.toUpperCase() == memberType?.toUpperCase(),
+      );
 
       setAvailablePricing(filteredPricing);
     } else {
       setAvailablePricing([]);
     }
-
-  }, [memberCategory, memberPrices, memberType, pricing])
+  }, [memberCategory, memberPrices, memberType, pricing]);
 
   useEffect(() => {
-    getExpectedPricing()
-  }, [getExpectedPricing])
+    getExpectedPricing();
+  }, [getExpectedPricing]);
 
   const handlePricingSubmit = async (action: string) => {
-
     const res = await paymentAction(id, selectedPricingIds || [], action);
 
     if (!res.ok) {
@@ -552,7 +567,6 @@ export default function EntityDetailsPage({ params }) {
 
     addToast("success", "Selected pricing ids logged to console");
     setIsPricingModalOpen(false);
-
   };
 
   if (loading) {
@@ -640,38 +654,50 @@ export default function EntityDetailsPage({ params }) {
     return value || "";
   };
 
-  const paymentSummaryByCategory = payments.reduce((acc, payment) => {
-    const category =
-      payment?.frequency ||
-      payment?.billingFrequency ||
-      payment?.payment ||
-      payment?.method ||
-      "Other";
+  const paymentSummaryByCategory = payments.reduce(
+    (acc, payment) => {
+      const category =
+        payment?.frequency ||
+        payment?.billingFrequency ||
+        payment?.payment ||
+        payment?.method ||
+        "Other";
 
-    if (!acc[category]) {
-      acc[category] = {
-        label: category,
-        totalPaid: 0,
-        pending: 0,
-        owing: 0,
-        total: 0,
-      };
-    }
+      if (!acc[category]) {
+        acc[category] = {
+          label: category,
+          totalPaid: 0,
+          pending: 0,
+          owing: 0,
+          total: 0,
+        };
+      }
 
-    const amount = parseAmount(payment?.amount);
-    const status = String(payment?.status || "").toUpperCase();
-    acc[category].total += amount;
+      const amount = parseAmount(payment?.amount);
+      const status = String(payment?.status || "").toUpperCase();
+      acc[category].total += amount;
 
-    if (status === "COMPLETED" || status === "SUCCESS") {
-      acc[category].totalPaid += amount;
-    } else if (status === "PENDING") {
-      acc[category].pending += amount;
-    } else {
-      acc[category].owing += amount;
-    }
+      if (status === "COMPLETED" || status === "SUCCESS") {
+        acc[category].totalPaid += amount;
+      } else if (status === "PENDING") {
+        acc[category].pending += amount;
+      } else {
+        acc[category].owing += amount;
+      }
 
-    return acc;
-  }, {} as Record<string, { label: string; totalPaid: number; pending: number; owing: number; total: number }>);
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        label: string;
+        totalPaid: number;
+        pending: number;
+        owing: number;
+        total: number;
+      }
+    >,
+  );
 
   const paymentSummaryCards = Object.values(paymentSummaryByCategory);
 
@@ -682,7 +708,9 @@ export default function EntityDetailsPage({ params }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-emerald-600 text-2xl font-bold text-white shadow-md">
-              {(member.fullname || member.businessName || "")?.charAt(0)?.toUpperCase()}
+              {(member.fullname || member.businessName || "")
+                ?.charAt(0)
+                ?.toUpperCase()}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
@@ -718,7 +746,7 @@ export default function EntityDetailsPage({ params }) {
             </Link>
             {!editing ? (
               <>
-                {role === "ADMIN" || (role !== "ADMIN" && user?.permission?.canEditEntity) ? (
+                {!readOnly ? (
                   <button
                     onClick={() => setEditing(true)}
                     className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
@@ -746,7 +774,7 @@ export default function EntityDetailsPage({ params }) {
                 </button>
               </>
             )}
-            {role === "ADMIN" || (role !== "ADMIN" && user?.permission?.canDeleteEntity) ? (
+            {!readOnly ? (
               <button
                 onClick={handleDelete}
                 className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
@@ -769,7 +797,9 @@ export default function EntityDetailsPage({ params }) {
               Delete Entity?
             </h3>
             <p className="mb-6 text-center text-sm text-slate-600">
-              Are you sure you want to delete <strong>{member.businessName || member.fullname}</strong>? This action cannot be undone.
+              Are you sure you want to delete{" "}
+              <strong>{member.businessName || member.fullname}</strong>? This
+              action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
@@ -796,8 +826,12 @@ export default function EntityDetailsPage({ params }) {
         <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Member Details</p>
-              <h3 className="mt-1 text-lg font-semibold text-slate-900">Profile and contact information</h3>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Member Details
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                Profile and contact information
+              </h3>
             </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -807,7 +841,9 @@ export default function EntityDetailsPage({ params }) {
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Full Name</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Full Name
+              </label>
               <div className="relative">
                 <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -820,7 +856,9 @@ export default function EntityDetailsPage({ params }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Email
+              </label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -833,7 +871,9 @@ export default function EntityDetailsPage({ params }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Phone
+              </label>
               <div className="relative">
                 <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -848,69 +888,93 @@ export default function EntityDetailsPage({ params }) {
             <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
               <div className="mb-3 flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-emerald-600" />
-                <h4 className="text-sm font-semibold text-slate-800">Location Details</h4>
+                <h4 className="text-sm font-semibold text-slate-800">
+                  Location Details
+                </h4>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">State</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    State
+                  </label>
                   <input
                     readOnly={!editing}
                     value={form?.location?.state || ""}
-                    onChange={(e) => handleChange("location", e.target.value, "state")}
+                    onChange={(e) =>
+                      handleChange("location", e.target.value, "state")
+                    }
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">City</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    City
+                  </label>
                   <input
                     readOnly={!editing}
                     value={form?.location?.city || ""}
-                    onChange={(e) => handleChange("location", e.target.value, "city")}
+                    onChange={(e) =>
+                      handleChange("location", e.target.value, "city")
+                    }
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Address</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Address
+                  </label>
                   <input
                     readOnly={!editing}
                     value={form?.location?.address || ""}
-                    onChange={(e) => handleChange("location", e.target.value, "address")}
+                    onChange={(e) =>
+                      handleChange("location", e.target.value, "address")
+                    }
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Nearest Bus Stop</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Nearest Bus Stop
+                  </label>
                   <input
                     readOnly={!editing}
                     value={form?.location?.nearestBusStop || ""}
-                    onChange={(e) => handleChange("location", e.target.value, "nearestBusStop")}
+                    onChange={(e) =>
+                      handleChange("location", e.target.value, "nearestBusStop")
+                    }
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Zip Code</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Zip Code
+                  </label>
                   <input
                     readOnly={!editing}
                     value={form?.location?.zipcode || ""}
-                    onChange={(e) => handleChange("location", e.target.value, "zipcode")}
+                    onChange={(e) =>
+                      handleChange("location", e.target.value, "zipcode")
+                    }
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-white text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-100 text-slate-700"} appearance-none`}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Zone</label>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Zone
+                  </label>
                   <select
                     disabled={!editing}
                     value={form.zone}
                     onChange={(e) => handleChange("zone", e.target.value)}
                     className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
                   >
-                    {['A', 'B', 'C', 'D'].map((zone) => (
+                    {["A", "B", "C", "D"].map((zone) => (
                       <option key={zone} value={zone}>
                         Zone {zone}
                       </option>
@@ -922,17 +986,23 @@ export default function EntityDetailsPage({ params }) {
 
             {isIndividual ? (
               <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                This member is marked as <span className="font-semibold text-slate-800">INDIVIDUAL</span>, so business name is tied to the full name.
+                This member is marked as{" "}
+                <span className="font-semibold text-slate-800">INDIVIDUAL</span>
+                , so business name is tied to the full name.
               </div>
             ) : (
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Business Name</label>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Business Name
+                </label>
                 <div className="relative">
                   <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     readOnly={!editing}
                     value={form.businessName}
-                    onChange={(e) => handleChange("businessName", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("businessName", e.target.value)
+                    }
                     className={`w-full rounded-xl border py-2.5 pl-10 pr-3 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
                   />
                 </div>
@@ -944,13 +1014,19 @@ export default function EntityDetailsPage({ params }) {
         {/* ACCOUNT SECTION */}
         <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Account Status</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">Billing and membership</h3>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Account Status
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">
+              Billing and membership
+            </h3>
           </div>
 
           <div className="mt-5 space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Member Type</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Member Type
+              </label>
               <select
                 disabled={!editing}
                 value={form.type}
@@ -963,7 +1039,9 @@ export default function EntityDetailsPage({ params }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Category</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Category
+              </label>
               <select
                 disabled={!editing}
                 value={form.category}
@@ -980,7 +1058,9 @@ export default function EntityDetailsPage({ params }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Billing Frequency</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Billing Frequency
+              </label>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700">
                 {form.billingFrequency || "—"}
               </div>
@@ -1028,7 +1108,10 @@ export default function EntityDetailsPage({ params }) {
                       Account Name
                     </p>
                     <p className="mt-1 text-sm font-semibold text-slate-800">
-                      {wallet?.accountName || member?.businessName || member?.fullname || "Not available"}
+                      {wallet?.accountName ||
+                        member?.businessName ||
+                        member?.fullname ||
+                        "Not available"}
                     </p>
                   </div>
                 </div>
@@ -1045,7 +1128,6 @@ export default function EntityDetailsPage({ params }) {
                   </p>
                 </div>
               )}
-
             </div>
           </div>
         </div>
@@ -1055,8 +1137,12 @@ export default function EntityDetailsPage({ params }) {
       <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Pricing</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">Member Pricing</h3>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Pricing
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">
+              Member Pricing
+            </h3>
             <p className="mt-1 text-sm text-slate-600">
               {memberPricing?.length} assigned pricing option(s)
             </p>
@@ -1094,79 +1180,96 @@ export default function EntityDetailsPage({ params }) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
-            {memberPricing && memberPricing?.length > 0 && memberPricing.map((item) => {
-              const isSelected = selectedPricingIds.includes(item.id || "");
+            {memberPricing &&
+              memberPricing?.length > 0 &&
+              memberPricing.map((item) => {
+                const isSelected = selectedPricingIds.includes(item.id || "");
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handlePricingSelect(item)}
-                  className={`text-left rounded-2xl border p-5 transition-all ${isSelected ? "border-emerald-300 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">Pricing Title</p>
-                      <h4 className="mt-1 text-base font-semibold text-slate-900">
-                        {item.title || "Untitled Pricing"}
-                      </h4>
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handlePricingSelect(item)}
+                    className={`text-left rounded-2xl border p-5 transition-all ${isSelected ? "border-emerald-300 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          Pricing Title
+                        </p>
+                        <h4 className="mt-1 text-base font-semibold text-slate-900">
+                          {item.title || "Untitled Pricing"}
+                        </h4>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+                        {item.type || "—"}
+                      </span>
                     </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
-                      {item.type || "—"}
-                    </span>
-                  </div>
 
-                  <div className="mt-4 space-y-3 text-sm text-slate-600">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Category</span>
-                      <span className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">{item.category || "—"}</span>
-                    </div>
-                    {item.subCategory && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className={`inline-flex items-center rounded-xl px-2.5 py-1 text-[11px] border border-slate-200 font-semibold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-                          {formatSubCategory(item.subCategory)}
+                    <div className="mt-4 space-y-3 text-sm text-slate-600">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Category</span>
+                        <span className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                          {item.category || "—"}
                         </span>
                       </div>
-                    )}
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Price</span>
-                      <p className="font-semibold text-slate-800">
-                        {item.price ? `₦${Number(item.price).toLocaleString()}` : "—"}
-                        <span className="font-medium text-slate-500">
-                          {
-                            (() => {
-                              const f = String(item.frequency || "").toUpperCase();
+                      {item.subCategory && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-xl px-2.5 py-1 text-[11px] border border-slate-200 font-semibold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
+                          >
+                            {formatSubCategory(item.subCategory)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Price</span>
+                        <p className="font-semibold text-slate-800">
+                          {item.price
+                            ? `₦${Number(item.price).toLocaleString()}`
+                            : "—"}
+                          <span className="font-medium text-slate-500">
+                            {(() => {
+                              const f = String(
+                                item.frequency || "",
+                              ).toUpperCase();
                               const map: Record<string, string> = {
                                 DAILY: "/day",
                                 WEEKLY: "/week",
                                 MONTHLY: "/month",
                                 YEARLY: "/year",
                                 QUARTERLY: "/quarter",
-                                BIWEEKLY: "/2-weeks"
+                                BIWEEKLY: "/2-weeks",
                               };
-                              return map[f] || (item.frequency ? item.frequency : "/month");
-                            })()
-                          }
+                              return (
+                                map[f] ||
+                                (item.frequency ? item.frequency : "/month")
+                              );
+                            })()}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Status</span>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}`}
+                        >
+                          {item.status ? "Active" : "Inactive"}
                         </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Code
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {item.code || "No code available."}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Status</span>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
-                        {item.status ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Code</p>
-                    <p className="mt-1 text-sm text-slate-700">
-                      {item.code || "No code available."}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
           </div>
         )}
       </div>
@@ -1176,8 +1279,12 @@ export default function EntityDetailsPage({ params }) {
         <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Company Information</p>
-              <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Company</h3>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Company Information
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                Assigned Company
+              </h3>
               <p className="mt-1 text-sm text-slate-600">
                 Manage this member&apos;s assigned company
               </p>
@@ -1188,7 +1295,7 @@ export default function EntityDetailsPage({ params }) {
               onClick={() => {
                 setSelectedCompanyId("");
                 setIsCompanyModalOpen(true);
-                fetchCompanyData()
+                fetchCompanyData();
               }}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
@@ -1209,11 +1316,17 @@ export default function EntityDetailsPage({ params }) {
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-emerald-700">Current Company</p>
+                    <p className="text-xs uppercase tracking-wide text-emerald-700">
+                      Current Company
+                    </p>
                     <h4 className="mt-1 text-base font-semibold text-slate-900">
                       {member.companyData?.name || "Unnamed Company"}
                     </h4>
-                    <p className="mt-1 text-sm text-slate-600">{member.companyData?.uid || member.companyData?.id || "No company id"}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {member.companyData?.uid ||
+                        member.companyData?.id ||
+                        "No company id"}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
@@ -1234,8 +1347,12 @@ export default function EntityDetailsPage({ params }) {
         <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Agent Information</p>
-              <h3 className="mt-1 text-lg font-semibold text-slate-900">Assigned Agent</h3>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Agent Information
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                Assigned Agent
+              </h3>
               <p className="mt-1 text-sm text-slate-600">
                 Manage agent assigned
               </p>
@@ -1246,7 +1363,7 @@ export default function EntityDetailsPage({ params }) {
               onClick={() => {
                 setSelectedAgentId("");
                 setIsAgentModalOpen(true);
-                fetchAgentData()
+                fetchAgentData();
               }}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
@@ -1267,11 +1384,17 @@ export default function EntityDetailsPage({ params }) {
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-emerald-700">Current Agent</p>
+                    <p className="text-xs uppercase tracking-wide text-emerald-700">
+                      Current Agent
+                    </p>
                     <h4 className="mt-1 text-base font-semibold text-slate-900">
                       {member.agentData?.fullname || "Unnamed Agent"}
                     </h4>
-                    <p className="mt-1 text-sm text-slate-600">{member.agentData?.uid || member.agentData?.id || "No agent id"}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {member.agentData?.uid ||
+                        member.agentData?.id ||
+                        "No agent id"}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
@@ -1294,8 +1417,12 @@ export default function EntityDetailsPage({ params }) {
           <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
             <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-start md:justify-between md:p-6">
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Change Company</p>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">Select a company</h3>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Change Company
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  Select a company
+                </h3>
                 <p className="mt-1 text-sm text-slate-600">
                   Click a company card to reveal the assign button.
                 </p>
@@ -1334,11 +1461,15 @@ export default function EntityDetailsPage({ params }) {
                           onClick={() => setSelectedCompanyId(companyId)}
                           className="w-full text-left"
                         >
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Company</p>
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Company
+                          </p>
                           <h4 className="mt-1 text-base font-semibold text-slate-900">
                             {company.name || "Unnamed Company"}
                           </h4>
-                          <p className="mt-1 text-xs text-slate-600">{companyId || "No company id"}</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {companyId || "No company id"}
+                          </p>
 
                           <div className="mt-4 space-y-2 text-sm text-slate-700">
                             <p>{company.email || "No email"}</p>
@@ -1375,8 +1506,12 @@ export default function EntityDetailsPage({ params }) {
           <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
             <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-start md:justify-between md:p-6">
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Change Agent</p>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">Select an agent</h3>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Change Agent
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  Select an agent
+                </h3>
                 <p className="mt-1 text-sm text-slate-600">
                   Click an agent card to show the set button.
                 </p>
@@ -1415,11 +1550,15 @@ export default function EntityDetailsPage({ params }) {
                           onClick={() => setSelectedAgentId(agentId)}
                           className="w-full text-left"
                         >
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Agent</p>
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Agent
+                          </p>
                           <h4 className="mt-1 text-base font-semibold text-slate-900">
                             {agent.fullname || agent.name || "Unnamed Agent"}
                           </h4>
-                          <p className="mt-1 text-xs text-slate-600">{agentId || "No agent id"}</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {agentId || "No agent id"}
+                          </p>
 
                           <div className="mt-4 space-y-2 text-sm text-slate-700">
                             <p>{agent.email || "No email"}</p>
@@ -1456,10 +1595,15 @@ export default function EntityDetailsPage({ params }) {
           <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
             <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-start md:justify-between md:p-6">
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Upgrade Pricing</p>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">Select available plans</h3>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Upgrade Pricing
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  Select available plans
+                </h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  Filtered by {memberType}{memberCategory ? ` • ${memberCategory}` : ""}
+                  Filtered by {memberType}
+                  {memberCategory ? ` • ${memberCategory}` : ""}
                 </p>
               </div>
 
@@ -1502,12 +1646,16 @@ export default function EntityDetailsPage({ params }) {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-500">Plan</p>
+                            <p className="text-xs uppercase tracking-wide text-slate-500">
+                              Plan
+                            </p>
                             <h4 className="mt-1 text-base font-semibold text-slate-900">
                               {item.title || "Untitled Pricing"}
                             </h4>
                           </div>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${checked ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${checked ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                          >
                             {checked ? "Selected" : "Select"}
                           </span>
                         </div>
@@ -1515,22 +1663,30 @@ export default function EntityDetailsPage({ params }) {
                         <div className="mt-4 space-y-3 text-sm text-slate-600">
                           <div className="flex items-center justify-between gap-3">
                             <span>Type</span>
-                            <span className="font-semibold text-slate-800">{item.type || "—"}</span>
+                            <span className="font-semibold text-slate-800">
+                              {item.type || "—"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <span>Category</span>
-                            <span className="font-semibold text-slate-800">{item.category || "—"}</span>
+                            <span className="font-semibold text-slate-800">
+                              {item.category || "—"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <span>Price</span>
                             <span className="font-semibold text-slate-800">
-                              {item.price ? `₦${Number(item.price).toLocaleString()}` : "—"}
+                              {item.price
+                                ? `₦${Number(item.price).toLocaleString()}`
+                                : "—"}
                             </span>
                           </div>
                         </div>
 
                         <div className="mt-4 border-t border-slate-100 pt-4">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Code</p>
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Code
+                          </p>
                           <p className="mt-1 text-sm text-slate-700">
                             {item.code || "No code available."}
                           </p>
@@ -1575,46 +1731,48 @@ export default function EntityDetailsPage({ params }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {paymentSummaryCards.length === 0 ? (
           <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:col-span-2 xl:col-span-3">
-            <p className="text-sm font-medium text-slate-600">No payments available yet.</p>
+            <p className="text-sm font-medium text-slate-600">
+              No payments available yet.
+            </p>
           </div>
-        ) : (
-          // paymentSummaryCards.map((summary) => (
-          //   <div key={summary.label} className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm">
-          //     <p className="text-xs uppercase tracking-wide text-slate-500">Payment Group</p>
-          //     <h4 className="mt-1 text-base font-semibold text-slate-900">{summary.label}</h4>
+        ) : // paymentSummaryCards.map((summary) => (
+        //   <div key={summary.label} className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm">
+        //     <p className="text-xs uppercase tracking-wide text-slate-500">Payment Group</p>
+        //     <h4 className="mt-1 text-base font-semibold text-slate-900">{summary.label}</h4>
 
-          //     <div className="mt-4 grid grid-cols-2 gap-3">
-          //       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-emerald-700">Total Paid</p>
-          //         <p className="mt-1 text-sm font-bold text-emerald-800">₦{summary.totalPaid.toLocaleString()}</p>
-          //       </div>
+        //     <div className="mt-4 grid grid-cols-2 gap-3">
+        //       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+        //         <p className="text-[11px] uppercase tracking-wide text-emerald-700">Total Paid</p>
+        //         <p className="mt-1 text-sm font-bold text-emerald-800">₦{summary.totalPaid.toLocaleString()}</p>
+        //       </div>
 
-          //       <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-amber-700">Pending</p>
-          //         <p className="mt-1 text-sm font-bold text-amber-800">₦{summary.pending.toLocaleString()}</p>
-          //       </div>
+        //       <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+        //         <p className="text-[11px] uppercase tracking-wide text-amber-700">Pending</p>
+        //         <p className="mt-1 text-sm font-bold text-amber-800">₦{summary.pending.toLocaleString()}</p>
+        //       </div>
 
-          //       <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-rose-700">Owing</p>
-          //         <p className="mt-1 text-sm font-bold text-rose-800">₦{summary.owing.toLocaleString()}</p>
-          //       </div>
+        //       <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
+        //         <p className="text-[11px] uppercase tracking-wide text-rose-700">Owing</p>
+        //         <p className="mt-1 text-sm font-bold text-rose-800">₦{summary.owing.toLocaleString()}</p>
+        //       </div>
 
-          //       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          //         <p className="text-[11px] uppercase tracking-wide text-slate-700">Total</p>
-          //         <p className="mt-1 text-sm font-bold text-slate-900">₦{summary.total.toLocaleString()}</p>
-          //       </div>
-          //     </div>
-          //   </div>
-          // ))
-          null
-        )}
+        //       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        //         <p className="text-[11px] uppercase tracking-wide text-slate-700">Total</p>
+        //         <p className="mt-1 text-sm font-bold text-slate-900">₦{summary.total.toLocaleString()}</p>
+        //       </div>
+        //     </div>
+        //   </div>
+        // ))
+        null}
       </div>
 
       {/* payment records section */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm">
         <div className="flex flex-col gap-4 p-4 md:p-6 border-b border-slate-100 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Transactions</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Transactions
+            </p>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">
               Payment Records
             </h3>
@@ -1699,18 +1857,19 @@ export default function EntityDetailsPage({ params }) {
                       {typeof p.amount === "number"
                         ? `₦${p.amount.toLocaleString()}`
                         : p.amount || "—"}
-                    </td> 
+                    </td>
                     <td className="px-4 py-4 text-xs md:px-6 md:text-sm">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${p.status?.toUpperCase() === "COMPLETED" ||
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                          p.status?.toUpperCase() === "COMPLETED" ||
                           p.status?.toUpperCase() === "SUCCESS"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : p.status?.toUpperCase() === "PENDING"
-                            ? "bg-blue-100 text-blue-700"
-                            : p.status?.toUpperCase() === "FAILED"
-                              ? "bg-rose-100 text-rose-700"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
+                            ? "bg-emerald-100 text-emerald-700"
+                            : p.status?.toUpperCase() === "PENDING"
+                              ? "bg-blue-100 text-blue-700"
+                              : p.status?.toUpperCase() === "FAILED"
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-slate-100 text-slate-700"
+                        }`}
                       >
                         {p.status || "—"}
                       </span>

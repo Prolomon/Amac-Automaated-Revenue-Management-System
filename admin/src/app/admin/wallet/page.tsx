@@ -21,19 +21,18 @@ type WalletTransactionStatus = "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
 type WalletTransactionType = "credit" | "debit";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
-import { useRouter } from "next/navigation";
 import { Transaction, getBanks, updateWallet } from "@/lib/services/wallet";
 import { useToast } from "@/context/ToastContext";
 import { createPayout } from "@/lib/services/payout";
+import { getCenterId } from "@/lib/permissions";
 
 function WalletPage() {
-    const router = useRouter();
     const [load, setLoad] = useState(false);
     const [query, setQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("");
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [pageLoading, setPageLoading] = useState(true);
-    const { user, role } = useAuth();
+    const { user } = useAuth();
     const { wallet, loading, error, message, refresh, setUid, setRole, getTransactions, resolveBankAccount } = useWallet();
     const { addToast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -62,7 +61,9 @@ function WalletPage() {
     const [editAccountName, setEditAccountName] = useState("");
     const [editLoading, setEditLoading] = useState(false);
     const [editValidationError, setEditValidationError] = useState<string | null>(null);
-    const centerId = role === "ADMIN" || role === "IT" ? user?.uid : user?.center;
+    const centerId = getCenterId(user) || ""; // Get center ID from user context
+
+    console.log("Center ID:", centerId); // Debugging line to check centerId value
 
     // Fetch banks
     const fetchBanks = useCallback(async () => {
@@ -172,7 +173,7 @@ function WalletPage() {
 
     useEffect(() => {
         setRole(user?.role || "ADMIN");
-        setUid(user?.uid || null);
+        setUid(centerId || null);
     }, [setRole, setUid, user?.role, user?.uid]);
 
     // Handle create wallet (with bank details)
@@ -502,10 +503,13 @@ function WalletPage() {
                             Track available funds, monitor payouts, and review transaction activity.
                         </p>
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 ring-1 ring-slate-200 text-sm text-slate-600">
-                        <Wallet className="h-4 w-4 text-emerald-600" />
-                        Secure wallet mode
-                    </div>
+                    <Link
+                        href={`/admin/wallet/statement?centerId=${centerId}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+                    >
+                        <Wallet className="h-4 w-4" />
+                        Account Statement
+                    </Link>
                 </div>
             </div>
 

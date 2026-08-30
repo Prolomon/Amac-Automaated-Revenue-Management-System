@@ -7,13 +7,14 @@ import { getRequests, Request } from "@/lib/services/request";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
 
 function DiscountRequestsListPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, role } = useAuth();
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? user?.uid : user?.center;
+  const centerId = getCenterId(user);
 
   const [meta, setMeta] = useState<{ total: string | number; page: string | number; limit: string | number; totalPages: number }>({
     total: 0,

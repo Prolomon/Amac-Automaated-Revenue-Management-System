@@ -14,6 +14,7 @@ import { getTransactions } from "@/lib/services/payments";
 import { getMembers } from "@/lib/services/member";
 import { useToast } from "@/context/ToastContext";
 import { updatePaymentConfig } from "@/lib/api";
+import { getCenterId } from "@/lib/permissions";
 
 // Returns YYYY-MM-DD using the browser's LOCAL date, not UTC.
 // toISOString() converts to UTC first, which rolls back to "yesterday"
@@ -26,9 +27,9 @@ function getLocalDateString(date = new Date()) {
 }
 
 export default function PaymentSplit() {
-  const { user, uid, role } = useAuth();
+  const { user, uid } = useAuth();
   const { addToast } = useToast();
-  const centerId = role === "STAFF" ? user?.center : user?.uid;
+  const centerId = getCenterId(user);
 
   const defaultSplits = useMemo(
     () => [

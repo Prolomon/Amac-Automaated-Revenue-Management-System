@@ -1,17 +1,40 @@
 const roleMiddleware = (roles) => {
   return (req, res, next) => {
-    // This is a placeholder for role-based access control.
-    // In a real application, you would get the user's roles from the request object (e.g., from a JWT).
-    const userRoles = ['MEMBER', 'ADMIN', 'STAFF', 'AGENT', 'PARTNER', 'IT']; // Example user roles
+    // Resolve the actual authenticated role from the verified JWT payload.
+    // Tokens carry `role` (MEMBER/ADMIN/STAFF/AGENT/COMPANY) and sometimes `type`
+    // (admin/it/staff/company). Build a normalized set from both.
+    const actual = new Set();
 
-    const hasRole = roles.some(role => userRoles.includes(role.toUpperCase()));
+    if (req.auth?.type) {
+      actual.add(String(req.auth.type).toUpperCase());
+    }
+    if (req.auth?.role) {
+      actual.add(String(req.auth.role).toUpperCase());
+    }
+
+    // Fallback to the DB user's role if the token lacked a role claim.
+    if (req.user?.role && actual.size === 0) {
+      actual.add(String(req.user.role).toUpperCase());
+    }
+
+    // Normalize allowed roles (support "user" alias matching MEMBER).
+    const allowed = new Set(
+      (roles || []).map((r) => {
+        const up = String(r).toUpperCase();
+        return up === "USER" ? "MEMBER" : up;
+      })
+    );
+
+    const hasRole = [...actual].some((role) => allowed.has(role));
 
     if (!hasRole) {
-      return res.status(403).json({ message: 'Forbidden: You do not have the required role.' });
+      return res
+        .status(403)
+        .json({ message: "Forbidden: You do not have the required role." });
     }
 
     next();
   };
 };
 
-export {roleMiddleware};
+export { roleMiddleware };

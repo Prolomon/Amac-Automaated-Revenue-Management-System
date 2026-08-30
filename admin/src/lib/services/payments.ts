@@ -63,10 +63,26 @@ export type PaymentTransaction = {
 
 export async function getPayments(
   centerId: string,
-): Promise<{ ok: boolean; payments?: Payment[]; message?: string }> {
-  const response = await fetch(`${API_URL}/payment/center/${centerId}`, {
-    headers: { ...buildHeaders() },
-  });
+  page: number,
+  limit: number,
+  search?: string,
+): Promise<{
+  ok: boolean;
+  payments?: Payment[];
+  message?: string;
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}> {
+  const response = await fetch(
+    `${API_URL}/payment/center/${centerId}?page=${page}&limit=${limit}${search ? `&search=${search}` : ""}`,
+    {
+      headers: { ...buildHeaders() },
+    },
+  );
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.message || "Failed to fetch payments");
@@ -207,13 +223,19 @@ export const getTransactions = async (
     toDate?: string;
     status?: string;
     query?: string;
-  }
+  },
 ) => {
   const urlParams = new URLSearchParams();
   urlParams.set("page", String(page));
   urlParams.set("limit", String(limit));
 
-  if (centerId && centerId !== "ADMIN" && centerId !== "IT" && centerId !== "undefined" && centerId !== "null") {
+  if (
+    centerId &&
+    centerId !== "ADMIN" &&
+    centerId !== "IT" &&
+    centerId !== "undefined" &&
+    centerId !== "null"
+  ) {
     urlParams.set("centerId", centerId);
   }
 
@@ -284,17 +306,26 @@ export async function confirmPayment(
   center?: string,
   company?: string,
 ): Promise<{ ok: boolean; message?: string; data: DataType }> {
-  console.log("Confirming payment with details:", { userId, paymentId, amount, center, company });
+  console.log("Confirming payment with details:", {
+    userId,
+    paymentId,
+    amount,
+    center,
+    company,
+  });
   if (!userId || !paymentId || !amount || !center || !company) {
     throw new Error("Missing required parameters for confirming payment");
   }
-  const response = await fetch(`${API_URL}/payment/confirm/${userId}/${paymentId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetch(
+    `${API_URL}/payment/confirm/${userId}/${paymentId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount, center, company }),
     },
-    body: JSON.stringify({ amount, center, company }),
-  });
+  );
   const data = await response.json();
 
   if (!response.ok) {
@@ -304,9 +335,7 @@ export async function confirmPayment(
   return data;
 }
 
-export async function payNow(
-  id: string,
-): Promise<{
+export async function payNow(id: string): Promise<{
   ok: boolean;
   message?: string;
   data?: {

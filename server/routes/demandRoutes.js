@@ -15,30 +15,30 @@ import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
 
 // Send demand notice to a single member
-router.post('/send', authMiddleware, roleMiddleware(['admin']), createDemandNotice);
+router.post('/send', authMiddleware, roleMiddleware(['admin', "staff"]), createDemandNotice);
 
 // Send demand notice to a single member by payment ID
-router.post('/send-by-payment', authMiddleware, roleMiddleware(['admin']), createDemandNoticeByPayment);
+router.post('/send-by-payment', authMiddleware, roleMiddleware(['admin', "staff"]), createDemandNoticeByPayment);
 
 // Send demand notices to multiple members
-router.post('/send-multiple', authMiddleware, roleMiddleware(['admin']), createMultipleDemandNotice);
+router.post('/send-multiple', authMiddleware, roleMiddleware(['admin', "staff"]), createMultipleDemandNotice);
 
 // Get all demands with filtering and pagination
-router.get('/', authMiddleware, roleMiddleware(['admin']), getDemands);
+router.get('/', authMiddleware, roleMiddleware(['admin', "staff"]), getDemands);
 
 // Get demand by ID
-router.get('/:id', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member']), getDemandById);
+router.get('/:id', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member', "staff"]), getDemandById);
 
 // Get demand by Center
-router.get('/:id/center', authMiddleware, roleMiddleware(['admin']), getDemandByCenter);
+router.get('/:id/center', authMiddleware, roleMiddleware(['admin', "staff"]), getDemandByCenter);
 
 // Get demand by UserId
-router.get('/:id/user', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member']), getDemandByUser);
+router.get('/:id/user', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member', "staff"]), getDemandByUser);
 
 // Get demand by PaymentId
-router.get('/:id/payment', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member']), getDemandByPayment);
+router.get('/:id/payment', authMiddleware, roleMiddleware(['admin', 'it', 'agent', 'company', 'member', "staff"]), getDemandByPayment);
 
 // Resend demand notice (rechecks payment price)
-router.post('/:id/resend', authMiddleware, roleMiddleware(['admin']), resendDemandNotice);
+router.post('/:id/resend', authMiddleware, roleMiddleware(['admin', "staff"]), resendDemandNotice);
 
 export { router as demandRouter };

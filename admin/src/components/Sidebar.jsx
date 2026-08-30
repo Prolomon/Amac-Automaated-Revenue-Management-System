@@ -19,12 +19,27 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { filterNavItems, getDepartmentRoleForUser } from "@/lib/permissions";
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const { user, role } = useAuth();
   const partner = pathname.split("/")[1] === "partner";
+  const [departmentRole, setDepartmentRole] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getDepartmentRoleForUser(user?.departmentId, user?.department).then(
+      ({ departmentRole: resolved }) => {
+        if (mounted) setDepartmentRole(resolved);
+      }
+    );
+    return () => {
+      mounted = false;
+    };
+  }, [user?.departmentId, user?.department?.role, user?.uid]);
 
   let navItems;
 
@@ -118,6 +133,12 @@ export default function Sidebar({ onClose }) {
     ];
   }
 
+  // Hide nav items the user's department cannot access (dashboard always shows).
+  const visibleNavItems =
+    partner || role === "ADMIN"
+      ? navItems
+      : filterNavItems(navItems, departmentRole);
+
   const handleNavClick = () => {
     if (onClose) onClose();
   };
@@ -140,7 +161,7 @@ export default function Sidebar({ onClose }) {
         </div>
       </div>
       <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
-        {navItems.filter(Boolean).map((item) => {
+        {visibleNavItems.filter(Boolean).map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

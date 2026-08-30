@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { getCenterId } from "@/lib/permissions";
 import {
   Plus,
   RefreshCcw,
@@ -12,6 +13,7 @@ import {
   Check,
   XCircle,
 } from "lucide-react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import {
   getDepartments,
@@ -25,6 +27,7 @@ import { useToast } from "@/context/ToastContext";
 
 export default function DepartmentListPage() {
   const { uid, user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const { addToast } = useToast();
 
   const [departments, setDepartments] = useState<Department[] | null>(null);
@@ -44,7 +47,7 @@ export default function DepartmentListPage() {
   const loadDepartments = useCallback(async () => {
     setLoading(true);
     try {
-      const center = user?.uid || uid || "";
+      const center = getCenterId(user);
       const data = center
         ? await getDepartmentsByCenter(center, { page: 1, limit: 100 })
         : await getDepartments({ page: 1, limit: 100 });
@@ -74,6 +77,7 @@ export default function DepartmentListPage() {
   };
 
   const handleUpdate = async () => {
+    if (readOnly) return;
     if (!selectedDepartment?.uid) return;
     if (!editName.trim()) {
       addToast("error", "Department name is required");
@@ -98,6 +102,7 @@ export default function DepartmentListPage() {
   };
 
   const handleDelete = async () => {
+    if (readOnly) return;
     if (!selectedDepartment?.uid) return;
     if (!confirm(`Are you sure you want to delete "${selectedDepartment.name}"?`)) return;
 
@@ -115,7 +120,11 @@ export default function DepartmentListPage() {
   };
 
   const handleCreate = async () => {
-    const center = user?.uid || uid || "";
+    if (readOnly) return;
+    if (!user) return;
+    if (!user.uid) return;
+    if (!user.center) return;
+    const center = getCenterId(user);
     if (!newName.trim()) {
       addToast("error", "Department name is required");
       return;
@@ -438,7 +447,7 @@ export default function DepartmentListPage() {
                 </label>
                 <input
                   type="text"
-                  value={user?.center || user?.uid || uid || ""}
+                  value={getCenterId(user) || uid || ""}
                   readOnly
                   className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500"
                 />

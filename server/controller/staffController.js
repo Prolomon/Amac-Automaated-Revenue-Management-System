@@ -467,6 +467,9 @@ const loginStaff = async (req, res) => {
       type: "staff",
     });
 
+    // Never send the password hash to the client.
+    const { password, ...staffWithoutPassword } = staff;
+
     void sendEmail(
       staff.email,
       "Login Alert from URMS",
@@ -485,8 +488,9 @@ const loginStaff = async (req, res) => {
     return res.status(200).json({
       ok: true,
       message: "Login successful",
-      staff,
+      staff: staffWithoutPassword,
       role: staff.role,
+      token,
     });
   } catch (err) {
     console.error(err);

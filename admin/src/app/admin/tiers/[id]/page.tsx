@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useToast } from "@/context/ToastContext";
 import { getPricingById, Pricing as PricingType, updatePricing, togglePricing } from "@/lib/services/pricing";
 import { useParams } from "next/navigation";
@@ -115,8 +116,9 @@ export default function Pricing() {
     const { id } = useParams();
     const [loading, setLoading] = useState(false);
     const { user, role } = useAuth();
+    const { readOnly } = usePageAccess();
 
-    if (role !== "ADMIN" && !user?.permission?.canEditPricing) {
+    if (role !== "ADMIN" && !!readOnly) {
         router.replace("/admin/tiers");
     }
 

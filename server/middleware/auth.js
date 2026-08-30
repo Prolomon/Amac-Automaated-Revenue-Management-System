@@ -110,6 +110,29 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user) {
+      user = await prisma.staff.findUnique({
+        where: { uid: userUid },
+        select: {
+          id: true,
+          uid: true,
+          fullname: true,
+          email: true,
+          phone: true,
+          gender: true,
+          center: true,
+          role: true,
+          departmentId: true,
+          avatar: true,
+          location: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      userType = "staff";
+    }
+
+    if (!user) {
       user = await prisma.company.findUnique({
         where: { uid: userUid },
         select: {

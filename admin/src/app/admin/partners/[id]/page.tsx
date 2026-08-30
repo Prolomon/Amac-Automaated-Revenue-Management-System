@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { usePageAccess } from "@/components/PageGuard";
 import { useRouter } from "next/navigation";
 import {
     Edit2,
@@ -28,10 +29,13 @@ import { getWallet, Wallet as WalletType } from "@/lib/services/wallet";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import Link from "next/link";
 import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
 
 export default function PartnerDetailsPage() {
     const { id } = useParams();
-    const { user, role } = useAuth();
+    const { user } = useAuth();
+    const centerId = getCenterId(user);
+    const { readOnly } = usePageAccess();
     const { addToast } = useToast();
 
     const router = useRouter();
@@ -54,7 +58,6 @@ export default function PartnerDetailsPage() {
     const [deleting, setDeleting] = useState(false);
     const [wallet, setWallet] = useState<WalletType | null>(null);
     const zoneOptions = ["A", "B", "C", "D", "E"];
-    const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
 
     const normalizePricingIds = (value: unknown): string[] => {
         if (typeof value === "string") {
@@ -96,10 +99,6 @@ export default function PartnerDetailsPage() {
     const selectedPricingCards = pricingOptions.filter((pricing) =>
         selectedPricingIds.includes(pricing.id || ""),
     );
-
-    if (user?.permission?.canViewPartner === false) {
-        router.push("/admin");
-    }
 
     const fetchData = useCallback(() => {
         let mounted = true;
@@ -375,7 +374,7 @@ export default function PartnerDetailsPage() {
                                 <Users size={15} />
                                 <span>View Agents</span>
                             </Link>
-                            {role === "ADMIN" || (role !== "ADMIN" && user?.permission?.canEditPartner) ? (
+                            {!readOnly ? (
                                 <button
                                     onClick={() => setEditing(true)}
                                     className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700"
@@ -385,7 +384,7 @@ export default function PartnerDetailsPage() {
                                 </button>
                             ): null}
 
-                            {role === "ADMIN" || (role !== "ADMIN" && user?.permission?.canDeletePartner) ? (
+                            {!readOnly ? (
                                 <button
                                     onClick={() => setDeleteModalOpen(true)}
                                     className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50"

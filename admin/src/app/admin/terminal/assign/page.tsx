@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { createTerminal, assignTerminal } from "@/lib/services/terminal";
-import { getAllCompanies, Company } from "@/lib/services/company";
+import { Company, getCompanies } from "@/lib/services/company";
 import { getAllAgents, getAgentsByCompany, Agent } from "@/lib/services/agent";
+import { getCenterId } from "@/lib/permissions";
 
 function AssignContent() {
   const router = useRouter();
@@ -26,15 +27,16 @@ function AssignContent() {
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [serialNumber, setSerialNumber] = useState<string>(initialSerial);
   const [terminalLabel, setTerminalLabel] = useState<string>("");
-  const [center, setCenter] = useState<string>(user?.center || "Main Center");
+  const [center, setCenter] = useState<string>(getCenterId(user) || "");
   const [status, setStatus] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState(false);
+  const centerId = getCenterId(user);
 
   // Fetch Companies
   const loadCompanies = useCallback(async () => {
     setLoadingCompanies(true);
-    try {
-      const res = await getAllCompanies(1, 200);
+    try { 
+      const res = await getCompanies(centerId, 1, 200);
       const list = Array.isArray(res?.data) ? res.data : [];
       setCompanies(list);
     } catch (err: any) {
@@ -273,6 +275,7 @@ function AssignContent() {
               <input
                 type="text"
                 required
+                disabled
                 placeholder="e.g. AMAC Central Office"
                 value={center}
                 onChange={(e) => setCenter(e.target.value)}

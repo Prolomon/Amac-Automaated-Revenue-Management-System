@@ -12,35 +12,35 @@ import { roleMiddleware } from "../middleware/role.js";
 
 const router = express.Router();
 
-router.post("/", authMiddleware, roleMiddleware(["admin"]), createDepartment);
+router.post("/", authMiddleware, roleMiddleware(["admin", "staff"]), createDepartment);
 router.get(
   "/",
   authMiddleware,
-  roleMiddleware(["admin"]),
+  roleMiddleware(["admin", "staff"]),
   getDepartments
 );
 router.get(
   "/center/:center",
   authMiddleware,
-  roleMiddleware(["admin"]),
+  roleMiddleware(["admin", "staff"]),
   getDepartmentsByCenter
 );
 router.get(
   "/:uid",
   authMiddleware,
-  roleMiddleware(["admin"]),
+  roleMiddleware(["admin", "staff"]),
   getDepartment
 );
 router.put(
   "/:uid",
   authMiddleware,
-  roleMiddleware(["admin"]),
+  roleMiddleware(["admin", "staff"]),
   updateDepartment
 );
 router.delete(
   "/:uid",
   authMiddleware,
-  roleMiddleware(["admin"]),
+  roleMiddleware(["admin", "staff"]),
   deleteDepartment
 );
 

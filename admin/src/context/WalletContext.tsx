@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Wallet, getWallet, createWallet, initiateTransfer, resolveBankAccount, getBanks, getTransactions, getTransaction, updateWallet } from "@/lib/services/wallet";
+import { useAuth } from "@/context/AuthContext";
+import { getCenterId } from "@/lib/permissions";
 
 const walletContext = createContext<any>(null);
 
@@ -21,6 +23,8 @@ export const WalletProvider = ({ children }) => {
     const [message, setMessage] = useState<string | null>(null);
     const [uid, setUid] = useState<string | null>(null);
     const [role, setRole] = useState<"MEMBER" | "ADMIN" | "AGENT" | "STAFF" | "IT" | "COMPANY">("ADMIN"); // Default role to "ADMIN" for testing
+    const { user } = useAuth(); // Get the authenticated user from AuthContext
+    const centerId = getCenterId(user) || ""; // Get center ID from user context
 
     // Fetch wallet data when customerCode is available
     const fetchWallet = useCallback(async () => {
@@ -34,7 +38,7 @@ export const WalletProvider = ({ children }) => {
                 return;
             }
 
-            const { ok, wallet, message, isExist } = await getWallet(uid, role);
+            const { ok, wallet, message, isExist } = await getWallet(uid || centerId, role === "STAFF" ? "ADMIN" : role);
 
             if (isExist) {
                 if (ok && wallet) {

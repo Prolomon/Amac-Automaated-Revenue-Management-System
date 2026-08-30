@@ -31,6 +31,13 @@ export type Admin = {
   adminPhone?: string;
   adminLocation?: string;
   ledger?: string;
+  departmentId?: string | null;
+  department?: {
+    uid?: string;
+    name?: string;
+    role?: string;
+    status?: boolean;
+  } | null;
 };
 
 export type CreateAdminInput = Pick<

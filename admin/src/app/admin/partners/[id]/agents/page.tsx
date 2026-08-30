@@ -34,18 +34,18 @@ import {
 
 import { getLocation } from "@/lib/services/location";
 import { useAuth } from "@/context/AuthContext";
+import { getCenterId } from "@/lib/permissions";
 
 export default function Agents() {
   const { id } = useParams()
   const router = useRouter();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const centerId = getCenterId(user);
   const [agents, setAgents] = useState<AgentType[]>([]);
   const [members, setMembers] = useState<MemberType[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
-
   const [company, setCompany] = useState<Company | null>(null);
 
   const fetchCompany = useCallback(async () => {

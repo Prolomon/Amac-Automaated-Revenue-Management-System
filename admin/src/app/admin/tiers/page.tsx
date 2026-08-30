@@ -1,8 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePageAccess } from "@/components/PageGuard";
+import { getCenterId } from "@/lib/permissions";
 import { Plus, Check, Edit2, AlertCircle, RefreshCcw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getPricingByCenter, Pricing as PricingType, togglePricing } from "@/lib/services/pricing";
+import {
+  getPricingByCenter,
+  Pricing as PricingType,
+  togglePricing,
+} from "@/lib/services/pricing";
 import { getMembersByPricingId } from "@/lib/services/member";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
@@ -10,21 +16,27 @@ import { useToast } from "@/context/ToastContext";
 export default function Pricing() {
   const router = useRouter();
   const { uid, user, role } = useAuth();
+  const { readOnly } = usePageAccess();
   const [pricing, setPricing] = useState<PricingType[] | null>(null);
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
   const [entityCounts, setEntityCounts] = useState<Record<string, number>>({});
 
-  const fetchPricingEntity = useCallback(async (pricingId: string) => {
-    try {
-      const data = await getMembersByPricingId(1, 1000, pricingId);
-      return Array.isArray(data?.data) ? data.data : [];
-    }
-    catch (err) {
-      addToast("error", err.message || "An error occurred while fetching pricing entities");
-      return [];
-    }
-  }, [addToast]);
+  const fetchPricingEntity = useCallback(
+    async (pricingId: string) => {
+      try {
+        const data = await getMembersByPricingId(1, 1000, pricingId);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (err) {
+        addToast(
+          "error",
+          err.message || "An error occurred while fetching pricing entities",
+        );
+        return [];
+      }
+    },
+    [addToast],
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -62,7 +74,10 @@ export default function Pricing() {
     const list = pricing ?? [];
     const activeTiers = list.filter((tier) => tier.status).length;
     const averagePrice = list.length
-      ? Math.round(list.reduce((sum, tier) => sum + Number(tier.price || 0), 0) / list.length)
+      ? Math.round(
+          list.reduce((sum, tier) => sum + Number(tier.price || 0), 0) /
+            list.length,
+        )
       : 0;
     const highestPrice = list.length
       ? Math.max(...list.map((tier) => Number(tier.price || 0)))
@@ -79,11 +94,18 @@ export default function Pricing() {
   const loadPricing = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getPricingByCenter(user?.center || user?.uid || uid);
-      const pricingData = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const data = await getPricingByCenter(getCenterId(user) || uid);
+      const pricingData = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+          ? data
+          : [];
       setPricing(pricingData);
     } catch (err) {
-      addToast("error", err.message || "An error occurred while fetching pricing tiers");
+      addToast(
+        "error",
+        err.message || "An error occurred while fetching pricing tiers",
+      );
       setPricing([]);
     } finally {
       setLoading(false);
@@ -129,7 +151,7 @@ export default function Pricing() {
               <RefreshCcw size={18} />
               Refresh Tiers
             </button>
-            {role === "ADMIN" || (role !== "ADMIN" && !user?.permission?.canCreatePricing) ? (
+            {role === "ADMIN" || (role !== "ADMIN" && !!readOnly) ? (
               <button
                 onClick={() => router.push("/admin/tiers/add")}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
@@ -144,23 +166,45 @@ export default function Pricing() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total Tiers</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{pricingStats.totalTiers}</p>
-          <p className="mt-1 text-xs text-slate-500">Pricing packages available</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Total Tiers
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {pricingStats.totalTiers}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Pricing packages available
+          </p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Active Tiers</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-700">{pricingStats.activeTiers}</p>
-          <p className="mt-1 text-xs text-slate-500">Currently promoted tiers</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Active Tiers
+          </p>
+          <p className="mt-2 text-2xl font-bold text-emerald-700">
+            {pricingStats.activeTiers}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Currently promoted tiers
+          </p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Average Price</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">₦{pricingStats.averagePrice.toLocaleString()}</p>
-          <p className="mt-1 text-xs text-slate-500">Across all pricing tiers</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Average Price
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            ₦{pricingStats.averagePrice.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Across all pricing tiers
+          </p>
         </div>
         <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Highest Tier</p>
-          <p className="mt-2 text-2xl font-bold text-amber-600">₦{pricingStats.highestPrice.toLocaleString()}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Highest Tier
+          </p>
+          <p className="mt-2 text-2xl font-bold text-amber-600">
+            ₦{pricingStats.highestPrice.toLocaleString()}
+          </p>
           <p className="mt-1 text-xs text-slate-500">Top monthly package</p>
         </div>
       </div>
@@ -168,8 +212,12 @@ export default function Pricing() {
       <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Tier Catalog</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">All pricing plans</h2>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Tier Catalog
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">
+              All pricing plans
+            </h2>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
             <Check className="h-3.5 w-3.5" />
@@ -184,17 +232,20 @@ export default function Pricing() {
                 <div className="mb-4 animate-spin">
                   <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
                 </div>
-                <p className="font-medium text-slate-600">Loading pricing tiers...</p>
+                <p className="font-medium text-slate-600">
+                  Loading pricing tiers...
+                </p>
               </div>
             </div>
           ) : pricing?.length > 0 ? (
             pricing.map((tier, index) => (
               <div
                 key={index}
-                className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${tier.status
-                  ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
-                  : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
-                  }`}
+                className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${
+                  tier.status
+                    ? "border-emerald-200 shadow-xl ring-1 ring-emerald-500/20"
+                    : "border-slate-100 shadow-sm hover:border-emerald-200 hover:shadow-lg"
+                }`}
               >
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -210,10 +261,11 @@ export default function Pricing() {
                       </p>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${tier.status
-                        ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border border-slate-200 bg-slate-50 text-slate-600"
-                        }`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        tier.status
+                          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border border-slate-200 bg-slate-50 text-slate-600"
+                      }`}
                     >
                       {tier.status ? "Active" : "Inactive"}
                     </span>
@@ -225,20 +277,21 @@ export default function Pricing() {
                         ₦{Number(tier.price || 0).toLocaleString()}
                       </span>
                       <span className="font-medium text-slate-500">
-                        {
-                          (() => {
-                            const f = String(tier.frequency || "").toUpperCase();
-                            const map: Record<string, string> = {
-                              DAILY: "/day",
-                              WEEKLY: "/week",
-                              MONTHLY: "/month",
-                              YEARLY: "/year",
-                              QUARTERLY: "/quarter",
-                              BIWEEKLY: "/2-weeks"
-                            };
-                            return map[f] || (tier.frequency ? tier.frequency : "/month");
-                          })()
-                        }
+                        {(() => {
+                          const f = String(tier.frequency || "").toUpperCase();
+                          const map: Record<string, string> = {
+                            DAILY: "/day",
+                            WEEKLY: "/week",
+                            MONTHLY: "/month",
+                            YEARLY: "/year",
+                            QUARTERLY: "/quarter",
+                            BIWEEKLY: "/2-weeks",
+                          };
+                          return (
+                            map[f] ||
+                            (tier.frequency ? tier.frequency : "/month")
+                          );
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -272,16 +325,17 @@ export default function Pricing() {
                     </div>
                   </div>
 
-                  {role === "ADMIN" || (role !== "ADMIN" && !user?.permission?.canEditPricing) ? (
+                  {role === "ADMIN" || (role !== "ADMIN" && !!readOnly) ? (
                     <div className="mt-5">
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => handleToggleStatus(tier.id || "")}
                           disabled={loading || !tier.id}
-                          className={`inline-flex items-center justify-center rounded-xl px-3 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${tier.status
-                            ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                            : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                            }`}
+                          className={`inline-flex items-center justify-center rounded-xl px-3 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                            tier.status
+                              ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                              : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          }`}
                         >
                           {tier.status ? "Set Inactive" : "Set Active"}
                         </button>
@@ -293,7 +347,8 @@ export default function Pricing() {
                           Edit Tier
                         </button>
                       </div>
-                    </div>) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))
@@ -301,8 +356,12 @@ export default function Pricing() {
             <div className="col-span-full py-16 text-center">
               <div className="flex flex-col items-center justify-center">
                 <AlertCircle className="mb-4 h-12 w-12 text-slate-300" />
-                <h3 className="mb-2 text-lg font-semibold text-slate-700">No Pricing Tiers Found</h3>
-                <p className="mb-6 text-slate-600">Create your first pricing tier to get started</p>
+                <h3 className="mb-2 text-lg font-semibold text-slate-700">
+                  No Pricing Tiers Found
+                </h3>
+                <p className="mb-6 text-slate-600">
+                  Create your first pricing tier to get started
+                </p>
                 <button
                   onClick={() => router.push("/admin/tiers/add")}
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"

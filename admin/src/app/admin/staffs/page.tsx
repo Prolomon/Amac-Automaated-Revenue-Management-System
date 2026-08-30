@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { getCenterId } from "@/lib/permissions";
 import {
   Search,
   Plus,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getStaffs, Staff } from "@/lib/services/staff";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
@@ -16,6 +18,7 @@ import { useToast } from "@/context/ToastContext";
 export default function StaffsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { readOnly } = usePageAccess();
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [staffs, setStaffs] = useState<Staff[] | null>(null);
@@ -27,7 +30,7 @@ export default function StaffsPage() {
     total: 0,
     totalPages: 1,
   });
-  const centerId = user?.uid || "";
+  const centerId = getCenterId(user);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -169,7 +172,7 @@ export default function StaffsPage() {
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <Link
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4"
-              href="/admin/staffs/add"
+              href={readOnly ? "/admin/staffs" : "/admin/staffs/add"}
             >
               <Plus size={18} />
               <span className="hidden sm:inline">Add Staff</span>

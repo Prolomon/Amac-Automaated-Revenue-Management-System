@@ -51,6 +51,24 @@ export type UpdateRequestStatusPayload = {
   reason?: string;
 };
 
+export type AdminApproveRequestPayload = {
+  discount?: number;
+  reason?: string;
+  adminId?: string | null;
+};
+
+export type ApproveRequestPayload = {
+  approverId?: string | null;
+  discount?: number;
+  reason?: string;
+};
+
+export type RejectRequestPayload = {
+  reason?: string;
+  adminId?: string | null;
+  approverId?: string | null;
+};
+
 export interface RequestFilterParams {
   status?: string | boolean;
   memberId?: string;
@@ -275,7 +293,7 @@ export async function updateRequestStatus(
 
 export async function approveRequest(
   id: string,
-  payload: UpdateRequestStatusPayload
+  payload: ApproveRequestPayload
 ): Promise<SingleRequestResponse> {
   const response = await fetch(`${API_URL}/request/${id}/approve`, {
     method: "PUT",
@@ -285,6 +303,38 @@ export async function approveRequest(
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.message || "Failed to approve request");
+  }
+  return data;
+}
+
+export async function adminApproveRequest(
+  id: string,
+  payload: AdminApproveRequestPayload
+): Promise<SingleRequestResponse> {
+  const response = await fetch(`${API_URL}/request/${id}/admin-approve`, {
+    method: "PUT",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to submit request for approval");
+  }
+  return data;
+}
+
+export async function rejectRequest(
+  id: string,
+  payload: RejectRequestPayload
+): Promise<SingleRequestResponse> {
+  const response = await fetch(`${API_URL}/request/${id}/reject`, {
+    method: "PUT",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to reject request");
   }
   return data;
 }

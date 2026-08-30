@@ -9,7 +9,9 @@ import {
   getRequestsByCenter,
   updateRequest,
   updateRequestStatus,
+  adminApproveRequest,
   approveRequest,
+  rejectRequest,
   deleteRequest,
 } from '../controller/requestController.js';
 import { authMiddleware } from '../middleware/auth.js';
@@ -43,9 +45,14 @@ router.put('/:id', authMiddleware, roleMiddleware(['admin', 'it', 'member', 'sta
 
 // Approve / update request status
 router.put('/:id/status', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), updateRequestStatus);
+// First-level admin approval (records adminId, keeps PENDING for executive)
+router.put('/:id/admin-approve', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), adminApproveRequest);
+// Executive Administrator / Viewer final approval (uses approverId, applies discount to payment)
 router.put('/:id/approve', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), approveRequest);
+// Reject request
+router.put('/:id/reject', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), rejectRequest);
 
 // Delete request
-router.delete('/:id', authMiddleware, roleMiddleware(['admin', 'it']), deleteRequest);
+router.delete('/:id', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), deleteRequest);
 
 export { router as requestRouter };

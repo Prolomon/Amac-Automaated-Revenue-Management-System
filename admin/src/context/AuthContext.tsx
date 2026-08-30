@@ -31,9 +31,30 @@ export const AuthProvider = ({ children }) => {
   const refresh = async () => {
     setLoading(true);
     try {
+
+      if (role === "staff" && uid) {
+
+        const res = await getStaff(uid);
+
+        if (res.ok) {
+          setStaff(res.staff);
+          setIsAuthenticated(true);
+          Cookies.set("amac_session", JSON.stringify(res.staff), { path: "/", expires: 1 });
+          setUid(res.staff.uid);
+          setRole(res.staff.role);
+
+          Cookies.set("amac_role", res.staff.role, { path: "/", expires: 1 }); // 3 days
+        } else {
+          throw new Error(res.message || "Failed to refresh user data");
+        }
+
+        return
+      }
+
       const res = await getAdmin(uid);
 
       if (res.ok) {
+
         setAdmin(res.admin);
         setIsAuthenticated(true);
         Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
@@ -57,6 +78,27 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       setError(null);
+
+      if (role === "staff") {
+        const res = await loginStaff(email, password);
+        if (!res.ok) {
+          throw new Error(res.message || "Login failed");
+        }
+        setStaff(res.staff);
+        setIsAuthenticated(true);
+        Cookies.set("amac_session", JSON.stringify(res.staff), { path: "/", expires: 1 });
+        Cookies.set("amac_uid", res.staff.uid, { path: "/", expires: 1 }); // 3 days
+        setUid(res.staff.uid);
+        if (res.token) {
+          setToken(res.token);
+          Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
+        }
+        setRole(res.role || res.staff.role);
+        Cookies.set("amac_role", res.staff.role, { path: "/", expires: 1 }); // 3 days
+
+        router.replace("/admin");
+        return;
+      }
 
       const res = await userLogin(email, password);
 

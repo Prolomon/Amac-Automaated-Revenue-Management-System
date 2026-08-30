@@ -20,11 +20,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getCenterId } from "@/lib/permissions";
 
 export default function AdvancedSearchPage() {
   const { user, role } = useAuth();
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const centerId = getCenterId(user);
   const router = useRouter();
   const [members, setMembers] = useState<any[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -43,10 +44,6 @@ export default function AdvancedSearchPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  if (role !== "ADMIN" && user?.permission?.canSearch !== true) {
-    router.push("/admin");
-  }
-
   // Tab State
   const [activeTab, setActiveTab] = useState<"payments" | "members">("payments");
 
@@ -60,7 +57,7 @@ export default function AdvancedSearchPage() {
       }
 
       const [paymentsRes, membersRes, companiesRes, pricingRes] = await Promise.all([
-        getPayments(centerId).catch(() => ({ ok: false, payments: [] })),
+        getPayments(centerId, 1, 1000).catch(() => ({ ok: false, payments: [] })),
         getMembers(1, 1000, centerId).catch(() => ({ ok: false, data: [] })),
         getCompanies(centerId, 1, 100).catch(() => ({ ok: false, data: [] })),
         getPricingByCenter(centerId).catch(() => ({ ok: false, data: [] })),

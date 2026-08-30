@@ -3,6 +3,7 @@ import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import AdminHeader from "@/components/AdminHeader";
 import { WalletProvider } from "@/context/WalletContext";
+import PageGuard from "@/components/PageGuard";
 
 export default function RootLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,7 +37,9 @@ export default function RootLayout({ children }) {
 
           {/* Main Content Area */}
           <main className="flex-1 overflow-auto">
-            <div className="max-w-7xl mx-auto">{children}</div>
+            <div className="max-w-7xl mx-auto">
+              <PageGuard>{children}</PageGuard>
+            </div>
           </main>
         </div>
       </div>

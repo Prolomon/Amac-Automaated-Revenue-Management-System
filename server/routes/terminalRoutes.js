@@ -14,14 +14,14 @@ import { roleMiddleware } from "../middleware/role.js";
 
 const router = express.Router();
 
-router.post("/", authMiddleware, roleMiddleware(["admin", "it", "agent"]), createTerminal);
-router.post("/assign", authMiddleware, roleMiddleware(["admin", "it"]), assignTerminalAction);
-router.post("/unassign", authMiddleware, roleMiddleware(["admin", "it"]), unassignTerminalAction);
+router.post("/", authMiddleware, roleMiddleware(["admin", "it", "agent", "staff"]), createTerminal);
+router.post("/assign", authMiddleware, roleMiddleware(["admin", "it", "staff"]), assignTerminalAction);
+router.post("/unassign", authMiddleware, roleMiddleware(["admin", "it", "staff"]), unassignTerminalAction);
 router.get("/v1/accounts/:accountId/terminals", authMiddleware, getAccountTerminalsAction);
 router.get("/accounts/:accountId/terminals", authMiddleware, getAccountTerminalsAction);
 router.get("/", authMiddleware, getAllTerminals);
 router.get("/:id", authMiddleware, getTerminal);
-router.put("/:id", authMiddleware, roleMiddleware(["admin", "it"]), updateTerminal);
-router.delete("/:id", authMiddleware, roleMiddleware(["admin", "it"]), deleteTerminal);
+router.put("/:id", authMiddleware, roleMiddleware(["admin", "it", "staff"]), updateTerminal);
+router.delete("/:id", authMiddleware, roleMiddleware(["admin", "it", "staff"]), deleteTerminal);
 
 export { router as terminalRouter };

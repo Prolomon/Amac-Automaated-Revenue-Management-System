@@ -11,10 +11,10 @@ import { roleMiddleware } from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, roleMiddleware(['admin']), createTransaction);
-router.get('/', authMiddleware, roleMiddleware(['admin', 'it']), getAllTransactions);
-router.get('/user/:userId', authMiddleware, roleMiddleware(['member', 'admin', 'agent', 'company', 'it']), getTransactionsByUserId);
-router.get('/reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'agent', 'company']), getTransactionsByReference);
-router.get('/:id', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'agent', 'company']), getTransactionById);
+router.post('/', authMiddleware, roleMiddleware(['admin', "staff"]), createTransaction);
+router.get('/', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getAllTransactions);
+router.get('/user/:userId', authMiddleware, roleMiddleware(['member', 'admin', 'agent', 'company', 'it', "staff"]), getTransactionsByUserId);
+router.get('/reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'agent', 'company', "staff"]), getTransactionsByReference);
+router.get('/:id', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'agent', 'company', "staff"]), getTransactionById);
 
 export { router as transactionRouter };

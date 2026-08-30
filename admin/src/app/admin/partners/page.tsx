@@ -10,13 +10,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getCompanies, Company } from "@/lib/services/company";
+import { usePageAccess } from "@/components/PageGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
 
 export default function OrganizationsPage() {
   const router = useRouter();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const { readOnly } = usePageAccess();
   const [searchTerm, setSearchTerm] = useState("");
   const [organizations, setOrganizations] = useState<Company[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +30,7 @@ export default function OrganizationsPage() {
     totalPages: 1,
   });
   const { addToast } = useToast();
-  const centerId = role === "ADMIN" || role === "IT" ? role || user?.uid : user?.center;
+  const centerId = getCenterId(user);
   const pageRef = useRef(meta.page);
   const limitRef = useRef(meta.limit);
 
@@ -170,13 +173,14 @@ export default function OrganizationsPage() {
             <button
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4"
               onClick={() => {
+                if (readOnly) return;
                 router.push("/admin/partners/add");
               }}
             >
               <Plus size={18} />
               <span className="hidden sm:inline">Add Partner</span>
             </button>
-            {role === "ADMIN" || (user?.permission?.canViewPartner ?? false) ? (<>
+            {true ? (<>
               <button
                 onClick={() => handleDownload()}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4"
@@ -259,7 +263,7 @@ export default function OrganizationsPage() {
                         className="transition-colors hover:bg-slate-50"
                       >
                         <td className="px-4 py-4 font-mono text-xs md:px-6 md:text-sm">
-                          {role === "ADMIN" || (user?.permission?.canViewPartner ?? false) ? (
+                          {true ? (
                             <Link
                               href={`/admin/partners/${organization.uid}`}
                               className="rounded-lg text-xs font-medium text-slate-600 transition-colors hover:text-emerald-600 md:text-sm"

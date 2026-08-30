@@ -20,15 +20,15 @@ const router = express.Router();
 
 router.post('/',  createAdmin);
 router.post('/login', loginAdmin);
-router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin']), forgotPassword);
-router.put('/:uid/change-password', authMiddleware, roleMiddleware(['admin']), changePassword);
-router.get('/', authMiddleware, roleMiddleware(['admin']), getAllAdmins);
-router.get('/id/:id', authMiddleware, roleMiddleware(['admin']), getAdminById);
-router.get('/:uid', authMiddleware, roleMiddleware(['admin']), getAdmin);
-router.put('/:uid', authMiddleware, roleMiddleware(['admin']), updateAdmin);
-router.put('/:uid/status', authMiddleware, roleMiddleware(['admin']), updateAdminStatus);
-router.put('/:uid/payment-config', authMiddleware, roleMiddleware(['admin']), updatePaymentConfig);
-router.delete('/:uid', authMiddleware, roleMiddleware(['admin']), deleteAdmin);
-router.get('/dashboard/:center/stats', authMiddleware, roleMiddleware(['admin']), dashboardStats);
+router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin', "staff"]), forgotPassword);
+router.put('/:uid/change-password', authMiddleware, roleMiddleware(['admin', "staff"]), changePassword);
+router.get('/', authMiddleware, roleMiddleware(['admin', "staff"]), getAllAdmins);
+router.get('/id/:id', authMiddleware, roleMiddleware(['admin', "staff"]), getAdminById);
+router.get('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), getAdmin);
+router.put('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), updateAdmin);
+router.put('/:uid/status', authMiddleware, roleMiddleware(['admin', "staff"]), updateAdminStatus);
+router.put('/:uid/payment-config', authMiddleware, roleMiddleware(['admin', "staff"]), updatePaymentConfig);
+router.delete('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), deleteAdmin);
+router.get('/dashboard/:center/stats', authMiddleware, roleMiddleware(['admin', "staff"]), dashboardStats);
 
 export {router as adminRouter};
