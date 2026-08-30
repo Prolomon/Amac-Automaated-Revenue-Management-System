@@ -573,6 +573,18 @@ export const getDemandById = async (req, res) => {
       });
     }
 
+    let wallet;
+
+    wallet = await prisma.wallet.findFirst({
+      where: { userId: payment.member.uid }
+    })
+
+    if (!wallet) {
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: payment.member.agent }
+      })
+    }
+
     const demand = {
       id: payment.id,
       userId: payment.userId,
@@ -580,7 +592,8 @@ export const getDemandById = async (req, res) => {
       reference: payment.reference || "",
       amount: payment.amount,
       center: payment.center,
-      walletId: payment.walletId || null,
+      walletId: wallet.id || null,
+      wallet,
       status: payment.status,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
@@ -711,6 +724,18 @@ export const getDemandByPayment = async (req, res) => {
       });
     }
 
+    let wallet;
+
+    wallet = await prisma.wallet.findFirst({
+      where: { userId: payment.member.uid }
+    })
+
+    if (!wallet) {
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: payment.member.agent }
+      })
+    }
+
     const demand = {
       id: payment.id,
       userId: payment.userId,
@@ -718,7 +743,8 @@ export const getDemandByPayment = async (req, res) => {
       reference: payment.reference || "",
       amount: payment.amount,
       center: payment.center,
-      walletId: payment.walletId || null,
+      wallet,
+      walletId: wallet.id || null,
       status: payment.status,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
