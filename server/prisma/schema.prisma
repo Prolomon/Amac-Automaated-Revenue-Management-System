@@ -449,7 +449,6 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  Admins Admin[]
   Staffs Staff[]
 
   @@index([uid, center, status])
