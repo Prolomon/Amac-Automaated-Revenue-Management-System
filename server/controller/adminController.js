@@ -220,15 +220,6 @@ const getAdmin = async (req, res) => {
         password: true,
         avatar: true,
         role: true,
-        departmentId: true,
-        department: {
-          select: {
-            uid: true,
-            name: true,
-            role: true,
-            status: true,
-          },
-        },
         paymentConfig: true,
         createdAt: true,
         location: true,
@@ -266,15 +257,6 @@ const getAdminById = async (req, res) => {
         password: true,
         avatar: true,
         role: true,
-        departmentId: true,
-        department: {
-          select: {
-            uid: true,
-            name: true,
-            role: true,
-            status: true,
-          },
-        },
         paymentConfig: true,
         createdAt: true,
         location: true,
@@ -335,15 +317,6 @@ const updateAdmin = async (req, res) => {
         password: true,
         avatar: true,
         role: true,
-        departmentId: true,
-        department: {
-          select: {
-            uid: true,
-            name: true,
-            role: true,
-            status: true,
-          },
-        },
         paymentConfig: true,
         createdAt: true,
         location: true,
@@ -440,15 +413,6 @@ const loginAdmin = async (req, res) => {
         password: true,
         avatar: true,
         role: true,
-        departmentId: true,
-        department: {
-          select: {
-            uid: true,
-            name: true,
-            role: true,
-            status: true,
-          },
-        },
         paymentConfig: true,
         createdAt: true,
         location: true,

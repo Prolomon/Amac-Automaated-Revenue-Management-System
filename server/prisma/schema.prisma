@@ -240,8 +240,6 @@ model Admin {
   address       String?
   lga           String?
   country       String?
-  departmentId    String?
-  departmet     Department? @relation(fields: [departmentId], references: [uid], onDelete: Cascade)
   status        Boolean  @default(true)
   paymentConfig Json?
   ledger        Float    @default(0.00)
