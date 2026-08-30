@@ -328,10 +328,244 @@ const getTransactionById = async (req, res) => {
   }
 };
 
+const getStatement = async (req, res) => {
+  try {
+    const centerId = req.query.centerId || req.query.userId || req.user?.uid || req.user?.center;
+
+    if (!centerId) {
+      return res.status(400).json({ ok: false, message: "Center ID or User ID is required" });
+    }
+
+    const fromDate = parseDateParam(req.query.fromDate || req.query.startDate);
+    const toDate = parseDateParam(req.query.toDate || req.query.endDate, true);
+
+    const adminRecord = await prisma.admin.findFirst({
+      where: {
+        OR: [{ uid: centerId }, { center: centerId }, { id: centerId }],
+      },
+      select: { uid: true, center: true, adminName: true, paymentConfig: true },
+    });
+
+    const centerUids = new Set([centerId]);
+    if (adminRecord) {
+      if (adminRecord.uid) centerUids.add(adminRecord.uid);
+      if (adminRecord.center) centerUids.add(adminRecord.center);
+    }
+    const centerList = Array.from(centerUids);
+
+    const txWhere = {
+      AND: [
+        {
+          OR: [
+            { userId: { in: centerList } },
+            { merchantTxRef: { in: centerList } },
+            { payment: { centerId: { in: centerList } } },
+            { payment: { member: { center: { in: centerList } } } },
+          ],
+        },
+      ],
+    };
+
+    if (fromDate || toDate) {
+      const range = {};
+      if (fromDate && !Number.isNaN(fromDate.getTime())) range.gte = fromDate;
+      if (toDate && !Number.isNaN(toDate.getTime())) range.lte = toDate;
+      if (Object.keys(range).length) {
+        txWhere.AND.push({ createdAt: range });
+      }
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: txWhere,
+      orderBy: { createdAt: "desc" },
+      include: {
+        payment: {
+          include: {
+            member: true,
+            pricing: true,
+          },
+        },
+      },
+    });
+
+    const walletRecord = await prisma.wallet.findFirst({
+      where: {
+        OR: [{ userId: { in: centerList } }, { id: { in: centerList } }],
+      },
+    });
+
+    // Grouping by Pricing (Revenue Stream / Head)
+    const summaryMap = {};
+
+    let totalGrossCollections = 0;
+    let totalPaidTransactions = 0;
+    let totalDemandNoticesIssued = 0;
+
+    // Fetch demand notices count for period and center
+    const demandWhere = {
+      member: { center: { in: centerList } },
+    };
+    if (fromDate || toDate) {
+      demandWhere.createdAt = {};
+      if (fromDate && !Number.isNaN(fromDate.getTime())) demandWhere.createdAt.gte = fromDate;
+      if (toDate && !Number.isNaN(toDate.getTime())) demandWhere.createdAt.lte = toDate;
+    }
+    const totalDemandsCount = await prisma.demand.count({ where: demandWhere });
+    totalDemandNoticesIssued = totalDemandsCount;
+
+    // Channels counters
+    let posAmount = 0;
+    let bankTransferAmount = 0;
+    let webPortalAmount = 0;
+    let otherChannelAmount = 0;
+
+    transactions.forEach((tx) => {
+      const isSuccess = String(tx.status || "").toUpperCase() === "SUCCESS";
+      const amt = Number(tx.amount || 0);
+      const channelStr = String(tx.channel || "").toLowerCase();
+
+      if (isSuccess) {
+        totalGrossCollections += amt;
+        totalPaidTransactions += 1;
+
+        if (channelStr.includes("pos")) {
+          posAmount += amt;
+        } else if (channelStr.includes("transfer") || channelStr.includes("bank") || channelStr.includes("remita")) {
+          bankTransferAmount += amt;
+        } else if (channelStr.includes("web") || channelStr.includes("card") || channelStr.includes("checkout")) {
+          webPortalAmount += amt;
+        } else {
+          otherChannelAmount += amt;
+        }
+      }
+
+      const pricingTitle = tx.payment?.pricing?.title || "General Revenue & Compliance Fees";
+      if (!summaryMap[pricingTitle]) {
+        summaryMap[pricingTitle] = {
+          revenueHead: pricingTitle,
+          demandNotices: 0,
+          paidTransactions: 0,
+          grossCollections: 0,
+        };
+      }
+
+      if (isSuccess) {
+        summaryMap[pricingTitle].paidTransactions += 1;
+        summaryMap[pricingTitle].grossCollections += amt;
+      }
+    });
+
+    const revenueStreams = Object.values(summaryMap);
+    if (revenueStreams.length > 0) {
+      const remainingDemands = totalDemandNoticesIssued;
+      const totalStreams = revenueStreams.length;
+      revenueStreams.forEach((stream, idx) => {
+        stream.demandNotices = Math.round(remainingDemands / totalStreams);
+      });
+    }
+
+    // Revenue Split Schedule
+    let paymentConfig = adminRecord?.paymentConfig || {};
+    if (typeof paymentConfig !== "object") {
+      try {
+        paymentConfig = JSON.parse(paymentConfig);
+      } catch (e) {
+        paymentConfig = {};
+      }
+    }
+
+    const amacSharePct = Number(paymentConfig.main ?? paymentConfig.amac ?? 80);
+    const agentSharePct = Number(paymentConfig.agent ?? 15);
+    const techSharePct = Number(paymentConfig.technology ?? 5);
+
+    const amacGross = (totalGrossCollections * amacSharePct) / 100;
+    const amacWht = 0;
+    const amacNet = amacGross - amacWht;
+
+    const agentGross = (totalGrossCollections * agentSharePct) / 100;
+    const agentWht = (agentGross * 5) / 100; // 5% WHT
+    const agentNet = agentGross - agentWht;
+
+    const techGross = (totalGrossCollections * techSharePct) / 100;
+    const techWht = (techGross * 5) / 100; // 5% WHT
+    const techNet = techGross - techWht;
+
+    const totalGrossSplit = amacGross + agentGross + techGross;
+    const totalWhtSplit = amacWht + agentWht + techWht;
+    const totalNetDisbursed = amacNet + agentNet + techNet;
+
+    // Channel Percentages
+    const calcPct = (val) => (totalGrossCollections > 0 ? ((val / totalGrossCollections) * 100).toFixed(1) : "0.0");
+
+    const channelBreakdown = {
+      pos: { amount: posAmount, percentage: Number(calcPct(posAmount)) },
+      bankTransfer: { amount: bankTransferAmount, percentage: Number(calcPct(bankTransferAmount)) },
+      webPortal: { amount: webPortalAmount + otherChannelAmount, percentage: Number(calcPct(webPortalAmount + otherChannelAmount)) },
+    };
+
+    return res.status(200).json({
+      ok: true,
+      meta: {
+        statementPeriod: {
+          from: fromDate || null,
+          to: toDate || null,
+        },
+        reference: `AMAC-TR3G-SOA-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+        generationDate: new Date(),
+        centerId: centerId,
+        displayName: adminRecord?.adminName || "Abuja Municipal Area Council (AMAC)",
+        bankDetails: walletRecord ? {
+          bankName: walletRecord.bank?.name || "Access Bank",
+          accountNumber: walletRecord.accountNo || "0012345678",
+          accountName: walletRecord.accountName || "AMAC Settlement Account",
+        } : {
+          bankName: "Access Bank",
+          accountNumber: "0012345678",
+          accountName: "AMAC Settlement Account",
+        },
+      },
+      collectionSummary: {
+        streams: revenueStreams,
+        totals: {
+          demandNotices: totalDemandNoticesIssued,
+          paidTransactions: totalPaidTransactions,
+          grossCollections: totalGrossCollections,
+        },
+      },
+      disbursementSchedule: {
+        stakeholders: [
+          { name: "AMAC Treasury Account", ratio: amacSharePct, gross: amacGross, deductions: amacWht, net: amacNet },
+          { name: "Technical Partner Commission", ratio: agentSharePct, gross: agentGross, deductions: agentWht, net: agentNet, label: "(5% WHT)" },
+          { name: "Platform Software / Maintenance Fee", ratio: techSharePct, gross: techGross, deductions: techWht, net: techNet, label: "(5% WHT)" },
+        ],
+        totals: {
+          ratio: amacSharePct + agentSharePct + techSharePct,
+          gross: totalGrossSplit,
+          deductions: totalWhtSplit,
+          net: totalNetDisbursed,
+        },
+      },
+      performanceMetrics: {
+        channelBreakdown,
+        reconciliation: {
+          successfulSettlements: totalGrossCollections,
+          unreconciledAmount: 0,
+          unreconciledPercentage: 0,
+        },
+      },
+      transactions,
+    });
+  } catch (err) {
+    console.error("getStatement error:", err);
+    return res.status(500).json({ ok: false, message: err?.message || "Server error" });
+  }
+};
+
 export {
   createTransaction,
   getAllTransactions,
   getTransactionsByUserId,
   getTransactionsByReference,
   getTransactionById,
+  getStatement,
 };

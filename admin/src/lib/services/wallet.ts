@@ -62,8 +62,32 @@ export async function createWallet(
   if (!response.ok) {
     const errorData = await response.json();
 
-    throw new Error(errorData.message || "Failed to create admin");
+    throw new Error(errorData.message || "Failed to get transaction");
   }
+  const data = await response.json();
+  return data;
+}
+
+export async function getStatementData(
+  centerId: string,
+  fromDate?: string,
+  toDate?: string
+): Promise<{ ok: boolean; [key: string]: any }> {
+  const params = new URLSearchParams();
+  if (centerId) params.append("centerId", centerId);
+  if (fromDate) params.append("fromDate", fromDate);
+  if (toDate) params.append("toDate", toDate);
+
+  const response = await fetch(`${API_URL}/transaction/statement?${params.toString()}`, {
+    method: "GET",
+    headers: { ...buildHeaders(true) },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to fetch statement data");
+  }
+
   const data = await response.json();
   return data;
 }
@@ -169,7 +193,7 @@ export async function getTransactions(id: string, page: number, limit: number, f
   if (!response.ok) {
     const errorData = await response.json();
 
-    throw new Error(errorData.message || "Failed to create admin");
+    throw new Error(errorData.message || "Failed to create wallet");
   }
   const data = await response.json();
   return data;
