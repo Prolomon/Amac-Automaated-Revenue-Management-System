@@ -453,3 +453,18 @@ model Department {
 
   @@index([uid, center, status])
 }
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  userRole  String?
+  action    String
+  method    String
+  route     String
+  status    Int
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, userRole, createdAt])
+}
