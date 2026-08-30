@@ -72,11 +72,11 @@ function AdminDetailPage() {
         const txs = Array.isArray(res?.transactions) ? res.transactions : Array.isArray(res?.data) ? res.data : [];
         setTransactions(txs);
       } else if (activeTab === "entities") {
-        const res: any = await getMembers(centerCode);
+        const res: any = await getMembers(1, 100, centerCode);
         const mems = Array.isArray(res?.members) ? res.members : Array.isArray(res?.data) ? res.data : [];
         setEntities(mems);
       } else if (activeTab === "partners") {
-        const res: any = await getCompanies(centerCode);
+        const res: any = await getCompanies(centerCode, 1, 100);
         const comps = Array.isArray(res?.companies) ? res.companies : Array.isArray(res?.data) ? res.data : [];
         setPartners(comps);
       }
