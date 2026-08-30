@@ -21,9 +21,12 @@ import { demandRouter } from './demandRoutes.js';
 import { terminalRouter } from './terminalRoutes.js';
 import { requestRouter } from './requestRoutes.js';
 import { departmentRouter } from './departmentRoutes.js';
+import { activityLogRouter } from './activityLogRoutes.js';
+import { activityLogger } from '../middleware/activityLogger.js';
 
 // Apply database health check to all API routes
 router.use(checkDatabaseConnection);
+router.use(activityLogger);
 
 // This file will export all routes
 router.use('/upload', uploadRouter);
@@ -46,6 +49,7 @@ router.use('/demand', demandRouter);
 router.use('/terminal', terminalRouter);
 router.use('/request', requestRouter);
 router.use('/department', departmentRouter);
+router.use('/activity-log', activityLogRouter);
 
 export  {router as apiRouter};
   

@@ -233,6 +233,24 @@ export async function forgetSecureCode(
   return data;
 }
 
+export async function getAllAdmins(): Promise<{
+  ok: boolean;
+  admins?: Admin[];
+  message?: string;
+}> {
+  const response = await fetch(`${API_URL}/admin`, {
+    headers: { ...buildHeaders(true) },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to fetch admins");
+  }
+
+  const data = await response.json();
+  return data;
+}
+
 export async function getAdmin(
   id: string,
 ): Promise<{ ok: boolean; admin?: Admin; message?: string }> {
