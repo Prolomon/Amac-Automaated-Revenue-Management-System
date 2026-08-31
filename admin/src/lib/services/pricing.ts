@@ -88,6 +88,37 @@ export async function getPricingByCenter(id: string): Promise<{ ok: boolean; dat
   return data;
 }
 
+/**
+ * Fetch pricing scoped to a specific center.
+ *
+ * The backend filters `Pricing.center` using the path `:id` only when the
+ * `center` query param is present (`/pricing/:id/all?center=X`). Unlike
+ * `getPricingByCenter`, this always sends the query param so the response is
+ * restricted to a single center — used by the "filter by center" control on
+ * the admin pricing page.
+ */
+export async function getPricingByCenterFiltered(
+  center: string
+): Promise<{ ok: boolean; data?: Pricing[]; message?: string }> {
+  if (!center) {
+    throw new Error("No center specified");
+  }
+  const token = getTokenFromCookie();
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/pricing/${center}/all?center=${encodeURIComponent(center)}`, {
+    method: "GET",
+    headers: { ...buildHeaders() },
+  });
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch pricing");
+  }
+  return data;
+}
+
 export async function getPricingById(id: string): Promise<{ ok: boolean; pricing: Pricing; message?: string }> {
   const token = getTokenFromCookie();
   if (!token) {

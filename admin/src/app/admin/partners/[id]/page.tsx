@@ -16,6 +16,9 @@ import {
     Camera,
     Hash,
     Users,
+    Wallet,
+    Loader2,
+    X,
 } from "lucide-react";
 import {
     getCompany,
@@ -25,7 +28,13 @@ import {
 } from "@/lib/services/company";
 import { useAuth } from "@/context/AuthContext";
 import { useParams } from "next/navigation";
-import { getWallet, Wallet as WalletType } from "@/lib/services/wallet";
+import {
+    getWallet,
+    updateWallet,
+    resolveBankAccount,
+    getBanks,
+    Wallet as WalletType,
+} from "@/lib/services/wallet";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import Link from "next/link";
 import { useToast } from "@/context/ToastContext";
@@ -57,6 +66,17 @@ export default function PartnerDetailsPage() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [wallet, setWallet] = useState<WalletType | null>(null);
+
+    // Wallet update form state
+    const [walletModalOpen, setWalletModalOpen] = useState(false);
+    const [bankList, setBankList] = useState<{ code: string; logo?: string; name: string; nipCode?: null }[]>([]);
+    const [editAccountNo, setEditAccountNo] = useState("");
+    const [editBankCode, setEditBankCode] = useState("");
+    const [editAccountName, setEditAccountName] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
+    const [editValidationError, setEditValidationError] = useState<string | null>(null);
+    const [isResolvingAccount, setIsResolvingAccount] = useState(false);
+
     const zoneOptions = ["A", "B", "C", "D", "E"];
 
     const normalizePricingIds = (value: unknown): string[] => {
@@ -154,25 +174,161 @@ export default function PartnerDetailsPage() {
 
     const fetchWalletData = useCallback(async () => {
         try {
-            if (!partner?.uid) {
+            const targetUid = partner?.uid || (id as string);
+            if (!targetUid) {
                 setWallet(null);
                 return;
             }
-            const walletData = await getWallet(partner?.uid, "COMPANY");
+            const walletData = await getWallet(targetUid, "COMPANY");
 
             if (walletData?.ok) {
                 setWallet(walletData?.wallet);
             } else {
-                setWallet(null)
+                setWallet(null);
             }
         } catch (error: any) {
             addToast("error", error?.message || error?.error || "Failed to fetch wallet data");
         }
-    }, [addToast, partner?.uid]);
+    }, [addToast, partner?.uid, id]);
 
     useEffect(() => {
         fetchWalletData();
-    }, [fetchWalletData])
+    }, [fetchWalletData]);
+
+    // Fetch banks
+    const fetchBanks = useCallback(async () => {
+        try {
+            const data = await getBanks();
+            if (data?.ok && data?.banks) {
+                const banks = Array.isArray(data.banks?.data)
+                    ? data.banks.data
+                    : Array.isArray(data.banks)
+                    ? data.banks
+                    : [];
+                setBankList(banks);
+            }
+        } catch (e) {
+            addToast("error", "Failed to fetch banks");
+        }
+    }, [addToast]);
+
+    useEffect(() => {
+        fetchBanks();
+    }, [fetchBanks]);
+
+    // Resolve account name for edit form
+    const fetchEditAccountName = useCallback(
+        async (accountNumber: string, bankCode: string) => {
+            try {
+                setIsResolvingAccount(true);
+                const resolve = await resolveBankAccount(accountNumber, bankCode);
+                const accountName = resolve?.data?.accountName || "";
+                if (accountName) {
+                    setEditAccountName(accountName);
+                    addToast("success", "Account name resolved successfully.");
+                } else {
+                    setEditAccountName("");
+                    addToast("error", "Account name not found. Please verify the account details.");
+                }
+            } catch (err: any) {
+                setEditAccountName("");
+                addToast("error", err?.message || "Failed to resolve bank account. Please try again.");
+            } finally {
+                setIsResolvingAccount(false);
+            }
+        },
+        [addToast]
+    );
+
+    useEffect(() => {
+        if (!walletModalOpen) return;
+        if (!editBankCode || !editAccountNo || editAccountNo.length < 10) {
+            return;
+        }
+
+        const currentBankCode =
+            (wallet?.bank as any)?.code ||
+            bankList.find((b) => b.name?.toLowerCase() === wallet?.bank?.name?.toLowerCase())?.code;
+
+        if (
+            editAccountNo === wallet?.accountNo &&
+            editBankCode === currentBankCode &&
+            editAccountName === wallet?.accountName
+        ) {
+            return;
+        }
+
+        fetchEditAccountName(editAccountNo, editBankCode);
+    }, [fetchEditAccountName, editAccountNo, editBankCode, walletModalOpen, wallet, bankList, editAccountName]);
+
+    const handleOpenWalletModal = () => {
+        const accNo = wallet?.accountNo || "";
+        setEditAccountNo(accNo);
+        const currentBankCode =
+            (wallet?.bank as any)?.code ||
+            bankList.find((b) => b.name?.toLowerCase() === wallet?.bank?.name?.toLowerCase())?.code ||
+            "";
+        setEditBankCode(currentBankCode);
+        setEditAccountName(wallet?.accountName || "");
+        setEditValidationError(null);
+        setWalletModalOpen(true);
+    };
+
+    const handleCloseWalletModal = () => {
+        setWalletModalOpen(false);
+        setEditValidationError(null);
+    };
+
+    const handleUpdateWallet = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const targetUid = partner?.uid || (id as string);
+        if (!targetUid) {
+            addToast("error", "Partner ID is missing.");
+            return;
+        }
+
+        if (!editAccountNo) {
+            addToast("error", "Account number is required.");
+            return;
+        }
+        if (!editBankCode) {
+            addToast("error", "Bank is required.");
+            return;
+        }
+        if (!editAccountName) {
+            addToast("error", "Please verify the account details first.");
+            return;
+        }
+
+        setEditLoading(true);
+        setEditValidationError(null);
+
+        try {
+            const selectedBank = bankList.find((b) => b.code === editBankCode);
+            const result = await updateWallet(
+                targetUid,
+                editAccountNo,
+                editAccountName,
+                editBankCode,
+                selectedBank?.name || wallet?.bank?.name || "",
+                "COMPANY"
+            );
+
+            if (result && result.ok) {
+                addToast("success", "Wallet updated successfully!");
+                setWalletModalOpen(false);
+                fetchWalletData();
+            } else {
+                addToast("error", result?.message || "Failed to update wallet.");
+                setEditValidationError(result?.message || "Failed to update wallet.");
+            }
+        } catch (e: any) {
+            addToast("error", e?.message || "Failed to update wallet.");
+            setEditValidationError(e?.message || "Failed to update wallet.");
+        } finally {
+            setEditLoading(false);
+        }
+    };
 
     const handleChange = (k: string, v: string | boolean) => {
         setForm((s) => ({
@@ -306,7 +462,7 @@ export default function PartnerDetailsPage() {
     return (
         <div className="mx-auto max-w-7xl space-y-4 p-4 md:p-6">
             {deleteModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-emerald-sm px-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
                     <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
                         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                             <AlertCircle className="text-red-600" size={24} />
@@ -333,6 +489,140 @@ export default function PartnerDetailsPage() {
                                 {deleting ? "Deleting..." : "Delete"}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Wallet Update Modal */}
+            {walletModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-100 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                                    <Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-900">
+                                        Update Partner Wallet
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Update bank account details for {partner?.name}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleCloseWalletModal}
+                                disabled={editLoading}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {editValidationError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                                <p className="text-sm text-red-700">{editValidationError}</p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleUpdateWallet} className="space-y-4">
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Account Number <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editAccountNo}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditAccountNo(val);
+                                        if (val !== wallet?.accountNo) {
+                                            setEditAccountName("");
+                                        }
+                                    }}
+                                    placeholder="e.g., 1234567890"
+                                    required
+                                    className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Bank Name <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={editBankCode}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditBankCode(val);
+                                        if (val !== ((wallet?.bank as any)?.code || "")) {
+                                            setEditAccountName("");
+                                        }
+                                    }}
+                                    required
+                                    className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                >
+                                    <option value="">Select bank</option>
+                                    {bankList.map((bank) => (
+                                        <option key={bank.code} value={bank.code}>
+                                            {bank.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                        Account Name
+                                    </label>
+                                    {isResolvingAccount && (
+                                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                                            <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
+                                            Resolving account...
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    value={editAccountName}
+                                    readOnly
+                                    placeholder="Will auto-fill after account verification"
+                                    className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 outline-none"
+                                />
+                                {editAccountName ? (
+                                    <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-700">
+                                        <CheckCircle2 size={13} />
+                                        <span>Account verified</span>
+                                    </p>
+                                ) : (
+                                    <p className="mt-1.5 text-xs text-slate-500">
+                                        Enter a 10-digit account number and select a bank to verify.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={handleCloseWalletModal}
+                                    disabled={editLoading}
+                                    className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editLoading || isResolvingAccount || !editAccountName}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-emerald-400 transition-colors shadow-sm"
+                                >
+                                    {editLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {editLoading ? "Updating..." : "Update Wallet"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -374,6 +664,16 @@ export default function PartnerDetailsPage() {
                                 <Users size={15} />
                                 <span>View Agents</span>
                             </Link>
+                            {!readOnly ? (
+                                <button
+                                    type="button"
+                                    onClick={handleOpenWalletModal}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+                                >
+                                    <Wallet size={15} />
+                                    <span>Update Wallet</span>
+                                </button>
+                            ) : null}
                             {!readOnly ? (
                                 <button
                                     onClick={() => setEditing(true)}
@@ -719,12 +1019,24 @@ export default function PartnerDetailsPage() {
                                 <h3 className="text-lg font-semibold text-slate-900">
                                     Wallet Details
                                 </h3>
-                                <Link
-                                    href={`/admin/partners/${partner?.uid || id}/finance`}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700"
-                                >
-                                    <span>View Finance</span>
-                                </Link>
+                                <div className="flex items-center gap-2">
+                                    {!readOnly && (
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenWalletModal}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-100"
+                                        >
+                                            <Wallet size={15} />
+                                            <span>Update Wallet</span>
+                                        </button>
+                                    )}
+                                    <Link
+                                        href={`/admin/partners/${partner?.uid || id}/finance`}
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700"
+                                    >
+                                        <span>View Finance</span>
+                                    </Link>
+                                </div>
                             </div>
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -768,7 +1080,19 @@ export default function PartnerDetailsPage() {
                     {/* account details */}
                     {wallet && (
                         <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
-                            <h3 className="mb-4 text-lg font-semibold text-slate-900">Account Details</h3>
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-slate-900">Account Details</h3>
+                                {!readOnly && (
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenWalletModal}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-100"
+                                    >
+                                        <Edit2 size={13} />
+                                        <span>Edit Bank Details</span>
+                                    </button>
+                                )}
+                            </div>
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Name</p>

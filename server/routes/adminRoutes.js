@@ -20,15 +20,15 @@ const router = express.Router();
 
 router.post('/',  createAdmin);
 router.post('/login', loginAdmin);
-router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin', "staff"]), forgotPassword);
-router.put('/:uid/change-password', authMiddleware, roleMiddleware(['admin', "staff"]), changePassword);
-router.get('/', authMiddleware, roleMiddleware(['admin', "staff"]), getAllAdmins);
-router.get('/id/:id', authMiddleware, roleMiddleware(['admin', "staff"]), getAdminById);
-router.get('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), getAdmin);
-router.put('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), updateAdmin);
-router.put('/:uid/status', authMiddleware, roleMiddleware(['admin', "staff"]), updateAdminStatus);
-router.put('/:uid/payment-config', authMiddleware, roleMiddleware(['admin', "staff"]), updatePaymentConfig);
-router.delete('/:uid', authMiddleware, roleMiddleware(['admin', "staff"]), deleteAdmin);
-router.get('/dashboard/:center/stats', authMiddleware, roleMiddleware(['admin', "staff"]), dashboardStats);
+router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), forgotPassword);
+router.put('/:uid/change-password', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), changePassword);
+router.get('/', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getAllAdmins);
+router.get('/id/:id', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getAdminById);
+router.get('/:uid', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getAdmin);
+router.put('/:uid', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updateAdmin);
+router.put('/:uid/status', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updateAdminStatus);
+router.put('/:uid/payment-config', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updatePaymentConfig);
+router.delete('/:uid', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), deleteAdmin);
+router.get('/dashboard/:center/stats', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), dashboardStats);
 
 export {router as adminRouter};

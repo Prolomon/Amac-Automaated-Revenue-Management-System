@@ -39,20 +39,26 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || DASHBOARD_PATH;
   const router = useRouter();
   const { user, role } = useAuth();
-  const isAdminRole = role === "ADMIN";
+  // IT users have unrestricted access — same as ADMIN.
+  const isAdminRole = role === "ADMIN" || role === "IT";
   const { addToast } = useToast();
 
   const [departmentRole, setDepartmentRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(!isAdminRole);
 
+  // IT / ADMIN roles are unrestricted — derive their role synchronously
+  // during render instead of setting it from an effect. This prevents the
+  // redirect effect from seeing a stale `allowed: false` on the very first
+  // render (before departmentRole is resolved), which previously bounced IT
+  // users out of /it and into /admin.
+  const effectiveDepartmentRole = isAdminRole
+    ? "Financial Controller / Super Admin"
+    : departmentRole;
+
   useEffect(() => {
-    // Users with the ADMIN login role always have full access regardless
-    // of department — skip the department resolution entirely.
-    if (isAdminRole) {
-      setDepartmentRole("Financial Controller / Super Admin");
-      setLoading(false);
-      return;
-    }
+    // ADMIN / IT login roles have full access regardless of department —
+    // skip the async department resolution entirely.
+    if (isAdminRole) return;
     let mounted = true;
     const resolve = async () => {
       setLoading(true);
@@ -71,8 +77,8 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
   }, [isAdminRole, user?.departmentId, user?.department?.role, user?.uid]);
 
   const access = useMemo(
-    () => getPageAccess(departmentRole, pathname),
-    [departmentRole, pathname]
+    () => getPageAccess(effectiveDepartmentRole, pathname),
+    [effectiveDepartmentRole, pathname]
   );
 
   useEffect(() => {
@@ -88,9 +94,9 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
       allowed: access.allowed,
       readOnly: access.readOnly,
       loading,
-      departmentRole,
+      departmentRole: effectiveDepartmentRole,
     }),
-    [access.allowed, access.readOnly, loading, departmentRole]
+    [access.allowed, access.readOnly, loading, effectiveDepartmentRole]
   );
 
   return (

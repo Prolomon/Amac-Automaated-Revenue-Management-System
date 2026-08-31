@@ -193,6 +193,43 @@ export async function getDemandsByCenter(
   return data;
 }
 
+export async function getAllDemands(
+  status?: string,
+  startDate?: string,
+  endDate?: string,
+  page?: string,
+  limit?: string,
+): Promise<{
+  ok: boolean;
+  data?: Demand[];
+  message?: string;
+  meta?: { total: string; page: string; limit: string; totalPages: number };
+}> {
+  const params = new URLSearchParams();
+
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  if (status) params.set("status", status);
+  if (page) params.set("page", page);
+  if (limit) params.set("limit", limit);
+
+  const queryString = params.toString();
+
+  const response = await fetch(
+    `${API_URL}/demand${queryString ? `?${queryString}` : ""}`,
+    {
+      headers: { ...buildHeaders() },
+    },
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch demands");
+  }
+
+  return data;
+}
+
 export async function resendDemand(
   demandId: string,
 ): Promise<{ ok: boolean; message?: string }> {

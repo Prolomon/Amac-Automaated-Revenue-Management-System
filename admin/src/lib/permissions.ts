@@ -189,13 +189,16 @@ export function getPageAccess(
 
 /**
  * Center resolution: staff users carry their center on `user.center`,
- * admins on `user.uid`.
+ * admins on `user.uid`. IT users operate across ALL centers, so they
+ * resolve to "ADMIN" — the API convention for "no center filter".
  */
 export function getCenterId(
   user: Record<string, any> | null | undefined
 ): string {
   if (!user) return "";
-  return user.role === "ADMIN" ? user.uid || "" : user.center || "";
+  if (user.role === "ADMIN") return user.uid || "";
+  if (user.role === "IT") return "ADMIN";
+  return user.center || "";
 }
 
 /**

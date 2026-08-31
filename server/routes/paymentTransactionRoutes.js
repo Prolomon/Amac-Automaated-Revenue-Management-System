@@ -28,6 +28,6 @@ router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['member', 'adm
 router.get('/reference/:reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company', "staff"]), getPaymentTransactionByReference);
 
 // Update a payment transaction
-router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updatePaymentTransaction);
+router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), updatePaymentTransaction);
 
 export default router;

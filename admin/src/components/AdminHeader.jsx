@@ -94,7 +94,7 @@ export default function AdminHeader({ sidebarOpen, onToggleSidebar }) {
                 <Link
                   className="w-full text-left px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                   role="a"
-                  href={user?.role !== "COMPANY" ? "/admin/account" : "/partner/account"}
+                  href={user?.role === "IT" ? "/it/account" : user?.role !== "COMPANY" ? "/admin/account" : "/partner/account"}
                 >
                   Account
                 </Link>
@@ -102,7 +102,7 @@ export default function AdminHeader({ sidebarOpen, onToggleSidebar }) {
                 <Link
                   className="w-full text-left px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                   role="a"
-                  href={user?.role !== "COMPANY" ? "/admin/security" : "/partner/security"}
+                  href={user?.role === "IT" ? "/it/security" : user?.role !== "COMPANY" ? "/admin/security" : "/partner/security"}
                 >
                   Security
                 </Link>

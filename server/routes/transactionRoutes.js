@@ -12,7 +12,7 @@ import { roleMiddleware } from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, roleMiddleware(['admin', "staff"]), createTransaction);
+router.post('/', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), createTransaction);
 router.get('/', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getAllTransactions);
 router.get('/statement', authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'member', 'agent', 'company']), getStatement);
 router.get('/user/:userId', authMiddleware, roleMiddleware(['member', 'admin', 'agent', 'company', 'it', "staff"]), getTransactionsByUserId);

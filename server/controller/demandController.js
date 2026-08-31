@@ -16,10 +16,7 @@ const formatCurrency = (amount) => {
   });
 };
 
-const generateDemandUid = customAlphabet(
-  "0123456789",
-  10,
-);
+const generateDemandUid = customAlphabet("0123456789", 10);
 
 export const createDemandNotice = async (req, res) => {
   try {
@@ -47,7 +44,8 @@ export const createDemandNotice = async (req, res) => {
     if (!member.agent) {
       return res.status(404).json({
         ok: false,
-        message: "Member must be assigned to an agent to create a demand notice",
+        message:
+          "Member must be assigned to an agent to create a demand notice",
       });
     }
 
@@ -103,7 +101,7 @@ export const createDemandNotice = async (req, res) => {
 
       if (!uniqueRef) {
         throw new Error(
-          `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`
+          `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`,
         );
       }
 
@@ -142,7 +140,7 @@ export const createDemandNotice = async (req, res) => {
 
     // Trigger instant email processing in the background
     processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err)
+      console.error("Error in background demand processing:", err),
     );
 
     return res.status(200).json({
@@ -220,7 +218,9 @@ export const createMultipleDemandNotice = async (req, res) => {
 
         // Check if all payments are SUCCESS/COMPLETED and debt is 0
         const allPaid = payments.every(
-          (p) => (p.status === "SUCCESS" || p.status === "COMPLETED") && Number(p.debt) === 0
+          (p) =>
+            (p.status === "SUCCESS" || p.status === "COMPLETED") &&
+            Number(p.debt) === 0,
         );
 
         if (allPaid) {
@@ -235,7 +235,9 @@ export const createMultipleDemandNotice = async (req, res) => {
 
         // Filter to only unpaid payments (not SUCCESS/COMPLETED or has debt > 0)
         const unpaidPayments = payments.filter(
-          (p) => p.status !== "SUCCESS" && p.status !== "COMPLETED" || Number(p.debt) > 0
+          (p) =>
+            (p.status !== "SUCCESS" && p.status !== "COMPLETED") ||
+            Number(p.debt) > 0,
         );
 
         if (unpaidPayments.length === 0) {
@@ -283,7 +285,7 @@ export const createMultipleDemandNotice = async (req, res) => {
 
           if (!uniqueRef) {
             throw new Error(
-              `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`
+              `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`,
             );
           }
 
@@ -296,7 +298,7 @@ export const createMultipleDemandNotice = async (req, res) => {
           prisma.payment.update({
             where: { id: payment.id },
             data: { idDemand: true },
-          })
+          });
           prisma.demand.create({
             data: {
               reference: uniqueRef,
@@ -308,7 +310,7 @@ export const createMultipleDemandNotice = async (req, res) => {
               isSent: false,
               center: member.center,
             },
-          })
+          });
         });
 
         const demandRecords = await prisma.$transaction(transactionOps);
@@ -324,7 +326,10 @@ export const createMultipleDemandNotice = async (req, res) => {
           note: "Email is being sent instantly",
         });
       } catch (err) {
-        console.error(`sendMultipleDemandNotice error for userId ${userId}:`, err);
+        console.error(
+          `sendMultipleDemandNotice error for userId ${userId}:`,
+          err,
+        );
         results.failed++;
         results.details.push({
           userId,
@@ -336,7 +341,7 @@ export const createMultipleDemandNotice = async (req, res) => {
 
     // Trigger instant email processing in the background
     processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err)
+      console.error("Error in background demand processing:", err),
     );
 
     return res.status(200).json({
@@ -396,7 +401,8 @@ export const createDemandNoticeByPayment = async (req, res) => {
     if (!member.agent) {
       return res.status(404).json({
         ok: false,
-        message: "Member must be assigned to an agent to create a demand notice",
+        message:
+          "Member must be assigned to an agent to create a demand notice",
       });
     }
 
@@ -453,13 +459,13 @@ export const createDemandNoticeByPayment = async (req, res) => {
     });
 
     await prisma.payment.update({
-        where: { id: payment.id },
-        data: { idDemand: true },
-      })
+      where: { id: payment.id },
+      data: { idDemand: true },
+    });
 
     // Trigger instant email processing in the background
     processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err)
+      console.error("Error in background demand processing:", err),
     );
 
     return res.status(200).json({
@@ -507,10 +513,14 @@ export const getDemands = async (req, res) => {
         orderBy: { createdAt: "desc" },
         skip,
         take: Number(limit),
+        include: {
+          pricing: true,
+          member: true,
+        },
       }),
       prisma.payment.count({ where }),
     ]);
-    
+
     const demands = paymentList.map((payment) => ({
       id: payment.id,
       userId: payment.userId,
@@ -525,7 +535,7 @@ export const getDemands = async (req, res) => {
       member: payment.member,
       pricing: payment.pricing,
       payment,
-      isSent: false
+      isSent: false,
     }));
 
     return res.status(200).json({
@@ -576,13 +586,13 @@ export const getDemandById = async (req, res) => {
     let wallet;
 
     wallet = await prisma.wallet.findFirst({
-      where: { userId: payment.member.uid }
-    })
+      where: { userId: payment.member.uid },
+    });
 
     if (!wallet) {
       wallet = await prisma.wallet.findFirst({
-        where: { userId: payment.member.agent }
-      })
+        where: { userId: payment.member.agent },
+      });
     }
 
     const demand = {
@@ -600,8 +610,8 @@ export const getDemandById = async (req, res) => {
       member: payment.member,
       pricing: payment.pricing,
       payment,
-      isSent: false
-    }
+      isSent: false,
+    };
 
     return res.status(200).json({
       ok: true,
@@ -618,7 +628,6 @@ export const getDemandById = async (req, res) => {
 
 export const getDemandByCenter = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     if (!id) {
@@ -672,7 +681,7 @@ export const getDemandByCenter = async (req, res) => {
       member: payment.member,
       pricing: payment.pricing,
       payment,
-      isSent: false
+      isSent: false,
     }));
 
     return res.status(200).json({
@@ -696,7 +705,6 @@ export const getDemandByCenter = async (req, res) => {
 
 export const getDemandByPayment = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     if (!id) {
@@ -709,13 +717,13 @@ export const getDemandByPayment = async (req, res) => {
     // Get demands with payment and member info
     const payment = await prisma.payment.findFirst({
       where: {
-        OR: [{id: id}, {reference: id}]
+        OR: [{ id: id }, { reference: id }],
       },
       include: {
         pricing: true,
         member: true,
       },
-    })
+    });
 
     if (!payment) {
       return res.status(404).json({
@@ -724,16 +732,21 @@ export const getDemandByPayment = async (req, res) => {
       });
     }
 
-    let wallet;
+    if (!payment.member) {
+      return res.status(404).json({
+        ok: false,
+        message: "Demand not found (no member linked to this payment)",
+      });
+    }
 
-    wallet = await prisma.wallet.findFirst({
-      where: { userId: payment.member.uid }
-    })
+    let wallet = await prisma.wallet.findFirst({
+      where: { userId: payment.member.uid },
+    });
 
-    if (!wallet) {
+    if (!wallet && payment.member.agent) {
       wallet = await prisma.wallet.findFirst({
-        where: { userId: payment.member.agent }
-      })
+        where: { userId: payment.member.agent },
+      });
     }
 
     const demand = {
@@ -744,19 +757,19 @@ export const getDemandByPayment = async (req, res) => {
       amount: payment.amount,
       center: payment.center,
       wallet,
-      walletId: wallet.id || null,
+      walletId: wallet?.id || null,
       status: payment.status,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
       member: payment.member,
       pricing: payment.pricing,
       payment,
-      isSent: false
-    }
+      isSent: false,
+    };
 
     return res.status(200).json({
       ok: true,
-      data: demand
+      data: demand,
     });
   } catch (err) {
     return res.status(500).json({
@@ -768,7 +781,6 @@ export const getDemandByPayment = async (req, res) => {
 
 export const getDemandByUser = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     if (!id) {
@@ -873,13 +885,13 @@ export const resendDemandNotice = async (req, res) => {
       data: {
         status: "CREATED",
         isSent: false,
-        amount: (Number(payment.amount) - Number(payment.debt)),
+        amount: Number(payment.amount) - Number(payment.debt),
       },
     });
 
     // Trigger instant email processing in the background
     processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err)
+      console.error("Error in background demand processing:", err),
     );
 
     return res.status(200).json({
@@ -888,8 +900,9 @@ export const resendDemandNotice = async (req, res) => {
       data: {
         demandId: id,
         memberEmail: demand.member.email,
-        memberName: demand.member.fullname || demand.member.businessName || "N/A",
-        amount: formatCurrency((Number(payment.amount) - Number(payment.debt))),
+        memberName:
+          demand.member.fullname || demand.member.businessName || "N/A",
+        amount: formatCurrency(Number(payment.amount) - Number(payment.debt)),
         priceRechecked: true,
         status: "CREATED",
         note: "Email is being sent instantly in the background",

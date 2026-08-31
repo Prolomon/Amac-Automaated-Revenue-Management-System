@@ -775,14 +775,19 @@ const dashboardStats = async (req, res) => {
       });
     }
 
+    // "ADMIN" / "IT" / "all" = system-wide stats (no center filter)
+    const isAllCenters = ["ADMIN", "IT", "all"].includes(center);
+    const centerFilter = isAllCenters ? {} : { center };
+    const paymentCenterFilter = isAllCenters ? {} : { centerId: center };
+
     const totalAdmins = await prisma.admin.count();
-    const totalMembers = await prisma.member.count({ where: { center } });
-    const totalDemands = await prisma.demand.count({ where: { center } });
-    const totalPayments = await prisma.payment.count({ where: { centerId: center } });
-    const totalPartners = await prisma.company.count({ where: { center } });
-    const totalAgents = await prisma.agent.count({ where: { center } });
+    const totalMembers = await prisma.member.count({ where: centerFilter });
+    const totalDemands = await prisma.demand.count({ where: centerFilter });
+    const totalPayments = await prisma.payment.count({ where: paymentCenterFilter });
+    const totalPartners = await prisma.company.count({ where: centerFilter });
+    const totalAgents = await prisma.agent.count({ where: centerFilter });
     const revenue = await prisma.payment.aggregate({
-      where: { centerId: center },
+      where: paymentCenterFilter,
       _sum: {
         amount: true,
       },
@@ -790,7 +795,7 @@ const dashboardStats = async (req, res) => {
     const successfulPayments = await prisma.payment.count({
       where: {
         status: { in: ["SUCCESS", "PAID", "COMPLETED"] },
-        centerId: center,
+        ...paymentCenterFilter,
       },
     });
     const paymentRate = totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0;

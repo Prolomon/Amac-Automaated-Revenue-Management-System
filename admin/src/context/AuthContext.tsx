@@ -106,6 +106,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error(res.message || "Login failed");
       }
 
+      console.log(res);
+
       setAdmin(res.admin);
       setIsAuthenticated(true);
       Cookies.set("amac_session", JSON.stringify(res.admin), { path: "/", expires: 1 });
@@ -116,8 +118,9 @@ export const AuthProvider = ({ children }) => {
       Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
       Cookies.set("amac_role", res.admin.role, { path: "/", expires: 1 }); // 3 days
 
-      if (res.admin.role === "IT") {
-          router.replace("/super-admin");
+      if (res.admin.role === "IT" || res.role === "IT") {
+          router.replace("/it");
+          return;
       }
 
       router.replace("/admin");

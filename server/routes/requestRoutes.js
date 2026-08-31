@@ -53,6 +53,6 @@ router.put('/:id/approve', authMiddleware, roleMiddleware(['admin', 'it', 'staff
 router.put('/:id/reject', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), rejectRequest);
 
 // Delete request
-router.delete('/:id', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), deleteRequest);
+router.delete('/:id', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), deleteRequest);
 
 export { router as requestRouter };

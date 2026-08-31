@@ -59,6 +59,17 @@ export async function getMembers( page: number, limit: number, id: string, ): Pr
   return data;
 }
 
+export async function getAllMembers( page: number, limit: number ): Promise<{ data: Member[]; ok: boolean; message?: string; meta: { total: number; page: number; limit: number; totalPages: number };
+}> {
+  const response = await fetch(`${API_URL}/member/all?page=${page}&limit=${limit}`, { headers: { ...buildHeaders() } }, );
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch members");
+  }
+  return data;
+}
+
 export async function createMember(
   payload: Member,
 ): Promise<{ data?: Member; member?: Member; ok: boolean; message?: string; error?: string }> {

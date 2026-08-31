@@ -53,6 +53,10 @@ export type CreateAdminInput = Pick<
   | "prefix"
 > & {
   status?: Admin["status"];
+  adminName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  phone?: string;
 };
 
 export async function login(
@@ -236,7 +240,14 @@ export async function forgetSecureCode(
 export async function getAllAdmins(): Promise<{
   ok: boolean;
   admins?: Admin[];
+  data?: Admin[];
   message?: string;
+  meta?: {
+    total: number;
+    limit: number;
+    page: number;
+    totalPages: number;
+  };
 }> {
   const response = await fetch(`${API_URL}/admin`, {
     headers: { ...buildHeaders(true) },

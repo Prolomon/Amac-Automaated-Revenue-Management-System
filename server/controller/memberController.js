@@ -403,6 +403,41 @@ const getMembers = async (req, res) => {
   }
 };
 
+const getAllMembers = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      5000,
+    );
+    const skip = (page - 1) * limit;
+
+    const [members, total] = await Promise.all([
+      prisma.member.findMany({
+        skip,
+        take: limit,
+        select: memberSafeSelect,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.member.count(),
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      data: members,
+      members,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (err) {
+    console.error("getMembers error:", err);
+    res.status(500).json({ ok: false, message: err?.message || "Server error" });
+  }
+};
 
 const getMember = async (req, res) => {
   try {
@@ -1128,6 +1163,7 @@ const changeMemberCompany = async (req, res) => {
 export {
   createMember,
   getMembers,
+  getAllMembers,
   getMember,
   getMembersByAgentId,
   updateMember,

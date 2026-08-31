@@ -218,7 +218,7 @@ function Home() {
         />
         <KPI
           title="Payment Rate"
-          value={`${totals.paymentRate}%`}
+          value={`${parseFloat(totals.paymentRate.toFixed(2)).toString()}%`}
           meta="Success rate"
           colorClass="text-emerald-600"
         />

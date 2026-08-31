@@ -15,6 +15,7 @@ import {
   Monitor,
   BadgePercent,
   Network,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -27,6 +28,8 @@ export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const { user, role } = useAuth();
   const partner = pathname.split("/")[1] === "partner";
+  // Show IT navigation when on /it routes OR when the signed-in role is IT.
+  const it = pathname.split("/")[1] === "it" || role === "IT";
   const [departmentRole, setDepartmentRole] = useState(null);
 
   useEffect(() => {
@@ -43,7 +46,54 @@ export default function Sidebar({ onClose }) {
 
   let navItems;
 
-  if (partner) {
+  if (it) {
+    navItems = [
+      {
+        href: "/it",
+        label: "Dashboard",
+        icon: <LayoutDashboard size={18} />,
+      },
+      {
+        href: "/it/entities",
+        label: "Entities",
+        icon: <Building2 size={18} />,
+      },
+      { href: "/it/admins", label: "Admins", icon: <ShieldCheck size={18} /> },
+      { href: "/it/payments", label: "Payments", icon: <HandCoins size={18} /> },
+      { href: "/it/demands", label: "Demand Notice", icon: <Flag size={18} /> },
+      {
+        href: "/it/activity-logs",
+        label: "Activity Logs",
+        icon: <ClipboardList size={18} />,
+      },
+      { href: "/it/tiers", label: "Pricing", icon: <Tag size={18} /> },
+      { href: "/it/terminal", label: "Terminals", icon: <Monitor size={18} /> },
+      { href: "/it/staffs", label: "Staffs", icon: <Users size={18} /> },
+      {
+        href: "/it/department",
+        label: "Departments",
+        icon: <Network size={18} />,
+      },
+      {
+        href: "/it/discounts",
+        label: "Discounts Requests",
+        icon: <BadgePercent size={18} />,
+      },
+      { href: "/it/partners", label: "Partners", icon: <Handshake size={18} /> },
+      { href: "/it/search", label: "Finance Tracker", icon: <Search size={18} /> },
+      { href: "/it/wallet", label: "Wallet", icon: <Wallet2 size={18} /> },
+      {
+        href: "/it/recruitment",
+        label: "Recruitment",
+        icon: <Users size={18} />,
+      },
+      {
+        href: "/it/help-center",
+        label: "Help Center",
+        icon: <HelpCircle size={18} />,
+      },
+    ];
+  } else if (partner) {
     navItems = [
       {
         href: "/partner",
@@ -135,7 +185,7 @@ export default function Sidebar({ onClose }) {
 
   // Hide nav items the user's department cannot access (dashboard always shows).
   const visibleNavItems =
-    partner || role === "ADMIN"
+    partner || it || role === "ADMIN" || role === "IT"
       ? navItems
       : filterNavItems(navItems, departmentRole);
 

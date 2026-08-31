@@ -15,14 +15,14 @@ import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post("/", authMiddleware, roleMiddleware(['admin', "staff"]), createStaff);
+router.post("/", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), createStaff);
 router.post("/:uid/reset-password", resetPassword);
-router.post("/:uid/change-password", authMiddleware, roleMiddleware(['admin', "staff"]), changePassword);
-router.get("/", authMiddleware, roleMiddleware(['admin', "staff"]), getStaffs);
-router.get("/center/:center", authMiddleware, roleMiddleware(['admin', "staff"]), getStaffsByCenter);
-router.get("/:uid", authMiddleware, roleMiddleware(['admin', "staff"]), getStaff);
-router.put("/:uid", authMiddleware, roleMiddleware(['admin', "staff"]), updateStaff);
-router.delete("/:uid", authMiddleware, roleMiddleware(['admin', "staff"]), deleteStaff);
+router.post("/:uid/change-password", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), changePassword);
+router.get("/", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getStaffs);
+router.get("/center/:center", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getStaffsByCenter);
+router.get("/:uid", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getStaff);
+router.put("/:uid", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), updateStaff);
+router.delete("/:uid", authMiddleware, roleMiddleware(['admin', 'it', "staff"]), deleteStaff);
 router.post("/login", loginStaff);
 
 export { router as staffRouter };

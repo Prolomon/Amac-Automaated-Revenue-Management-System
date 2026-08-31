@@ -1,0 +1,1189 @@
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import { usePageAccess } from "@/components/PageGuard";
+import { useRouter } from "next/navigation";
+import {
+    Edit2,
+    Trash2,
+    AlertCircle,
+    ArrowLeft,
+    RefreshCw,
+    CheckCircle2,
+    Mail,
+    Phone,
+    MapPin,
+    BadgeInfo,
+    Camera,
+    Hash,
+    Users,
+    Wallet,
+    Loader2,
+    X,
+} from "lucide-react";
+import {
+    getCompany,
+    deleteCompany,
+    updateCompany,
+    Company,
+} from "@/lib/services/company";
+import { useAuth } from "@/context/AuthContext";
+import { useParams } from "next/navigation";
+import {
+    getWallet,
+    updateWallet,
+    resolveBankAccount,
+    getBanks,
+    Wallet as WalletType,
+} from "@/lib/services/wallet";
+import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
+import Link from "next/link";
+import { useToast } from "@/context/ToastContext";
+import { getCenterId } from "@/lib/permissions";
+
+export default function PartnerDetailsPage() {
+    const { id } = useParams();
+    const { user } = useAuth();
+    const centerId = getCenterId(user);
+    const { readOnly } = usePageAccess();
+    const { addToast } = useToast();
+
+    const router = useRouter();
+    const [avatarFileName, setAvatarFileName] = useState("");
+    const [partner, setPartner] = useState<Company | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [pricingLoading, setPricingLoading] = useState(false);
+    const [pricingOptions, setPricingOptions] = useState<Pricing[]>([]);
+    const [editing, setEditing] = useState(false);
+    const [form, setForm] = useState({
+        name: "",
+        email: "",
+        phone: "",
+        location: "",
+        category: [] as string[],
+        zone: "",
+    });
+    const [saving, setSaving] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [wallet, setWallet] = useState<WalletType | null>(null);
+
+    // Wallet update form state
+    const [walletModalOpen, setWalletModalOpen] = useState(false);
+    const [bankList, setBankList] = useState<{ code: string; logo?: string; name: string; nipCode?: null }[]>([]);
+    const [editAccountNo, setEditAccountNo] = useState("");
+    const [editBankCode, setEditBankCode] = useState("");
+    const [editAccountName, setEditAccountName] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
+    const [editValidationError, setEditValidationError] = useState<string | null>(null);
+    const [isResolvingAccount, setIsResolvingAccount] = useState(false);
+
+    const zoneOptions = ["A", "B", "C", "D", "E"];
+
+    const normalizePricingIds = (value: unknown): string[] => {
+        if (typeof value === "string") {
+            return value
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean);
+        }
+
+        if (!Array.isArray(value)) return [];
+
+        return Array.from(
+            new Set(
+                value
+                    .map((item) => {
+                        if (typeof item === "string") return item;
+                        if (!item || typeof item !== "object") return "";
+
+                        const pricingItem = item as Record<string, unknown>;
+                        return String(
+                            pricingItem.id ||
+                            pricingItem._id ||
+                            pricingItem.uid ||
+                            pricingItem.pricingId ||
+                            "",
+                        ).trim();
+                    })
+                    .filter(Boolean),
+            ),
+        );
+    };
+
+    const formatSubCategory = (value: Pricing["subCategory"]) => {
+        if (Array.isArray(value)) return value.join(", ");
+        return value || "";
+    };
+
+    const selectedPricingIds = normalizePricingIds(form.category);
+    const selectedPricingCards = pricingOptions.filter((pricing) =>
+        selectedPricingIds.includes(pricing.id || ""),
+    );
+
+    const fetchData = useCallback(() => {
+        let mounted = true;
+        const load = async () => {
+            setLoading(true);
+            try {
+                const s = await getCompany(id as string);
+                if (!mounted) return;
+
+                const data = s.company;
+                setPartner(data);
+                setForm({
+                    name: data?.name || "",
+                    email: data?.email || "",
+                    phone: data?.phone || "",
+                    location: data?.location || "",
+                    category: normalizePricingIds(data?.category || []),
+                    zone: data?.zone || "",
+                });
+
+                addToast("success", s.message || "Partner loaded");
+            } catch (e) {
+                addToast("error", e?.message || "Failed to fetch partner");
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        load();
+        return () => (mounted = false);
+    }, [addToast, id]);
+
+    const fetchPricingOptions = useCallback(async () => {
+        if (!centerId) return;
+
+        try {
+            setPricingLoading(true);
+            const res = await getPricingByCenter(centerId);
+            setPricingOptions(Array.isArray(res?.data) ? res.data : []);
+        } catch (error: any) {
+            addToast("error", error?.message || error?.error || "Failed to fetch pricing data");
+        } finally {
+            setPricingLoading(false);
+        }
+    }, [addToast, centerId]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    useEffect(() => {
+        fetchPricingOptions();
+    }, [fetchPricingOptions]);
+
+    const fetchWalletData = useCallback(async () => {
+        try {
+            const targetUid = partner?.uid || (id as string);
+            if (!targetUid) {
+                setWallet(null);
+                return;
+            }
+            const walletData = await getWallet(targetUid, "COMPANY");
+
+            if (walletData?.ok) {
+                setWallet(walletData?.wallet);
+            } else {
+                setWallet(null);
+            }
+        } catch (error: any) {
+            addToast("error", error?.message || error?.error || "Failed to fetch wallet data");
+        }
+    }, [addToast, partner?.uid, id]);
+
+    useEffect(() => {
+        fetchWalletData();
+    }, [fetchWalletData]);
+
+    // Fetch banks
+    const fetchBanks = useCallback(async () => {
+        try {
+            const data = await getBanks();
+            if (data?.ok && data?.banks) {
+                const banks = Array.isArray(data.banks?.data)
+                    ? data.banks.data
+                    : Array.isArray(data.banks)
+                    ? data.banks
+                    : [];
+                setBankList(banks);
+            }
+        } catch (e) {
+            addToast("error", "Failed to fetch banks");
+        }
+    }, [addToast]);
+
+    useEffect(() => {
+        fetchBanks();
+    }, [fetchBanks]);
+
+    // Resolve account name for edit form
+    const fetchEditAccountName = useCallback(
+        async (accountNumber: string, bankCode: string) => {
+            try {
+                setIsResolvingAccount(true);
+                const resolve = await resolveBankAccount(accountNumber, bankCode);
+                const accountName = resolve?.data?.accountName || "";
+                if (accountName) {
+                    setEditAccountName(accountName);
+                    addToast("success", "Account name resolved successfully.");
+                } else {
+                    setEditAccountName("");
+                    addToast("error", "Account name not found. Please verify the account details.");
+                }
+            } catch (err: any) {
+                setEditAccountName("");
+                addToast("error", err?.message || "Failed to resolve bank account. Please try again.");
+            } finally {
+                setIsResolvingAccount(false);
+            }
+        },
+        [addToast]
+    );
+
+    useEffect(() => {
+        if (!walletModalOpen) return;
+        if (!editBankCode || !editAccountNo || editAccountNo.length < 10) {
+            return;
+        }
+
+        const currentBankCode =
+            (wallet?.bank as any)?.code ||
+            bankList.find((b) => b.name?.toLowerCase() === wallet?.bank?.name?.toLowerCase())?.code;
+
+        if (
+            editAccountNo === wallet?.accountNo &&
+            editBankCode === currentBankCode &&
+            editAccountName === wallet?.accountName
+        ) {
+            return;
+        }
+
+        fetchEditAccountName(editAccountNo, editBankCode);
+    }, [fetchEditAccountName, editAccountNo, editBankCode, walletModalOpen, wallet, bankList, editAccountName]);
+
+    const handleOpenWalletModal = () => {
+        const accNo = wallet?.accountNo || "";
+        setEditAccountNo(accNo);
+        const currentBankCode =
+            (wallet?.bank as any)?.code ||
+            bankList.find((b) => b.name?.toLowerCase() === wallet?.bank?.name?.toLowerCase())?.code ||
+            "";
+        setEditBankCode(currentBankCode);
+        setEditAccountName(wallet?.accountName || "");
+        setEditValidationError(null);
+        setWalletModalOpen(true);
+    };
+
+    const handleCloseWalletModal = () => {
+        setWalletModalOpen(false);
+        setEditValidationError(null);
+    };
+
+    const handleUpdateWallet = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const targetUid = partner?.uid || (id as string);
+        if (!targetUid) {
+            addToast("error", "Partner ID is missing.");
+            return;
+        }
+
+        if (!editAccountNo) {
+            addToast("error", "Account number is required.");
+            return;
+        }
+        if (!editBankCode) {
+            addToast("error", "Bank is required.");
+            return;
+        }
+        if (!editAccountName) {
+            addToast("error", "Please verify the account details first.");
+            return;
+        }
+
+        setEditLoading(true);
+        setEditValidationError(null);
+
+        try {
+            const selectedBank = bankList.find((b) => b.code === editBankCode);
+            const result = await updateWallet(
+                targetUid,
+                editAccountNo,
+                editAccountName,
+                editBankCode,
+                selectedBank?.name || wallet?.bank?.name || "",
+                "COMPANY"
+            );
+
+            if (result && result.ok) {
+                addToast("success", "Wallet updated successfully!");
+                setWalletModalOpen(false);
+                fetchWalletData();
+            } else {
+                addToast("error", result?.message || "Failed to update wallet.");
+                setEditValidationError(result?.message || "Failed to update wallet.");
+            }
+        } catch (e: any) {
+            addToast("error", e?.message || "Failed to update wallet.");
+            setEditValidationError(e?.message || "Failed to update wallet.");
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    const handleChange = (k: string, v: string | boolean) => {
+        setForm((s) => ({
+            ...s,
+            [k]: v,
+        }));
+    };
+
+    const handlePricingToggle = (pricingId: string) => {
+        setForm((current) => {
+            const selected = Array.from(new Set(current.category || []));
+            const isSelected = selected.includes(pricingId);
+
+            return {
+                ...current,
+                category: isSelected
+                    ? selected.filter((id) => id !== pricingId)
+                    : [...selected, pricingId],
+            };
+        });
+    };
+
+    const handleSave = async () => {
+        if (!form.name || !form.email || !form.phone || form.category.length === 0 || !form.zone) {
+            addToast("error", "Please fill all required fields");
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const payload = {
+                ...form,
+                category: form.category,
+                zone: form.zone,
+            };
+
+            await updateCompany(id as string, payload);
+            setPartner((prev) => ({
+                ...prev,
+                ...payload,
+            }));
+            setEditing(false);
+            addToast("success", "Partner updated successfully");
+        } catch (e) {
+            addToast("error", e?.error || e?.message || "Update failed");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        try {
+            await deleteCompany(id as string);
+            addToast("success", "Partner deleted successfully");
+            setTimeout(() => router.push("/it/partners"), 1500);
+        } catch (e) {
+            addToast("error", e?.error || e?.message || "Delete failed");
+        } finally {
+            setDeleting(false);
+            setDeleteModalOpen(false);
+        }
+    };
+
+    const handleRetry = async () => {
+        setLoading(true);
+        try {
+            const s = await getCompany(id as string);
+            const data = s.company;
+            setPartner(data);
+            setForm({
+                name: data?.name || "",
+                email: data?.email || "",
+                phone: data?.phone || "",
+                location: data?.location || "",
+                category: normalizePricingIds(data?.category || []),
+                zone: data?.zone || "",
+            });
+            addToast("success", s.message || "Partner loaded");
+        } catch (e) {
+            addToast("error", e?.message || "Failed to fetch partner");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setForm({
+            name: partner?.name || "",
+            email: partner?.email || "",
+            phone: partner?.phone || "",
+            location: partner?.location || "",
+            category: normalizePricingIds(partner?.category || []),
+            zone: partner?.zone || "",
+        });
+        setAvatarFileName("");
+        setEditing(false);
+    };
+
+    const avatarLabel = partner?.avatar || "No logo uploaded";
+    const avatarInitial = (partner?.name || form.name || "O").charAt(0).toUpperCase();
+
+    const detailCards = [
+        {
+            label: "Email",
+            value: partner?.email || "—",
+            icon: Mail,
+        },
+        {
+            label: "Phone",
+            value: partner?.phone || "—",
+            icon: Phone,
+        },
+        {
+            label: "Partner ID",
+            value: partner?.uid || "—",
+            icon: Hash,
+        },
+        {
+            label: "Location",
+            value: partner?.location || "—",
+            icon: MapPin,
+        },
+        // {
+        //     label: "Zone",
+        //     value: partner?.zone || "—",
+        //     icon: BadgeInfo,
+        // },
+    ];
+
+    return (
+        <div className="mx-auto max-w-7xl space-y-4 p-4 md:p-6">
+            {deleteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
+                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                            <AlertCircle className="text-red-600" size={24} />
+                        </div>
+                        <h3 className="mb-2 text-center text-lg font-semibold text-slate-900">
+                            Delete Partner?
+                        </h3>
+                        <p className="mb-6 text-center text-sm text-slate-600">
+                            Are you sure you want to delete <strong>{partner?.name}</strong>? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteModalOpen(false)}
+                                disabled={deleting}
+                                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                            >
+                                {deleting ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Wallet Update Modal */}
+            {walletModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-100 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                                    <Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-900">
+                                        Update Partner Wallet
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Update bank account details for {partner?.name}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleCloseWalletModal}
+                                disabled={editLoading}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {editValidationError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                                <p className="text-sm text-red-700">{editValidationError}</p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleUpdateWallet} className="space-y-4">
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Account Number <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editAccountNo}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditAccountNo(val);
+                                        if (val !== wallet?.accountNo) {
+                                            setEditAccountName("");
+                                        }
+                                    }}
+                                    placeholder="e.g., 1234567890"
+                                    required
+                                    className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Bank Name <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={editBankCode}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditBankCode(val);
+                                        if (val !== ((wallet?.bank as any)?.code || "")) {
+                                            setEditAccountName("");
+                                        }
+                                    }}
+                                    required
+                                    className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                >
+                                    <option value="">Select bank</option>
+                                    {bankList.map((bank) => (
+                                        <option key={bank.code} value={bank.code}>
+                                            {bank.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                        Account Name
+                                    </label>
+                                    {isResolvingAccount && (
+                                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                                            <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
+                                            Resolving account...
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    value={editAccountName}
+                                    readOnly
+                                    placeholder="Will auto-fill after account verification"
+                                    className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 outline-none"
+                                />
+                                {editAccountName ? (
+                                    <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-700">
+                                        <CheckCircle2 size={13} />
+                                        <span>Account verified</span>
+                                    </p>
+                                ) : (
+                                    <p className="mt-1.5 text-xs text-slate-500">
+                                        Enter a 10-digit account number and select a bank to verify.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={handleCloseWalletModal}
+                                    disabled={editLoading}
+                                    className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editLoading || isResolvingAccount || !editAccountName}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-emerald-400 transition-colors shadow-sm"
+                                >
+                                    {editLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {editLoading ? "Updating..." : "Update Wallet"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <button
+                    onClick={() => router.push("/it/partners")}
+                    className="inline-flex items-center gap-2 text-slate-600 transition-colors hover:text-slate-900"
+                >
+                    <ArrowLeft size={18} />
+                    <span className="text-sm font-medium">Back to Partners</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                    {editing ? (
+                        <>
+                            <button
+                                onClick={handleCancel}
+                                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50"
+                            >
+                                <ArrowLeft size={14} />
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 disabled:translate-y-0 disabled:opacity-50"
+                            >
+                                <CheckCircle2 size={16} />
+                                {saving ? "Saving..." : "Save"}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Link
+                                href={`/it/partners/${partner?.uid || id as string}/agents`}
+                                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+                            >
+                                <Users size={15} />
+                                <span>View Agents</span>
+                            </Link>
+                            {!readOnly ? (
+                                <button
+                                    type="button"
+                                    onClick={handleOpenWalletModal}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+                                >
+                                    <Wallet size={15} />
+                                    <span>Update Wallet</span>
+                                </button>
+                            ) : null}
+                            {!readOnly ? (
+                                <button
+                                    onClick={() => setEditing(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700"
+                                >
+                                    <Edit2 size={14} />
+                                    <span>Edit Partner</span>
+                                </button>
+                            ): null}
+
+                            {!readOnly ? (
+                                <button
+                                    onClick={() => setDeleteModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50"
+                                >
+                                    <Trash2 size={15} />
+                                    <span>Delete Partner</span>
+                            </button>) : null}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex min-h-96 items-center justify-center rounded-2xl bg-white p-8 ring-1 ring-slate-100">
+                    <div className="text-center">
+                        <RefreshCw className="mx-auto mb-2 animate-spin text-emerald-600" size={24} />
+                        <p className="text-sm text-slate-600">Loading partner details...</p>
+                    </div>
+                </div>
+            ) : partner ? (
+                <div className="space-y-4">
+                    {/* head card  */}
+                    <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 ring-1 ring-emerald-100 md:p-6">
+                        <div className="grid gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-start">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                                    Partner Overview
+                                </p>
+                                <h2 className="mt-2 text-2xl font-bold text-slate-800 md:text-3xl">
+                                    {partner.name || "Unnamed Partner"}
+                                </h2>
+                                <p className="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
+                                    View and manage this partner profile from one place.
+                                </p>
+
+                                <div className="mt-5 flex flex-wrap gap-2">
+                                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 gap-1">
+                                        <CheckCircle2 className="mr-1" size={14} />
+                                        {partner.role || "COMPANY"}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 gap-1">
+                                        <CheckCircle2 className="mr-1" size={14} />
+                                        {selectedPricingCards.length > 0
+                                            ? `${selectedPricingCards.length} pricing plan(s)`
+                                            : "No pricing selected"}
+                                    </span>
+                                    <span
+                                        className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${partner.status === false
+                                            ? "border-red-200 bg-red-50 text-red-700"
+                                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                            }`}
+                                    >
+                                        {partner.status === false ? "Inactive" : "Active"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+                                <div className="flex items-start gap-4">
+                                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-2xl font-bold text-slate-600 ring-1 ring-slate-200 aspect-square">
+                                        {partner.avatar ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                                src={partner.avatar}
+                                                alt={partner.name || "Partner logo"}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            avatarInitial
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            Avatar
+                                        </p>
+                                        <p className="mt-1 truncate text-sm font-medium text-slate-900">
+                                            {avatarLabel}
+                                        </p>
+                                        <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                                            <div className="flex items-center gap-2">
+                                                <BadgeInfo size={16} className="text-slate-400" />
+                                                <span>Partner ID: {partner.uid || "—"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Mail size={16} className="text-slate-400" />
+                                                <span className="truncate">{partner.email || "—"}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* {editing && (
+                                    <div className="mt-5 border-t border-slate-100 pt-5">
+                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                            Avatar File
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleAvatarFileChange}
+                                            className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-700 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                        />
+                                        <p className="mt-2 text-xs text-slate-500">
+                                            {avatarFileName ? `Selected: ${avatarFileName}` : "No file selected"}
+                                        </p>
+                                    </div>
+                                )} */}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* basic information */}
+                    <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h3 className="text-lg font-semibold text-slate-900">
+                                Basic Information
+                            </h3>
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold gap-2 text-slate-600">
+                                <Camera className="mr-1" size={14} />
+                                Profile details
+                            </span>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Partner Name <span className="text-red-500">*</span>
+                                </label>
+                                {editing ? (
+                                    <input
+                                        type="text"
+                                        value={form.name}
+                                        onChange={(e) => handleChange("name", e.target.value)}
+                                        className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                        {partner.name || "—"}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Email <span className="text-red-500">*</span>
+                                </label>
+                                {editing ? (
+                                    <input
+                                        type="email"
+                                        value={form.email}
+                                        onChange={(e) => handleChange("email", e.target.value)}
+                                        className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                        {partner.email || "—"}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Phone <span className="text-red-500">*</span>
+                                </label>
+                                {editing ? (
+                                    <input
+                                        type="tel"
+                                        value={form.phone}
+                                        onChange={(e) => handleChange("phone", e.target.value)}
+                                        className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                        {partner.phone || "—"}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="">
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Location
+                                </label>
+                                {editing ? (
+                                    <input
+                                        type="text"
+                                        value={form.location}
+                                        onChange={(e) => handleChange("location", e.target.value)}
+                                        className="w-full appearance-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                        {partner.location || "—"}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Zone <span className="text-red-500">*</span>
+                                </label>
+                                {editing ? (
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                        {zoneOptions.map((zone) => {
+                                            const isSelected = form.zone === zone;
+
+                                            return (
+                                                <button
+                                                    key={zone}
+                                                    type="button"
+                                                    onClick={() => handleChange("zone", zone)}
+                                                    className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${isSelected
+                                                        ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                                                        : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50"
+                                                        }`}
+                                                >
+                                                    Zone {zone}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                        {partner.zone || "—"}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* pricing cards */}
+                    <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">
+                                    Pricing Plans
+                                </h3>
+                                <p className="text-sm text-slate-600">
+                                    {selectedPricingCards.length > 0
+                                        ? `${selectedPricingCards.length} selected pricing plan(s) from this center`
+                                        : "No pricing plan selected for this partner yet"}
+                                </p>
+                            </div>
+                            {editing && (
+                                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Select one or more plans
+                                </span>
+                            )}
+                        </div>
+
+                        {pricingLoading ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                Loading pricing options...
+                            </div>
+                        ) : selectedPricingCards.length === 0 && !editing ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                No pricing cards are assigned to this partner.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                {(editing ? pricingOptions : selectedPricingCards).map((pricing) => {
+                                    const pricingId = pricing.id as string;
+                                    const isSelected = form.category.includes(pricingId);
+
+                                    return (
+                                        <button
+                                            key={pricingId}
+                                            type="button"
+                                            disabled={!editing}
+                                            onClick={() => editing && handlePricingToggle(pricingId)}
+                                            className={`text-left rounded-xl border p-4 transition-colors ${isSelected
+                                                ? "border-emerald-400 bg-emerald-50"
+                                                : "border-slate-300 bg-white hover:border-emerald-400 hover:bg-emerald-50"
+                                                } ${editing ? "cursor-pointer" : "cursor-default"}`}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
+                                                    <CheckCircle2 size={16} className={isSelected ? "text-emerald-700" : "text-slate-400"} />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <p className={`font-semibold ${isSelected ? "text-emerald-700" : "text-slate-900"}`}>
+                                                                {pricing.title}
+                                                            </p>
+                                                            <p className={`mt-1 text-xs ${isSelected ? "text-emerald-700" : "text-slate-500"}`}>
+                                                                Category: {pricing.category || "—"}
+                                                            </p>
+                                                        </div>
+                                                        <p className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                                                            {pricing.price ? `₦${Number(pricing.price).toLocaleString()}` : "—"}
+                                                            {
+                                                                (() => {
+                                                                    const f = String(pricing.frequency || "").toUpperCase();
+                                                                    const map: Record<string, string> = {
+                                                                        DAILY: "/day",
+                                                                        WEEKLY: "/week",
+                                                                        MONTHLY: "/month",
+                                                                        YEARLY: "/year",
+                                                                        QUARTERLY: "/quarter",
+                                                                        BIWEEKLY: "/2-weeks"
+                                                                    };
+                                                                    return map[f] || (pricing.frequency ? pricing.frequency : "/month");
+                                                                })()
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                    {pricing.subCategory && (
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${isSelected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                                                                {formatSubCategory(pricing.subCategory)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {pricing.code && (
+                                                        <p className={`mt-2 text-xs ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
+                                                            {pricing.code}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* wallet card */}
+                    {wallet && (
+                        <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                            <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <h3 className="text-lg font-semibold text-slate-900">
+                                    Wallet Details
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    {!readOnly && (
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenWalletModal}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-100"
+                                        >
+                                            <Wallet size={15} />
+                                            <span>Update Wallet</span>
+                                        </button>
+                                    )}
+                                    <Link
+                                        href={`/it/partners/${partner?.uid || id}/finance`}
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700"
+                                    >
+                                        <span>View Finance</span>
+                                    </Link>
+                                </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Current Balance
+                                    </p>
+                                    <p className="mt-3 text-2xl font-bold text-slate-900">
+                                        {typeof wallet.balance === 'number'
+                                            ? `₦${wallet.balance.toFixed(2)}`
+                                            : wallet.balance !== undefined
+                                                ? `₦${wallet.balance}`
+                                                : "—"}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Ledger Balance
+                                    </p>
+                                    <p className="mt-3 text-2xl font-bold text-slate-900">
+                                        {typeof wallet.balance === 'number'
+                                            ? `₦${wallet.balance.toFixed(2)}`
+                                            : wallet.balance !== undefined
+                                                ? `₦${wallet.balance}`
+                                                : "—"}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                                        Expected Balance
+                                    </p>
+                                    <p className="mt-3 text-2xl font-bold text-emerald-700">
+                                        ₦0.00
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* account details */}
+                    {wallet && (
+                        <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-slate-900">Account Details</h3>
+                                {!readOnly && (
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenWalletModal}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-100"
+                                    >
+                                        <Edit2 size={13} />
+                                        <span>Edit Bank Details</span>
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Name</p>
+                                    <p className="mt-2 wrap-break-word text-sm font-medium text-slate-900">{wallet.accountName || "—"}</p>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bank</p>
+                                    <p className="mt-2 wrap-break-word text-sm font-medium text-slate-900">{wallet.bank?.name || "—"}</p>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Number</p>
+                                    <p className="mt-2 wrap-break-word text-sm font-medium text-slate-900">{wallet.accountNo || "—"}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* detail summary */}
+                    <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                        <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                            Detail Summary
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                            {detailCards.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <div
+                                        key={item.label}
+                                        className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                                    >
+                                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200">
+                                            <Icon size={18} />
+                                        </div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            {item.label}
+                                        </p>
+                                        <p className="mt-2 wrap-break-word text-sm font-medium text-slate-900">
+                                            {item.value}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* record metadata */}
+                    <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm md:p-6">
+                        <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                            Record Metadata
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Created
+                                </label>
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                    {partner.createdAt
+                                        ? new Date(partner.createdAt).toLocaleString()
+                                        : "—"}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Last Updated
+                                </label>
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                                    {partner.updatedAt
+                                        ? new Date(partner.updatedAt).toLocaleString()
+                                        : "—"}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex min-h-96 items-center justify-center rounded-2xl bg-white p-8 ring-1 ring-slate-100">
+                    <div className="text-center">
+                        <AlertCircle className="mx-auto mb-2 text-red-600" size={24} />
+                        <p className="text-sm text-slate-600 mb-4">Failed to load partner</p>
+                        <button
+                            onClick={handleRetry}
+                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                        >
+                            <RefreshCw size={16} />
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

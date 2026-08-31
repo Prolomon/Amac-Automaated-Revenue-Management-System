@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, ChangeEvent } from "react";
 import { usePageAccess } from "@/components/PageGuard";
 import { getCenterId } from "@/lib/permissions";
-import { Plus, Check, Edit2, AlertCircle, RefreshCcw } from "lucide-react";
+import { Plus, Check, Edit2, AlertCircle, RefreshCcw, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   getPricingByCenter,
+  getPricingByCenterFiltered,
   Pricing as PricingType,
   togglePricing,
 } from "@/lib/services/pricing";
@@ -19,8 +20,12 @@ export default function Pricing() {
   const { readOnly } = usePageAccess();
   const [pricing, setPricing] = useState<PricingType[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const { addToast } = useToast();
+      const { addToast } = useToast();
   const [entityCounts, setEntityCounts] = useState<Record<string, number>>({});
+  // "center" filter for pricing tiers. "" means "All centers" (the signed-in
+  // user's default scope), otherwise a specific center id is fetched via the
+  // `?center=` query param so the API restricts Pricing.center to that value.
+  const [centerFilter, setCenterFilter] = useState("");
 
   const fetchPricingEntity = useCallback(
     async (pricingId: string) => {
