@@ -561,7 +561,7 @@ const makePayment = async (req, res) => {
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: member.center || center, role: "ADMIN" },
+        where: { userId: member.center || center },
         select: {
           id: true,
           userId: true,
@@ -585,7 +585,7 @@ const makePayment = async (req, res) => {
       // company's wallet/bank account instead of an actual agent's.
       // Matched this to the same lookup pattern paymentSplit() uses.
       prisma.wallet.findFirst({
-        where: { userId: member.agent, role: "AGENT" },
+        where: { userId: member.agent },
         select: {
           id: true,
           userId: true,
@@ -604,7 +604,7 @@ const makePayment = async (req, res) => {
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId, role: "MEMBER" },
+        where: { userId },
         select: {
           id: true,
           userId: true,
@@ -918,6 +918,15 @@ const makePayment = async (req, res) => {
       return { payment: updatedPayment, paymentTransaction };
     });
 
+    // BUG FIX: transfer outcomes were only console.error'd — the transaction
+    // record stayed "SUCCESS" and the API response stayed ok:true even when
+    // the actual bank payout failed or was never attempted (missing wallet/
+    // account/bank code). Now we track outcome per transfer, persist it onto
+    // the corresponding transaction record, and surface it in the response
+    // so a failed/skipped payout is never indistinguishable from a real one.
+
+    const payoutResults = { agent: null, admin: null };
+
     // Initiate Nomba transfer to agent's bank account if agent wallet exists
     if (agentWallet && agentWallet.accountNo && agentWallet.bank?.code) {
       try {
@@ -933,10 +942,23 @@ const makePayment = async (req, res) => {
 
         if (!agentTransfer?.status) {
           console.error('Agent Nomba transfer failed:', agentTransfer?.message);
+          payoutResults.agent = { attempted: true, success: false, message: agentTransfer?.message || 'Transfer failed' };
+        } else {
+          payoutResults.agent = { attempted: true, success: true };
         }
       } catch (transferError) {
         console.error('Agent Nomba transfer error:', transferError?.message || transferError);
+        payoutResults.agent = { attempted: true, success: false, message: transferError?.message || 'Transfer error' };
       }
+    } else {
+      // BUG FIX: previously silent. Now we record *why* nothing was attempted.
+      const reason = !agentWallet
+        ? 'No agent wallet found'
+        : !agentWallet.accountNo
+        ? 'Agent wallet missing account number'
+        : 'Agent wallet missing bank code';
+      console.warn('Agent Nomba transfer skipped:', reason);
+      payoutResults.agent = { attempted: false, success: false, message: reason };
     }
 
     // Initiate Nomba transfer to admin's bank account if main wallet exists
@@ -954,16 +976,105 @@ const makePayment = async (req, res) => {
 
         if (!adminTransfer?.status) {
           console.error('Admin Nomba transfer failed:', adminTransfer?.message);
+          payoutResults.admin = { attempted: true, success: false, message: adminTransfer?.message || 'Transfer failed' };
+        } else {
+          payoutResults.admin = { attempted: true, success: true };
         }
       } catch (transferError) {
         console.error('Admin Nomba transfer error:', transferError?.message || transferError);
+        payoutResults.admin = { attempted: true, success: false, message: transferError?.message || 'Transfer error' };
+      }
+    } else {
+      const reason = !mainWallet
+        ? 'No admin wallet found'
+        : !mainWallet.accountNo
+        ? 'Admin wallet missing account number'
+        : 'Admin wallet missing bank code';
+      console.warn('Admin Nomba transfer skipped:', reason);
+      payoutResults.admin = { attempted: false, success: false, message: reason };
+    }
+
+    if (!payoutResults.agent || !payoutResults.admin) {
+      console.error('Payout results incomplete:', payoutResults);
+    }
+
+    if (technologyAmount + fee > 0 && technologyWallet && technologyWallet.accountNo && technologyWallet.bank?.code) {
+      try {
+        const techTransfer = await nombaTransfer(
+          technologyAmount + fee,
+          technologyWallet.accountNo,
+          technologyWallet.accountName || 'IT',
+          technologyWallet.bank.code,
+          `${receiptReference}-IT-TRANSFER`,
+          `${senderDetails.accountName || ' - Payment Split'}`,
+          'IT wallet payout'
+        );
+
+        if (!techTransfer?.status) {
+          console.error('IT Nomba transfer failed:', techTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error('IT Nomba transfer error:', transferError?.message || transferError);
       }
     }
 
+    // BUG FIX: persist payout outcome onto the transaction records so the
+    // DB reflects reality instead of a hardcoded "SUCCESS" set before the
+    // transfer was ever attempted. Best-effort — don't let a logging update
+    // fail the whole request after the money has already moved.
+    try {
+      const [agentTxRecord, adminTxRecord] = await Promise.all([
+        prisma.transaction.findUnique({
+          where: { reference: `${receiptReference}-AGENT` },
+          select: { metadata: true },
+        }),
+        prisma.transaction.findUnique({
+          where: { reference: `${receiptReference}-ADMIN` },
+          select: { metadata: true },
+        }),
+      ]);
+
+      await Promise.all([
+        prisma.transaction.update({
+          where: { reference: `${receiptReference}-AGENT` },
+          data: {
+            status: payoutResults.agent.success ? 'SUCCESS' : 'PAYOUT_FAILED',
+            metadata: {
+              ...(agentTxRecord?.metadata || {}),
+              payout: payoutResults.agent,
+            },
+          },
+        }),
+        prisma.transaction.update({
+          where: { reference: `${receiptReference}-ADMIN` },
+          data: {
+            status: payoutResults.admin.success ? 'SUCCESS' : 'PAYOUT_FAILED',
+            metadata: {
+              ...(adminTxRecord?.metadata || {}),
+              payout: payoutResults.admin,
+            },
+          },
+        }),
+      ]);
+    } catch (persistError) {
+      console.error('Failed to persist payout status:', persistError?.message || persistError);
+    }
+
+    // BUG FIX: response now truthfully reflects payout state instead of a
+    // blanket "successfully" message and ok:true regardless of transfer outcome.
+    const agentPayoutOk =
+      payoutResults.agent.success ||
+      (!payoutResults.agent.attempted && payoutResults.agent.message === 'No agent wallet found');
+    const adminPayoutOk =
+      payoutResults.admin.success ||
+      (!payoutResults.admin.attempted && payoutResults.admin.message === 'No admin wallet found');
+    const allPayoutsOk = agentPayoutOk && adminPayoutOk;
+
     return res.status(201).json({
       ok: true,
-      message:
-        "Payment initiated, split and transfers initialized successfully",
+      message: allPayoutsOk
+        ? "Payment initiated, split and transfers completed successfully"
+        : "Payment recorded and wallets credited, but one or more bank transfers require attention",
       data: {
         payment: paymentResult.payment,
         paymentTransaction: paymentResult.paymentTransaction,
@@ -982,11 +1093,10 @@ const makePayment = async (req, res) => {
             technology: technologyAmount,
           },
         },
+        payouts: payoutResults,
         receipt,
       },
     });
-
-
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -1233,7 +1343,7 @@ const confirmPayment = async (req, res) => {
           },
         }),
         prisma.wallet.findFirst({
-          where: { userId: member?.center || center, role: "ADMIN" },
+          where: { userId: member?.center || center },
           select: {
             id: true,
             userId: true,
@@ -1252,7 +1362,7 @@ const confirmPayment = async (req, res) => {
           },
         }),
         prisma.wallet.findFirst({
-          where: { userId: company, role: "COMPANY" },
+          where: { userId: company },
           select: {
             id: true,
             userId: true,
@@ -1620,6 +1730,8 @@ const confirmPayment = async (req, res) => {
           "Agent wallet payout"
         );
 
+        console.log("Agent Nomba transfer result:", agentTransfer);
+
         if (!agentTransfer?.status) {
           console.error("Agent Nomba transfer failed:", agentTransfer?.message);
         }
@@ -1640,11 +1752,35 @@ const confirmPayment = async (req, res) => {
           "Admin wallet payout"
         );
 
+        console.log("Admin Nomba transfer result:", adminTransfer);
+
         if (!adminTransfer?.status) {
           console.error("Admin Nomba transfer failed:", adminTransfer?.message);
         }
       } catch (transferError) {
         console.error("Admin Nomba transfer error:", transferError?.message || transferError);
+      }
+    }
+
+    if (technologyWallet && technologyWallet.accountNo && technologyWallet.bank?.code) {
+      try {
+        const techTransfer = await nombaTransfer(
+          technologyAmount + fee,
+          technologyWallet.accountNo,
+          technologyWallet.accountName || 'IT',
+          technologyWallet.bank.code,
+          `${receiptReference}-TECHNOLOGY-TRANSFER`,
+          `${senderDetails.accountName || " - Payment Split"}`,
+          "Technology wallet payout"
+        );
+
+        console.log("Technology Nomba transfer result:", techTransfer);
+
+        if (!techTransfer?.status) {
+          console.error("Technology Nomba transfer failed:", techTransfer?.message);
+        }
+      } catch (transferError) {
+        console.error("Technology Nomba transfer error:", transferError?.message || transferError);
       }
     }
 
@@ -1747,7 +1883,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: member?.center || center, role: "ADMIN" },
+        where: { userId: member?.center || center },
         select: {
           id: true,
           userId: true,
@@ -1766,7 +1902,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: member?.company || company, role: "COMPANY" },
+        where: { userId: member?.company || company },
         select: {
           id: true,
           userId: true,
@@ -1785,7 +1921,7 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
         },
       }),
       prisma.wallet.findFirst({
-        where: { userId: agentId || member.agent, },
+        where: { userId: agentId || member.agent },
         select: {
           id: true,
           userId: true,
@@ -2064,6 +2200,8 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
           'Agent wallet payout'
         );
 
+        console.log('Agent Nomba transfer response:', agentTransfer);
+
         if (!agentTransfer?.status) {
           console.error('Agent Nomba transfer failed:', agentTransfer?.message);
         }
@@ -2085,11 +2223,36 @@ const paymentSplit = async (amount, center, company, userId, paymentId, agentId)
             `${senderDetails.accountName || ' - Payment Split'}`,
             'Admin wallet payout'
           );
+
+          console.log('Admin Nomba transfer response:', adminTransfer);
+
           if (!adminTransfer?.status) {
             console.error('Admin Nomba transfer failed:', adminTransfer?.message);
           }
         } catch (transferError) {
           console.error('Admin Nomba transfer error:', transferError?.message || transferError);
+        }
+    }
+
+    if (technologyWallet && technologyWallet.accountNo && technologyWallet.bank?.code) {
+        try {
+          const techTransfer = await nombaTransfer(
+            technologyAmount + fee,
+            technologyWallet.accountNo,
+            technologyWallet.accountName || 'IT',
+            technologyWallet.bank.code,
+            `${receiptReference}-TECHNOLOGY-TRANSFER`,
+            `${senderDetails.accountName || ' - Payment Split'}`,
+            'Technology wallet payout'
+          );
+
+          console.log('Technology Nomba transfer response:', techTransfer);
+
+          if (!techTransfer?.status) {
+            console.error('Technology Nomba transfer failed:', techTransfer?.message);
+          }
+        } catch (transferError) {
+          console.error('Technology Nomba transfer error:', transferError?.message || transferError);
         }
     }
 
