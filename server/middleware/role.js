@@ -5,13 +5,15 @@ const roleMiddleware = (roles) => {
     // (admin/it/staff/company). Build a normalized set from both.
     const actual = new Set();
 
-    if (req.auth?.type) {
-      actual.add(String(req.auth.type).toUpperCase());
+    if (req.userType) {
+      actual.add(String(req.userType).toUpperCase()); // authoritative
     }
-    if (req.auth?.role) {
-      actual.add(String(req.auth.role).toUpperCase());
+    if (req.user?.role) {
+      actual.add(String(req.user.role).toUpperCase()); // authoritative
     }
-
+    // JWT claims as a secondary signal only, not primary
+    if (req.auth?.type) actual.add(String(req.auth.type).toUpperCase());
+    if (req.auth?.role) actual.add(String(req.auth.role).toUpperCase());
     // Fallback to the DB user's role if the token lacked a role claim.
     if (req.user?.role && actual.size === 0) {
       actual.add(String(req.user.role).toUpperCase());
@@ -22,7 +24,7 @@ const roleMiddleware = (roles) => {
       (roles || []).map((r) => {
         const up = String(r).toUpperCase();
         return up === "USER" ? "MEMBER" : up;
-      })
+      }),
     );
 
     const hasRole = [...actual].some((role) => allowed.has(role));

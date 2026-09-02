@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, CheckCircle2, Clock, Search, Tag, User, CreditCard } from "lucide-react";
+import { Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, CheckCircle2, Clock, Search, Tag, User, CreditCard, XCircle } from "lucide-react";
 import { getRequests, Request } from "@/lib/services/request";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/context/AuthContext";
@@ -243,6 +243,10 @@ function DiscountRequestsListPage() {
               <Clock className="h-3.5 w-3.5" />
               Pending Review
             </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+              <XCircle className="h-3.5 w-3.5" />
+              Rejected
+            </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Approved
@@ -270,6 +274,7 @@ function DiscountRequestsListPage() {
             <>
               {requests.map((req) => {
                 const isApproved = req.status === "APPROVED";
+                const isRejected = req.status === "REJECTED";
                 const originalAmount = req.payment?.amount || 0;
                 const currentDiscount = req.payment?.discount || 0;
                 const pricingTitle = req.payment?.pricing?.title || "Revenue Assessment";
@@ -298,13 +303,20 @@ function DiscountRequestsListPage() {
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide shrink-0 ${
                               isApproved
                                 ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : "border border-amber-200 bg-amber-50 text-amber-700"
+                                : isRejected
+                                  ? "border border-rose-200 bg-rose-50 text-rose-700"
+                                  : "border border-amber-200 bg-amber-50 text-amber-700"
                             }`}
                           >
                             {isApproved ? (
                               <>
                                 <CheckCircle2 size={12} />
                                 APPROVED
+                              </>
+                            ) : isRejected ? (
+                              <>
+                                <XCircle size={12} />
+                                REJECTED
                               </>
                             ) : (
                               <>

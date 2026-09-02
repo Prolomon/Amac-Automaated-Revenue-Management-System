@@ -21,6 +21,7 @@ import {
   X,
   AlertTriangle,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import {
   getRequest,
@@ -338,13 +339,20 @@ function DiscountRequestDetailPage() {
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
                     isApproved
                       ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border border-amber-200 bg-amber-50 text-amber-700"
+                      : isRejected
+                        ? "border border-rose-200 bg-rose-50 text-rose-700"
+                        : "border border-amber-200 bg-amber-50 text-amber-700"
                   }`}
                 >
                   {isApproved ? (
                     <>
                       <CheckCircle2 size={13} />
                       APPROVED
+                    </>
+                  ) : isRejected ? (
+                    <>
+                      <XCircle size={13} />
+                      REJECTED
                     </>
                   ) : (
                     <>
@@ -420,7 +428,7 @@ function DiscountRequestDetailPage() {
                     Status
                   </span>
                   <p className="font-bold text-slate-800">
-                    {isApproved ? "Approved & Granted" : "Pending Evaluation"}
+                    {isApproved ? "Approved & Granted" : isRejected ? "Rejected" : "Pending Evaluation"}
                   </p>
                 </div>
 

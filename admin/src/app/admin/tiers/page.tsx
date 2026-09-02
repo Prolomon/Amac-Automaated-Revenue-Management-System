@@ -20,7 +20,7 @@ export default function Pricing() {
   const { readOnly } = usePageAccess();
   const [pricing, setPricing] = useState<PricingType[] | null>(null);
   const [loading, setLoading] = useState(false);
-      const { addToast } = useToast();
+  const { addToast } = useToast();
   const [entityCounts, setEntityCounts] = useState<Record<string, number>>({});
   // "center" filter for pricing tiers. "" means "All centers" (the signed-in
   // user's default scope), otherwise a specific center id is fetched via the
