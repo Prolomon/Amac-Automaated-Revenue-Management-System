@@ -867,7 +867,7 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
 
     const principal = Number(paymentRecord.amount || 0);
     const vat = principal * 0.075;
-    const paySubtotal = principal + vat + charges;
+    const paySubtotal = principal + vat;
 
     if (grossAmount > paySubtotal) {
       grossAmount = paySubtotal;
