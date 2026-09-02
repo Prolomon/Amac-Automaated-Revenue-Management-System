@@ -656,7 +656,14 @@ const getPaymentForUser = async (req, res) => {
   }
 };
 
-const paymentProcess = async (amount, center, company, userId, paymentId) => {
+const paymentProcess = async (
+  amount,
+  center,
+  company,
+  userId,
+  paymentId,
+  direct = false,
+) => {
   try {
     const member = await prisma.member.findUnique({
       where: { uid: userId },
@@ -863,8 +870,10 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
     const totalAmount = grossAmount - fee;
     const receiptReference = generateTransactionReference();
 
-    if (senderWallet && Number(senderWallet.balance) < grossAmount) {
-      return { ok: false, message: "Insufficient balance in sender wallet" };
+    if (direct) {
+      if (senderWallet && Number(senderWallet.balance) < grossAmount) {
+        return { ok: false, message: "Insufficient balance in sender wallet" };
+      }
     }
 
     // Calculate split amounts
@@ -949,7 +958,7 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
         });
       }
 
-      if (senderWallet) {
+      if (direct && senderWallet) {
         await tx.wallet.update({
           where: { id: senderWallet.id },
           data: {
@@ -1361,6 +1370,7 @@ const makePayment = async (req, res) => {
       company,
       userId,
       paymentId,
+      true,
     );
 
     return res.status(201).json(paymentResponse);
