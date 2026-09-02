@@ -51,6 +51,8 @@ export default function PaymentPage() {
   const [discountRequests, setDiscountRequests] = useState<string>("");
   const [requestLoad, setRequestLoad] = useState(false);
   const [requests, setRequests] = useState<Request[]>([]);
+  const [touched, setTouched] = useState(false);
+  const [payAble, setPayable] = useState<number>(0);
 
   const id = identifier as string;
 
@@ -144,40 +146,33 @@ export default function PaymentPage() {
     return colors[status] || "bg-slate-100 text-slate-600 border-slate-200";
   };
 
-  if (!paymentData) {
-    return (
-      <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#E4F5EB]">
-              <RefreshCw className="h-8 w-8 animate-spin text-[#158049]" />
-            </div>
-            <h2 className="font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">
-              Loading payment details...
-            </h2>
-            <p className="mt-2 text-sm text-[#5B6B62]">
-              Please wait while we retrieve your information
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  // ✅ Derived values computed with safe fallbacks BEFORE any early return,
+  // so every hook below always runs, in the same order, on every render.
+  const member = paymentData?.member;
+  const payments = paymentData?.payments ?? [];
+  const agent = paymentData?.agent;
 
-  const { member, payments, agent } = paymentData;
-  const payment = payments?.find(
+  const payment = payments.find(
     (p) => p?.payment?.reference === selectedPayment,
   );
-  const totalPaid = payments?.reduce((sum, p) => sum + p?.payment?.paid, 0);
-  const totalDebt = payments?.reduce((sum, p) => sum + p?.payment?.debt, 0);
+  const totalPaid = payments.reduce(
+    (sum, p) => sum + (p?.payment?.paid || 0),
+    0,
+  );
+  const totalDebt = payments.reduce(
+    (sum, p) => sum + (p?.payment?.debt || 0),
+    0,
+  );
 
-  const principal = Number(payment?.payment?.amount);
+  const principal = Number(payment?.payment?.amount || 0);
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
 
   // Get payment date and current date
-  const paymentDate = new Date(payment?.payment?.date);
+  const paymentDate = payment?.payment?.date
+    ? new Date(payment.payment.date)
+    : new Date();
   const currentDate = new Date();
 
   // Calculate days overdue
@@ -191,7 +186,13 @@ export default function PaymentPage() {
   const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
   const penalty = subtotal * penaltyRatePerDay * daysOverdue;
 
-  const totalAmount = subtotal + penalty - Number(payment?.payment?.discount || 0);
+  const totalAmount =
+    subtotal + penalty - Number(payment?.payment?.discount || 0);
+
+  // ✅ moved up so it always runs, before the early return
+  useEffect(() => {
+    if (!touched) setPayable(totalAmount);
+  }, [totalAmount, touched]);
 
   const handleConfirmPayment = async () => {
     if (!id) {
@@ -209,7 +210,7 @@ export default function PaymentPage() {
       const res = await confirmPayment(
         paymentData?.member.uid || id,
         p?.payment?.id,
-        p?.payment?.debt ? p?.payment?.debt : totalAmount,
+        payAble,
         paymentData?.member?.center,
         paymentData?.member?.company,
       );
@@ -248,7 +249,7 @@ export default function PaymentPage() {
       }
 
       const requestPayload: CreateRequestPayload = {
-        memberId: member.uid,
+        memberId: member!.uid,
         paymentId: payment?.payment?.id || "",
         reason: discountRequests.trim(),
       };
@@ -268,6 +269,27 @@ export default function PaymentPage() {
       setDiscountRequests("");
     }
   };
+
+  // ✅ Early return now happens AFTER every hook has run.
+  if (!paymentData) {
+    return (
+      <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#E4F5EB]">
+              <RefreshCw className="h-8 w-8 animate-spin text-[#158049]" />
+            </div>
+            <h2 className="font-['Space_Grotesk',sans-serif] text-xl font-semibold text-[#0E1F17]">
+              Loading payment details...
+            </h2>
+            <p className="mt-2 text-sm text-[#5B6B62]">
+              Please wait while we retrieve your information
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="bg-[#F5F7F5] font-['Inter',sans-serif] text-[#0E1F17]">
@@ -365,13 +387,11 @@ export default function PaymentPage() {
                   No payment records found.
                 </div>
               ) : (
-                payments.map((payment, index) => (
+                payments.map((p, index) => (
                   <button
-                    key={payment?.payment?.reference || index}
-                    onClick={() =>
-                      setSelectedPayment(payment?.payment?.reference)
-                    }
-                    className={`rounded-2xl border border-[#E1E7E2] px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
+                    key={p?.payment?.reference || index}
+                    onClick={() => setSelectedPayment(p?.payment?.reference)}
+                    className={`rounded-2xl border border-[#E1E7E2] px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === p?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -380,37 +400,32 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <p className="text-left text-sm font-medium text-[#0E1F17]">
-                            {payment?.payment?.pricing.title.trim() ||
-                              "Payment"}
+                            {p?.payment?.pricing.title.trim() || "Payment"}
                           </p>
                           <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
-                            Ref: {payment?.payment?.reference}
+                            Ref: {p?.payment?.reference}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <p className="text-sm font-semibold text-[#0E1F17]">
-                            {formatCurrency(payment?.payment?.amount)}
+                            {formatCurrency(p?.payment?.amount)}
                           </p>
                           <p className="text-xs text-[#5B6B62]">
-                            Due: {formatDate(payment?.payment?.due)}
+                            Due: {formatDate(p?.payment?.due)}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5B6B62] sm:grid-cols-4 items-center">
-                      <span>Frequency: {payment?.payment?.frequency}</span>
-                      <span>
-                        Paid: {formatCurrency(payment?.payment?.paid)}
-                      </span>
-                      <span>
-                        Debt: {formatCurrency(payment?.payment?.debt)}
-                      </span>
+                      <span>Frequency: {p?.payment?.frequency}</span>
+                      <span>Paid: {formatCurrency(p?.payment?.paid)}</span>
+                      <span>Debt: {formatCurrency(p?.payment?.debt)}</span>
                       <span
-                        className={`w-auto inline-block items-center justify-center text-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(payment?.payment?.status)}`}
+                        className={`w-auto inline-block items-center justify-center text-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(p?.payment?.status)}`}
                       >
-                        {payment?.payment?.status}
+                        {p?.payment?.status}
                       </span>
                     </div>
                   </button>
@@ -529,12 +544,6 @@ export default function PaymentPage() {
                           : payment?.wallet?.accountNo || "N/A"}
                       </span>
                     </div>
-                    {/* <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Balance</span>
-                                            <span className="text-sm font-semibold text-emerald-800">
-                                                {formatCurrency(wallet.balance || 0)}
-                                            </span>
-                                        </div> */}
                     <div className="flex justify-between">
                       <span className="text-sm text-[#5B6B62]">Currency</span>
                       <span className="text-sm font-medium text-[#0E1F17]">
@@ -551,12 +560,6 @@ export default function PaymentPage() {
                         </span>
                       </div>
                     )}
-                    {/* <div className="flex justify-between">
-                                            <span className="text-sm text-slate-500">Status</span>
-                                            <span className={`text-sm font-medium ${payment?.wallet?.status ? "text-green-600" : "text-red-600"}`}>
-                                                {payment?.wallet?.status ? "Active" : "Inactive"}
-                                            </span>
-                                        </div> */}
                   </div>
                 </div>
               </div>
@@ -625,38 +628,51 @@ export default function PaymentPage() {
                 </p>
               </div>
               {selectedPayment && (
-                <button
-                  onClick={
-                    Number(totalAmount) === Number(totalPaid)
-                      ? null
-                      : handleConfirmPayment
-                  }
-                  disabled={
-                    loading || Number(totalAmount) === Number(totalPaid)
-                  }
-                  className={
-                    Number(totalAmount) === Number(totalPaid)
-                      ? "inline-flex items-center gap-2 rounded-xl border border-[#1B9E5A] px-8 py-3 text-sm font-semibold text-[#158049] shadow-sm transition-all hover:border-[#158049] disabled:cursor-not-allowed disabled:opacity-50"
-                      : "inline-flex items-center gap-2 rounded-xl bg-[#0B3B26] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0B3B26]/20 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                  }
-                >
-                  {Number(totalAmount) === Number(totalPaid) ? (
-                    <>
-                      <CreditCard className="h-4 w-4 animate-spin" />
-                      Paid
-                    </>
-                  ) : loading ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      I have made the payment
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col items-center gap-2 sm:flex-row">
+                  <input
+                    id="identifier"
+                    type="number"
+                    value={payAble}
+                    onChange={(e) => {
+                      setTouched(true);
+                      setPayable(Number(e.target.value));
+                    }}
+                    placeholder="Enter your phone number, member ID, or payment ID"
+                    className="w-full appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB]"
+                  />
+                  <button
+                    onClick={
+                      Number(totalAmount) === Number(totalPaid)
+                        ? undefined
+                        : handleConfirmPayment
+                    }
+                    disabled={
+                      loading || Number(totalAmount) === Number(totalPaid)
+                    }
+                    className={
+                      Number(totalAmount) === Number(totalPaid)
+                        ? "inline-flex items-center gap-2 rounded-xl border border-[#1B9E5A] px-8 py-3 text-sm font-semibold text-[#158049] shadow-sm transition-all hover:border-[#158049] disabled:cursor-not-allowed disabled:opacity-50"
+                        : "inline-flex items-center gap-2 rounded-xl bg-[#0B3B26] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0B3B26]/20 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                    }
+                  >
+                    {Number(totalAmount) === Number(totalPaid) ? (
+                      <>
+                        <CreditCard className="h-4 w-4 animate-spin" />
+                        Paid
+                      </>
+                    ) : loading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        I have made the payment
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -720,62 +736,63 @@ export default function PaymentPage() {
                   ))
                 )}
 
-                {payment?.payment?.status != "PAID" || payment.payment.discount > 0 && (
-                  <div
-                    className={`rounded-2xl border border-[#E1E7E2] object-fit w-full px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
-                          <FileText className="h-5 w-5" />
+                {payment?.payment?.status !== "PAID" &&
+                  (!payment.payment.discount && (
+                    <div
+                      className={`rounded-2xl border border-[#E1E7E2] object-fit w-full px-6 py-4 text-left transition hover:bg-[#F5F7F5] ${selectedPayment === payment?.payment?.reference && "border-[#1B9E5A] bg-[#E4F5EB]/50 hover:border-[#158049]"}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4F5EB] text-[#158049]">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-left text-sm font-medium text-[#0E1F17]">
+                              {payment?.payment?.pricing.title.trim() ||
+                                "Payment"}
+                            </p>
+                            <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
+                              Ref: {payment?.payment?.reference}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-left text-sm font-medium text-[#0E1F17]">
-                            {payment?.payment?.pricing.title.trim() ||
-                              "Payment"}
-                          </p>
-                          <p className="font-['JetBrains_Mono',monospace] text-xs text-[#5B6B62]">
-                            Ref: {payment?.payment?.reference}
-                          </p>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-[#0E1F17]">
+                              {formatCurrency(totalAmount - charges)}
+                            </p>
+                            <p className="text-xs text-[#5B6B62]">
+                              Due: {formatDate(payment?.payment?.due)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-[#0E1F17]">
-                            {formatCurrency(totalAmount)}
-                          </p>
-                          <p className="text-xs text-[#5B6B62]">
-                            Due: {formatDate(payment?.payment?.due)}
-                          </p>
-                        </div>
+                      <div className="flex w-full mt-3 text-xs text-[#5B6B62] items-center gap-2">
+                        <input
+                          id="identifier"
+                          type="text"
+                          value={discountRequests}
+                          onChange={(e) => setDiscountRequests(e.target.value)}
+                          placeholder="Enter reason for request"
+                          className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] relative"
+                          disabled={requestLoad}
+                        />
+                        <button
+                          onClick={handleDiscount}
+                          disabled={requestLoad}
+                          className="cursor-pointer rounded-xl border border-transparent bg-[#158049] px-4 py-2.5 text-white transition hover:bg-[#0B3B26] focus:ring-2 focus:ring-[#1B9E5A]/40"
+                        >
+                          {requestLoad ? (
+                            <span className="text-sm font-bold">
+                              Requesting...
+                            </span>
+                          ) : (
+                            <span className="text-sm font-bold">Request</span>
+                          )}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex w-full mt-3 text-xs text-[#5B6B62] items-center gap-2">
-                      <input
-                        id="identifier"
-                        type="text"
-                        value={discountRequests}
-                        onChange={(e) => setDiscountRequests(e.target.value)}
-                        placeholder="Enter reason for request"
-                        className="w-full block appearance-none rounded-xl border border-[#E1E7E2] bg-[#F5F7F5] px-4 py-3 text-sm outline-none transition focus:border-[#1B9E5A] focus:bg-white focus:ring-2 focus:ring-[#E4F5EB] relative"
-                        disabled={requestLoad}
-                      />
-                      <button
-                        onClick={handleDiscount}
-                        disabled={requestLoad}
-                        className="cursor-pointer rounded-xl border border-transparent bg-[#158049] px-4 py-2.5 text-white transition hover:bg-[#0B3B26] focus:ring-2 focus:ring-[#1B9E5A]/40"
-                      >
-                        {requestLoad ? (
-                          <span className="text-sm font-bold">
-                            Requesting...
-                          </span>
-                        ) : (
-                          <span className="text-sm font-bold">Request</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  ))}
               </div>
             </div>
           )}

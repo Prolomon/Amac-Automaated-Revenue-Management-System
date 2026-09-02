@@ -1,7 +1,7 @@
 import crypto from "crypto";
 // import { recordWebhookTransaction } from "./transactionController.js";
 import { prisma } from "../config/db.js";
-import { paymentSplit } from "./paymentController.js";
+import { paymentSplit, paymentProcess } from "./paymentController.js";
 
 function generateSignature(payload, secret, timeStamp) {
   if (!secret) {
@@ -13,8 +13,13 @@ function generateSignature(payload, secret, timeStamp) {
 
   let requestPayload;
   try {
-    const payloadString = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
-    requestPayload = typeof payloadString === "string" ? JSON.parse(payloadString) : payloadString;
+    const payloadString = Buffer.isBuffer(payload)
+      ? payload.toString("utf8")
+      : payload;
+    requestPayload =
+      typeof payloadString === "string"
+        ? JSON.parse(payloadString)
+        : payloadString;
   } catch (err) {
     throw new Error(`Failed to parse webhook payload: ${err.message}`);
   }
@@ -64,12 +69,13 @@ function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
 }
 
 const nombaWebhook = async (req, res) => {
-
-  const signature = req.headers['nomba-signature'];
-  const timeStamp = req.headers['nomba-timestamp'];
+  const signature = req.headers["nomba-signature"];
+  const timeStamp = req.headers["nomba-timestamp"];
   const secret = process.env.NOMBA_PRIVATE_SECRET;
 
-  console.log(`Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`);
+  console.log(
+    `Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`,
+  );
   console.log(`Raw body: ${req.rawBody}`);
 
   const isVerify = verifySignature(secret, req.rawBody, signature, timeStamp);
@@ -80,20 +86,20 @@ const nombaWebhook = async (req, res) => {
   // }
 
   // ✅ Signature verified
-  console.log('Webhook verified');
+  console.log("Webhook verified");
 
-  console.log("Log for the payment Event: ", req.body)
+  console.log("Log for the payment Event: ", req.body);
 
   try {
     const event = req.body;
 
-    if (!event || typeof event !== 'object') {
-      return res.status(400).json({ ok: false, message: 'Invalid payload' });
+    if (!event || typeof event !== "object") {
+      return res.status(400).json({ ok: false, message: "Invalid payload" });
     }
 
-    const type = String(event.event_type || '').trim();
-    if (!type || type !== 'payment_success') {
-      return res.status(200).json({ ok: true, message: 'Ignored event' });
+    const type = String(event.event_type || "").trim();
+    if (!type || type !== "payment_success") {
+      return res.status(200).json({ ok: true, message: "Ignored event" });
     }
 
     const txn = event.data?.transaction || {};
@@ -101,22 +107,32 @@ const nombaWebhook = async (req, res) => {
     const merchant = txn?.merchant || {};
 
     // Nomba structure varies: fields can be in txn root or nested in merchant
-    const aliasRef = txn?.aliasAccountReference || merchant?.aliasAccountReference || txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null;
-    const amount = Number(txn?.transactionAmount || merchant?.transactionAmount || 0);
+    const aliasRef =
+      txn?.aliasAccountReference ||
+      merchant?.aliasAccountReference ||
+      txn?.aliasAccountNumber ||
+      merchant?.aliasAccountNumber ||
+      null;
+    const amount = Number(
+      txn?.transactionAmount || merchant?.transactionAmount || 0,
+    );
     const fee = Number(txn?.fee || merchant?.fee || 0);
     const merchantUserId = merchant?.userId || txn?.userId || null;
     const walletId = merchant?.walletId || null;
     const senderDetails = txn?.customer || event.data?.customer || {};
     const customerEmail = senderDetails?.email || null;
 
-    const transactionReference = txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
+    const transactionReference =
+      txn?.transactionId || merchant?.transactionId || `nomba-${Date.now()}`;
 
-    if (String(txn.type).toLowerCase() === 'purchase') {
+    if (String(txn.type).toLowerCase() === "purchase") {
       const agentId = txn.merchantTxRef.match(/^(.*?)PAY/)?.[1];
       const paymentRefMatch = txn.merchantTxRef.match(/PAY\|?(.*?)-/);
 
       if (!paymentRefMatch) {
-        return res.status(400).json({ ok: false, message: 'Unrecognized merchantTxRef format' });
+        return res
+          .status(400)
+          .json({ ok: false, message: "Unrecognized merchantTxRef format" });
       }
       const paymentRef = "PAY|" + paymentRefMatch[1];
 
@@ -132,56 +148,74 @@ const nombaWebhook = async (req, res) => {
         pendingRecord = await prisma.transaction.create({
           data: {
             reference: pendingReference,
-            status: 'PENDING',
-            gatewayResponse: 'Split pending',
+            status: "PENDING",
+            gatewayResponse: "Split pending",
             merchantTxRef: agentId || null,
-            event: 'nomba.payment_success',
+            event: "nomba.payment_success",
             amount,
-            currency: 'NGN',
-            channel: 'card',
+            currency: "NGN",
+            channel: "card",
             customerEmail,
             paymentId: null,
             userId: agentId || null,
-            metadata: { requestId: event.requestId || null, status: 'PENDING' },
+            metadata: { requestId: event.requestId || null, status: "PENDING" },
             rawPayload: event,
           },
         });
       } catch (err) {
-        if (err?.code === 'P2002') {
-          const existing = await prisma.transaction.findUnique({ where: { reference: pendingReference } });
-          if (existing?.status === 'FAILED') {
+        if (err?.code === "P2002") {
+          const existing = await prisma.transaction.findUnique({
+            where: { reference: pendingReference },
+          });
+          if (existing?.status === "FAILED") {
             // Previous attempt failed cleanly (paymentSplit's own $transaction
             // should have rolled back) — safe to retry. Reopen the marker.
             pendingRecord = await prisma.transaction.update({
               where: { id: existing.id },
-              data: { status: 'PENDING', gatewayResponse: 'Retrying split' },
+              data: { status: "PENDING", gatewayResponse: "Retrying split" },
             });
           } else {
             // SUCCESS, or still PENDING (a concurrent delivery is mid-flight) —
             // don't re-run the split.
-            return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+            return res
+              .status(200)
+              .json({ ok: true, message: "Duplicate webhook ignored" });
           }
         } else {
           throw err;
         }
       }
 
-      const payment = await prisma.payment.findFirst({ where: { reference: paymentRef } });
+      const payment = await prisma.payment.findFirst({
+        where: { reference: paymentRef },
+      });
       if (!payment) {
         await prisma.transaction.update({
           where: { id: pendingRecord.id },
-          data: { status: 'FAILED', gatewayResponse: 'Payment not found' },
+          data: { status: "FAILED", gatewayResponse: "Payment not found" },
         });
-        return res.status(404).json({ ok: false, message: `Payment not found for reference ${paymentRef}` });
+        return res
+          .status(404)
+          .json({
+            ok: false,
+            message: `Payment not found for reference ${paymentRef}`,
+          });
       }
 
-      const member = await prisma.member.findFirst({ where: { uid: payment.userId } });
+      const member = await prisma.member.findFirst({
+        where: { uid: payment.userId },
+      });
       if (!member) {
         await prisma.transaction.update({
           where: { id: pendingRecord.id },
-          data: { status: 'FAILED', gatewayResponse: 'Member not found' },
+          data: { status: "FAILED", gatewayResponse: "Member not found" },
         });
-        return res.status(404).json({ ok: false, message: `Member not found for userId ${payment.userId}` });
+        return res
+          .status(404)
+          .json({
+            ok: false,
+            message: `Member not found for userId ${payment.userId}`,
+          });
       }
 
       try {
@@ -191,7 +225,7 @@ const nombaWebhook = async (req, res) => {
           member.company,
           payment.userId,
           payment.reference,
-          agentId || member?.agent
+          agentId || member?.agent,
         );
 
         console.log("Split log: ", splitResult);
@@ -201,9 +235,14 @@ const nombaWebhook = async (req, res) => {
           // FAILED so a legitimate retry isn't blocked by the PENDING row.
           await prisma.transaction.update({
             where: { id: pendingRecord.id },
-            data: { status: 'FAILED', gatewayResponse: splitResult.message || 'Split failed' },
+            data: {
+              status: "FAILED",
+              gatewayResponse: splitResult.message || "Split failed",
+            },
           });
-          return res.status(400).json({ ok: false, message: splitResult.message });
+          return res
+            .status(400)
+            .json({ ok: false, message: splitResult.message });
         }
 
         // Split succeeded — flip the marker to SUCCESS so any future replay of
@@ -212,55 +251,79 @@ const nombaWebhook = async (req, res) => {
           where: { id: pendingRecord.id },
           data: {
             reference: `${transactionReference}-AGENT-SUCCESS`,
-            status: 'SUCCESS',
-            gatewayResponse: 'Split completed',
-            metadata: { ...pendingRecord.metadata, status: 'SUCCESS', splitResult: splitResult.data },
+            status: "SUCCESS",
+            gatewayResponse: "Split completed",
+            metadata: {
+              ...pendingRecord.metadata,
+              status: "SUCCESS",
+              splitResult: splitResult.data,
+            },
           },
         });
 
-        return res.status(200).json({ ok: true, message: "Payment processed successfully", data: splitResult.data });
-
+        return res
+          .status(200)
+          .json({
+            ok: true,
+            message: "Payment processed successfully",
+            data: splitResult.data,
+          });
       } catch (err) {
-        console.error('Error during payment split:', err);
+        console.error("Error during payment split:", err);
         // paymentSplit threw (network/db error) — its own $transaction should
         // have rolled back, so nothing was actually credited. Mark FAILED so a
         // retry is allowed instead of being permanently swallowed as a dup.
-        await prisma.transaction.update({
-          where: { id: pendingRecord.id },
-          data: { status: 'FAILED', gatewayResponse: err?.message || 'Split error' },
-        }).catch(() => { }); // best-effort; don't mask the original error
-        return res.status(500).json({ ok: false, message: 'Error processing payment split' });
+        await prisma.transaction
+          .update({
+            where: { id: pendingRecord.id },
+            data: {
+              status: "FAILED",
+              gatewayResponse: err?.message || "Split error",
+            },
+          })
+          .catch(() => {}); // best-effort; don't mask the original error
+        return res
+          .status(500)
+          .json({ ok: false, message: "Error processing payment split" });
       }
     } else {
-
       if (!aliasRef) {
-        return res.status(400).json({ ok: false, message: 'Missing identifying information (aliasRef)' });
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            message: "Missing identifying information (aliasRef)",
+          });
       }
 
       if (!Number.isFinite(amount) || amount <= 0) {
-        return res.status(400).json({ ok: false, message: 'Invalid transaction amount' });
+        return res
+          .status(400)
+          .json({ ok: false, message: "Invalid transaction amount" });
       }
 
       const baseTransactionData = {
         merchantTxRef: merchantUserId,
-        event: 'nomba.payment_success',
+        event: "nomba.payment_success",
         amount,
-        currency: 'NGN',
-        channel: 'wallet',
+        currency: "NGN",
+        channel: "wallet",
         customerEmail,
         paymentId: null,
         userId: merchantUserId,
         metadata: {
           requestId: event.requestId || null,
-          role: 'MERCHANT',
-          transactionType: 'CREDIT',
+          role: "MERCHANT",
+          transactionType: "CREDIT",
           creditedAmount: amount,
           senderAccountNumber: senderDetails.accountNumber || null,
           senderBankName: senderDetails.bankName || null,
           senderBankCode: senderDetails.bankCode || null,
           senderName: senderDetails.senderName || null,
-          aliasAccountNumber: txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
-          aliasAccountName: txn?.aliasAccountName || merchant?.aliasAccountName || null,
+          aliasAccountNumber:
+            txn?.aliasAccountNumber || merchant?.aliasAccountNumber || null,
+          aliasAccountName:
+            txn?.aliasAccountName || merchant?.aliasAccountName || null,
           aliasAccountReference: aliasRef,
           aliasAccountType: txn?.aliasAccountType || null,
           sessionId: txn?.sessionId || null,
@@ -274,6 +337,40 @@ const nombaWebhook = async (req, res) => {
         },
         rawPayload: event,
       };
+
+      const member = await prisma.member.findFirst({
+        where: { uid: aliasRef },
+      });
+
+      const getPayment = await prisma.payment.findFirst({
+        where: { userId: aliasRef },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (member) {
+        const paymentResponse = await paymentProcess(
+          amount - fee,
+          member.center,
+          member.company,
+          aliasRef,
+          getPayment?.id || getPayment?.reference || null,
+        );
+        console.log("Payment process log: ", paymentResponse);
+
+        if (!paymentResponse.ok) {
+          return res
+            .status(400)
+            .json({ ok: false, message: paymentResponse.message });
+        }
+
+        return res
+          .status(200)
+          .json({
+            ok: true,
+            message: "Payment processed successfully",
+            data: paymentResponse.data,
+          });
+      }
 
       const result = await prisma.$transaction(async (tx) => {
         const existingTransaction = await tx.transaction.findUnique({
@@ -289,23 +386,22 @@ const nombaWebhook = async (req, res) => {
         });
 
         if (!wallet) {
-
           await tx.transaction.create({
             data: {
               reference: `${transactionReference}-MERCHANT-PENDING`,
-              status: 'PENDING',
-              gatewayResponse: 'Wallet credit pending',
+              status: "PENDING",
+              gatewayResponse: "Wallet credit pending",
               merchantTxRef: merchantUserId,
-              event: 'nomba.payment_success',
+              event: "nomba.payment_success",
               amount,
-              currency: 'NGN',
-              channel: 'wallet',
+              currency: "NGN",
+              channel: "wallet",
               customerEmail,
               paymentId: null,
               userId: merchantUserId,
               metadata: {
                 ...baseTransactionData.metadata,
-                status: 'PENDING',
+                status: "PENDING",
               },
               rawPayload: event,
             },
@@ -324,19 +420,19 @@ const nombaWebhook = async (req, res) => {
         await tx.transaction.create({
           data: {
             reference: `${transactionReference}-MERCHANT`,
-            status: 'SUCCESS',
-            gatewayResponse: 'Wallet credited',
+            status: "SUCCESS",
+            gatewayResponse: "Wallet credited",
             merchantTxRef: wallet.userId,
-            event: 'nomba.payment.credit',
+            event: "nomba.payment.credit",
             amount,
-            currency: 'NGN',
-            channel: 'wallet',
+            currency: "NGN",
+            channel: "wallet",
             customerEmail,
             paymentId: null,
             userId: wallet.userId,
             metadata: {
               ...baseTransactionData.metadata,
-              status: 'SUCCESS',
+              status: "SUCCESS",
             },
             rawPayload: event,
           },
@@ -346,25 +442,42 @@ const nombaWebhook = async (req, res) => {
       });
 
       if (result?.duplicate) {
-        return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+        return res
+          .status(200)
+          .json({ ok: true, message: "Duplicate webhook ignored" });
       }
 
       if (result?.pending) {
-        return res.status(200).json({ ok: false, message: 'No matching wallet found', data: { aliasRef } });
+        return res
+          .status(200)
+          .json({
+            ok: false,
+            message: "No matching wallet found",
+            data: { aliasRef },
+          });
       }
 
-      return res.status(200).json({ ok: true, message: 'Wallet credited', wallet: { id: result.wallet.id, balance: result.wallet.balance } });
+      return res
+        .status(200)
+        .json({
+          ok: true,
+          message: "Wallet credited",
+          wallet: { id: result.wallet.id, balance: result.wallet.balance },
+        });
     }
   } catch (err) {
-    if (err?.code === 'P2002') {
-      return res.status(200).json({ ok: true, message: 'Duplicate webhook ignored' });
+    if (err?.code === "P2002") {
+      return res
+        .status(200)
+        .json({ ok: true, message: "Duplicate webhook ignored" });
     }
 
-    return res.status(500).json({ ok: false, message: err?.message || 'Server error' });
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message || "Server error" });
   }
 };
 
-const paystackWebhook = async (req, res) => {
-};
+const paystackWebhook = async (req, res) => {};
 
 export { paystackWebhook, nombaWebhook };
