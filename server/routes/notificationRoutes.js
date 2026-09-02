@@ -5,7 +5,7 @@ import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, roleMiddleware(['user', "it"]), createNotification);
-router.get('/:userId', authMiddleware, roleMiddleware(['user', 'agent', 'admin', 'company', 'staff', 'member', 'checkout', 'it']), getNotificationsByUser);
+router.post('/', authMiddleware, roleMiddleware(['user', "it", "company"]), createNotification);
+router.get('/:userId', authMiddleware, roleMiddleware(['user', 'agent', 'admin', 'company', 'staff', 'member', 'checkout', 'it', "company"]), getNotificationsByUser);
 
 export {router as notificationRouter};

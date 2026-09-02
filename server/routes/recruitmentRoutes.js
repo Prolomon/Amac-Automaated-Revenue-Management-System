@@ -11,9 +11,9 @@ import { roleMiddleware } from "../middleware/role.js";
 const router = express.Router();
 
 router.post("/", createRecruitment);
-router.get("/", authMiddleware, roleMiddleware(['admin', 'it', 'staff']), getRecruitments);
+router.get("/", authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'company']), getRecruitments);
 router.get("/:id", authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'member', 'agent', 'company']), getRecruitmentById);
-router.delete("/:id", authMiddleware, roleMiddleware(['admin', 'it', 'staff']), deleteRecruitment);
+router.delete("/:id", authMiddleware, roleMiddleware(['admin', 'it', 'staff', "company"]), deleteRecruitment);
 
 export { router as recruitmentRouter };
  

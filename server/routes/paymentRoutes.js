@@ -5,17 +5,17 @@ import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, roleMiddleware(["it", 'user', "admin", "staff"]), createPayment);
+router.post('/', authMiddleware, roleMiddleware(["it", 'user', "admin", "staff", "company"]), createPayment);
 
-router.post('/make/:userId/:paymentId', authMiddleware, roleMiddleware(["it", 'member', "admin", "staff"]), makePayment);
+router.post('/make/:userId/:paymentId', authMiddleware, roleMiddleware(["it", 'member', "admin", "staff", "company"]), makePayment);
 
 router.post('/confirm/:userId/:paymentId', confirmPayment);
 
-router.get('/', authMiddleware, roleMiddleware(["it", 'member', 'admin', "staff"]), getAllPayments);
+router.get('/', authMiddleware, roleMiddleware(["it", 'member', 'admin', "staff", "company"]), getAllPayments);
 
-router.get('/user/:userId', authMiddleware, roleMiddleware(["it", 'member', "admin", 'company', "staff"]), getPaymentsByUserId);
+router.get('/user/:userId', authMiddleware, roleMiddleware(["it", 'member', "admin", 'company', "staff", "company"]), getPaymentsByUserId);
 
-router.get('/reference/:reference', authMiddleware, roleMiddleware(["it", 'member', "admin", 'company', "staff"]), getPaymentByReference);
+router.get('/reference/:reference', authMiddleware, roleMiddleware(["it", 'member', "admin", 'company', "staff", "company"]), getPaymentByReference);
 
 router.get('/:id', authMiddleware, roleMiddleware(["it", 'member', "member", 'company']), getPaymentById);
 
@@ -23,11 +23,11 @@ router.get('/verify/:id', verifyPayment);
 
 router.get('/pay-now/:id', getPaymentForUser);
 
-router.put('/schedule/:id', authMiddleware, roleMiddleware(["it", 'admin', "staff"]), updatePaymentSchedule);
+router.put('/schedule/:id', authMiddleware, roleMiddleware(["it", 'admin', "staff", "company"]), updatePaymentSchedule);
 
-router.get('/partner/:partnerId', authMiddleware, roleMiddleware(['admin', 'it', 'company', "staff"]), getPaymentsByPartnerId);
+router.get('/partner/:partnerId', authMiddleware, roleMiddleware(['admin', 'it', 'company', "staff", "company"]), getPaymentsByPartnerId);
 
-router.get('/center/:centerId', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), getPaymentsByCenterId);
+router.get('/center/:centerId', authMiddleware, roleMiddleware(['admin', 'it', "staff", "company"]), getPaymentsByCenterId);
 
 export {router as paymentRouter};
    

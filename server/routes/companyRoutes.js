@@ -15,14 +15,14 @@ import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
-router.post("/", authMiddleware, roleMiddleware(["it", "admin", "staff"]),createCompany);
+router.post("/", authMiddleware, roleMiddleware(["it", "admin", "staff", "company"]),createCompany);
 router.post("/:uid/reset-password", resetPassword);
-router.post("/:uid/change-password",authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), changePassword);
-router.get("/", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), getCompanies);
-router.get("/center/:center", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), getCompaniesByCenter);
-router.get("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), getCompany);
+router.post("/:uid/change-password",authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), changePassword);
+router.get("/", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), getCompanies);
+router.get("/center/:center", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), getCompaniesByCenter);
+router.get("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), getCompany);
 router.post("/login", loginCompany);
-router.put("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), updateCompany);
-router.delete("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff"]), deleteCompany);
+router.put("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), updateCompany);
+router.delete("/:uid", authMiddleware, roleMiddleware(["it", 'company', "admin", "staff", "company"]), deleteCompany);
 
 export { router as companyRouter };

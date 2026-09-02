@@ -13,7 +13,7 @@ import { roleMiddleware } from '../middleware/role.js';
 const router = express.Router();
 
 // Create a new payment transaction
-router.post('/', authMiddleware, roleMiddleware(['member', 'admin', 'company', 'it', 'staff']), createPaymentTransaction);
+router.post('/', authMiddleware, roleMiddleware(['member', 'admin', 'company', 'it', 'staff', "company"]), createPaymentTransaction);
 
 // Get all payment transactions (admin, it, staff)
 router.get('/', authMiddleware, roleMiddleware(['admin', 'it', 'staff', 'company', 'member']), getAllPaymentTransactions);
@@ -28,6 +28,6 @@ router.get('/payment/:paymentId', authMiddleware, roleMiddleware(['member', 'adm
 router.get('/reference/:reference', authMiddleware, roleMiddleware(['member', 'admin', 'it', 'company', "staff"]), getPaymentTransactionByReference);
 
 // Update a payment transaction
-router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it', 'staff']), updatePaymentTransaction);
+router.put('/:reference', authMiddleware, roleMiddleware(['admin', 'it', 'staff', "company"]), updatePaymentTransaction);
 
 export default router;
