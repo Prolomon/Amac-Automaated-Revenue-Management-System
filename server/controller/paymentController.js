@@ -553,12 +553,10 @@ const getPaymentForUser = async (req, res) => {
       const agentUid = member.agent;
 
       if (!agentUid) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            message: "Please Contact Support to assign an agent",
-          });
+        return res.status(500).json({
+          ok: false,
+          message: "Please Contact Support to assign an agent",
+        });
       }
 
       const agent = await prisma.agent.findFirst({
@@ -566,12 +564,10 @@ const getPaymentForUser = async (req, res) => {
       });
 
       if (!agent) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            message: "Please Contact Support to assign an agent",
-          });
+        return res.status(500).json({
+          ok: false,
+          message: "Please Contact Support to assign an agent",
+        });
       }
 
       let wallet;
@@ -610,12 +606,10 @@ const getPaymentForUser = async (req, res) => {
       const agentUid = payment?.member?.agent;
 
       if (!agentUid) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            message: "Please Contact Support to assign an agent | not member",
-          });
+        return res.status(500).json({
+          ok: false,
+          message: "Please Contact Support to assign an agent | not member",
+        });
       }
 
       const agent = await prisma.agent.findFirst({
@@ -623,12 +617,10 @@ const getPaymentForUser = async (req, res) => {
       });
 
       if (!agent) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            message: "Please Contact Support to assign an agent | not member",
-          });
+        return res.status(500).json({
+          ok: false,
+          message: "Please Contact Support to assign an agent | not member",
+        });
       }
 
       member = await prisma.member.findFirst({
@@ -636,12 +628,10 @@ const getPaymentForUser = async (req, res) => {
       });
 
       if (!member) {
-        return res
-          .status(404)
-          .json({
-            ok: false,
-            message: "Member associated with this payment not found",
-          });
+        return res.status(404).json({
+          ok: false,
+          message: "Member associated with this payment not found",
+        });
       }
 
       let wallet = await prisma.wallet.findFirst({
@@ -654,12 +644,10 @@ const getPaymentForUser = async (req, res) => {
         });
       }
 
-      return res
-        .status(200)
-        .json({
-          ok: true,
-          data: { payments: [{ payment, wallet }], agent, member },
-        });
+      return res.status(200).json({
+        ok: true,
+        data: { payments: [{ payment, wallet }], agent, member },
+      });
     }
   } catch (err) {
     return res
@@ -675,7 +663,7 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
     });
 
     if (!member) {
-      return res.status(404).json({ ok: false, message: "Member not found" });
+      return { ok: false, message: "Member not found" };
     }
 
     const [
@@ -824,21 +812,15 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
     ]);
 
     if (!paymentRecord) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Payment record not found" });
+      return { ok: false, message: "Payment record not found" };
     }
 
     if (!main) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Main admin not found" });
+      return { ok: false, message: "Main admin not found" };
     }
 
     if (!main.paymentConfig) {
-      return res
-        .status(500)
-        .json({ ok: false, message: "Payment configuration is incomplete" });
+      return { ok: false, message: "Payment configuration is incomplete" };
     }
 
     // Parse payment config for split percentages
@@ -850,17 +832,13 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
 
     let grossAmount = Number(amount);
 
-    if (paymentRecord.debt > 0) {
-      if (grossAmount > paymentRecord.debt) {
-        grossAmount = paymentRecord.debt;
-
+    if (paymentRecord.debt > 0 && grossAmount > paymentRecord.debt) {
+      const excess = grossAmount - paymentRecord.debt;
+      grossAmount = paymentRecord.debt;
+      if (excess > 0) {
         await prisma.wallet.update({
           where: { userId },
-          data: {
-            balance: {
-              increment: grossAmount - paymentRecord.debt,
-            },
-          },
+          data: { balance: { increment: excess } },
         });
       }
     }
@@ -870,16 +848,14 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
     const paySubtotal = principal + vat;
 
     if (grossAmount > paySubtotal) {
+      const excess = grossAmount - paySubtotal;
       grossAmount = paySubtotal;
-
-      await prisma.wallet.update({
-        where: { userId },
-        data: {
-          balance: {
-            increment: grossAmount - paySubtotal,
-          },
-        },
-      });
+      if (excess > 0) {
+        await prisma.wallet.update({
+          where: { userId },
+          data: { balance: { increment: excess } },
+        });
+      }
     }
 
     const feePercentage = 0.015; // 1.5% fee
@@ -888,9 +864,7 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
     const receiptReference = generateTransactionReference();
 
     if (senderWallet && Number(senderWallet.balance) < grossAmount) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Insufficient balance in sender wallet" });
+      return { ok: false, message: "Insufficient balance in sender wallet" };
     }
 
     // Calculate split amounts
@@ -1327,7 +1301,7 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
         payoutResults.admin.message === "No admin wallet found");
     const allPayoutsOk = agentPayoutOk && adminPayoutOk;
 
-    return res.status(201).json({
+    return {
       ok: true,
       message: allPayoutsOk
         ? "Payment initiated, split and transfers completed successfully"
@@ -1353,13 +1327,13 @@ const paymentProcess = async (amount, center, company, userId, paymentId) => {
         payouts: payoutResults,
         receipt,
       },
-    });
+    };
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
+    return {
       ok: false,
       message: err?.message || "Server error",
-    });
+    };
   }
 };
 
@@ -1545,12 +1519,10 @@ const confirmPayment = async (req, res) => {
     // was effectively dead code. "Already paid" for this record actually
     // just means the debt is cleared and the record is marked PAID.
     if (paymentRecord.debt === 0 && paymentRecord.status === "PAID") {
-      return res
-        .status(201)
-        .json({
-          ok: true,
-          message: "Payment has already been made for this record",
-        });
+      return res.status(201).json({
+        ok: true,
+        message: "Payment has already been made for this record",
+      });
     }
 
     if (!main) {
