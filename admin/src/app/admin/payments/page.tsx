@@ -35,6 +35,13 @@ const statusConfig: Record<
     border: "border-emerald-200",
     icon: CheckCircle,
   },
+  PAID: {
+    label: "Success",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    icon: CheckCircle,
+  },
   PENDING: {
     label: "Pending",
     bg: "bg-amber-50",
@@ -401,7 +408,7 @@ export default function Payments() {
                             router.push(`/admin/payments/${payment.reference}`)
                           }
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600"
-                          disabled={loading || paymentLoad === payment.id}
+                          disabled={loading || paymentLoad === payment.id || payment.status === "PAID"}
                         >
                           {loading || paymentLoad === payment.id ? (
                             <RefreshCcw className="animate-spin" size={16} />
