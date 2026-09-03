@@ -3,14 +3,7 @@ import crypto from "crypto";
 import { prisma } from "../config/db.js";
 import { paymentSplit, paymentProcess } from "./paymentController.js";
 
-function generateSignature(payload, secret, timeStamp) {
-  if (!secret) {
-    throw new Error("Missing secret for signature generation");
-  }
-  if (!timeStamp) {
-    throw new Error("Missing timestamp for signature generation");
-  }
-
+function getLegacyHashingPayload(payload, timeStamp) {
   let requestPayload;
   try {
     const payloadString = Buffer.isBuffer(payload)
@@ -24,14 +17,14 @@ function generateSignature(payload, secret, timeStamp) {
     throw new Error(`Failed to parse webhook payload: ${err.message}`);
   }
 
-  const data = requestPayload.data || {};
+  const data = requestPayload?.data || {};
   const merchant = data.merchant || {};
   const transaction = data.transaction || {};
 
-  const eventType = requestPayload.event_type || "";
-  const requestId = requestPayload.requestId || "";
-  const userId = merchant.userId || "";
-  const walletId = merchant.walletId || "";
+  const eventType = requestPayload?.event_type || "";
+  const requestId = requestPayload?.requestId || "";
+  const userId = merchant.userId || transaction.userId || data.userId || "";
+  const walletId = merchant.walletId || transaction.walletId || data.walletId || "";
   const transactionId = transaction.transactionId || "";
   const transactionType = transaction.type || "";
   const transactionTime = transaction.time || "";
@@ -41,42 +34,113 @@ function generateSignature(payload, secret, timeStamp) {
     transactionResponseCode = "";
   }
 
-  const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${transactionResponseCode}:${timeStamp}`;
+  return `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${transactionResponseCode}:${timeStamp}`;
+}
 
+function generateLegacySignature(payload, secret, timeStamp) {
+  const hashingPayload = getLegacyHashingPayload(payload, timeStamp);
   const hmac = crypto.createHmac("sha256", secret);
   hmac.update(hashingPayload);
   return hmac.digest("base64");
 }
 
-function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
-  if (!secret || !rawBody || !receivedSignature || !timeStamp) return false;
-
-  let expectedSignature;
-  try {
-    expectedSignature = generateSignature(rawBody, secret, timeStamp);
-  } catch {
-    return false;
+function generateSignature(payload, secret, encoding = "base64") {
+  if (!secret) {
+    throw new Error("Missing secret for signature generation");
   }
 
-  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-  const receivedBuffer = Buffer.from(receivedSignature, "utf8");
-  console.log(`Expected signature: ${expectedSignature}`);
-  console.log(`Received signature: ${receivedSignature}`);
+  const rawBuffer = Buffer.isBuffer(payload)
+    ? payload
+    : typeof payload === "string"
+      ? Buffer.from(payload, "utf8")
+      : Buffer.from(JSON.stringify(payload), "utf8");
 
-  if (expectedBuffer.length !== receivedBuffer.length) return false;
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(rawBuffer);
+  return hmac.digest(encoding);
+}
 
-  return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+function verifySignature(secret, rawBody, receivedSignature, timeStamp) {
+  if (!secret || !rawBody || !receivedSignature) return false;
+
+  const cleanReceived = String(receivedSignature).trim();
+
+  const safeCompare = (expected, received) => {
+    if (!expected || !received) return false;
+    const expBuf = Buffer.from(expected);
+    const recBuf = Buffer.from(received);
+    if (expBuf.length !== recBuf.length) return false;
+    return crypto.timingSafeEqual(expBuf, recBuf);
+  };
+
+  // Strategy 1: Modern standard Nomba raw body HMAC-SHA256
+  try {
+    const rawBuffer = Buffer.isBuffer(rawBody)
+      ? rawBody
+      : typeof rawBody === "string"
+        ? Buffer.from(rawBody, "utf8")
+        : Buffer.from(JSON.stringify(rawBody), "utf8");
+
+    const expectedBase64 = crypto
+      .createHmac("sha256", secret)
+      .update(rawBuffer)
+      .digest("base64");
+
+    const expectedHex = crypto
+      .createHmac("sha256", secret)
+      .update(rawBuffer)
+      .digest("hex");
+
+    console.log(`Expected signature (base64): ${expectedBase64}`);
+    console.log(`Expected signature (hex): ${expectedHex}`);
+    console.log(`Received signature: ${cleanReceived}`);
+
+    if (safeCompare(expectedBase64, cleanReceived)) {
+      return true;
+    }
+
+    if (safeCompare(expectedHex.toLowerCase(), cleanReceived.toLowerCase())) {
+      return true;
+    }
+  } catch (err) {
+    console.error("Raw body signature check error:", err?.message || err);
+  }
+
+  // Strategy 2: Legacy colon-delimited concatenated payload fallback
+  if (timeStamp) {
+    try {
+      const legacyBase64 = generateLegacySignature(rawBody, secret, timeStamp);
+      console.log(`Expected legacy signature (base64): ${legacyBase64}`);
+      if (safeCompare(legacyBase64, cleanReceived)) {
+        console.log("Matched signature using legacy concatenated format (base64)");
+        return true;
+      }
+
+      const legacyHex = crypto
+        .createHmac("sha256", secret)
+        .update(getLegacyHashingPayload(rawBody, timeStamp))
+        .digest("hex");
+      console.log(`Expected legacy signature (hex): ${legacyHex}`);
+      if (safeCompare(legacyHex.toLowerCase(), cleanReceived.toLowerCase())) {
+        console.log("Matched signature using legacy concatenated format (hex)");
+        return true;
+      }
+    } catch (err) {
+      console.error("Legacy signature check error:", err?.message || err);
+    }
+  }
+
+  return false;
 }
 
 const nombaWebhook = async (req, res) => {
-  const signature = req.headers["nomba-signature"];
+  const signature =
+    req.headers["nomba-signature"] || req.headers["nomba-sig-value"];
   const timeStamp = req.headers["nomba-timestamp"];
-  const secret = process.env.NOMBA_PRIVATE_SECRET;
-
-  console.log(
-    `Received Nomba webhook with signature: ${signature}, timestamp: ${timeStamp}`,
-  );
-  console.log(`Raw body: ${req.rawBody}`);
+  const secret =
+    process.env.NOMBA_WEBHOOK_SECRET ||
+    process.env.NOMBA_SIGNATURE_KEY ||
+    process.env.NOMBA_PRIVATE_SECRET;
 
   const isVerify = verifySignature(secret, req.rawBody, signature, timeStamp);
   console.log(`Signature verification result: ${isVerify}`);
