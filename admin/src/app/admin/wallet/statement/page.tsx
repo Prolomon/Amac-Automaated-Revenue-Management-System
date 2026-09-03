@@ -109,14 +109,6 @@ function StatementContent() {
       <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 ring-1 ring-emerald-100 p-5 md:p-6 shadow-xs">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.push("/admin/wallet")}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
-              aria-label="Back to wallet"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
                 Monthly Statement of Account
@@ -413,7 +405,7 @@ function StatementContent() {
 
                   <div>
                     <div className="flex justify-between text-sm mb-1.5 font-medium">
-                      <span className="text-slate-600">Bank Transfer / Remita</span>
+                      <span className="text-slate-600">Bank Transfer</span>
                       <span className="text-slate-800">
                         {formatCurrency(performanceMetrics.channelBreakdown?.bankTransfer?.amount || 0)} (
                         {performanceMetrics.channelBreakdown?.bankTransfer?.percentage || 0}%)

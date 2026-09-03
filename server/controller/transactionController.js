@@ -428,11 +428,11 @@ const getStatement = async (req, res) => {
         totalGrossCollections += amt;
         totalPaidTransactions += 1;
 
-        if (channelStr.includes("pos")) {
+        if (channelStr.includes("pos") || channelStr.includes("card")) {
           posAmount += amt;
-        } else if (channelStr.includes("transfer") || channelStr.includes("bank") || channelStr.includes("remita")) {
+        } else if (channelStr.includes("wallet") || channelStr.includes("bank") || channelStr.includes("nomba")) {
           bankTransferAmount += amt;
-        } else if (channelStr.includes("web") || channelStr.includes("card") || channelStr.includes("checkout")) {
+        } else if (channelStr.includes("web") || channelStr.includes("checkout")) {
           webPortalAmount += amt;
         } else {
           otherChannelAmount += amt;
