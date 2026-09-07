@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { TextEncoder } from "util";
 import { createAdminSchema, changePasswordSchema, loginAdminSchema, updateAdminSchema, updateAdminStatusSchema } from "../validator/adminValidator.js";
 import { customAlphabet } from "nanoid";
+import { verifyProtocol } from "../service/mail.js";
 
 const joseImport = () => import("jose");
 const jwtSecret = process.env.JWT_SECRET;
