@@ -35,6 +35,7 @@ export function MainFooter() {
                         <p className="text-sm font-semibold uppercase tracking-wider text-white">Quick Links</p>
                         <div className="mt-5 grid gap-3 text-sm">
                             <Link href="/" className="text-emerald-200 transition-colors hover:text-white">Home</Link>
+                            <Link href="/register" className="text-emerald-200 transition-colors hover:text-white">Register Entity</Link>
                             <Link href="/about" className="text-emerald-200 transition-colors hover:text-white">About the System</Link>
                             <Link href="/features" className="text-emerald-200 transition-colors hover:text-white">Features</Link>
                             <Link href="/payment" className="text-emerald-200 transition-colors hover:text-white">Payments</Link>
@@ -45,6 +46,7 @@ export function MainFooter() {
                     <div>
                         <p className="text-sm font-semibold uppercase tracking-wider text-white">Services</p>
                         <div className="mt-5 grid gap-3 text-sm">
+                            <Link href="/register" className="text-emerald-200 transition-colors hover:text-white">Register Entity / Business</Link>
                             <Link href="/payment" className="text-emerald-200 transition-colors hover:text-white">Pay Bills</Link>
                             <Link href="/payment" className="text-emerald-200 transition-colors hover:text-white">Generate Invoice</Link>
                             <Link href="/payment" className="text-emerald-200 transition-colors hover:text-white">Verify Payment</Link>

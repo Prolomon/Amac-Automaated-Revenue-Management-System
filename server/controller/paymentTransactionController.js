@@ -5,6 +5,11 @@ import {
   filterPaymentTransactionsSchema,
 } from "../validator/paymentTransactionValidator.js";
 import { customAlphabet } from "nanoid";
+import {
+  sendTransactionSuccessEmail,
+  sendTransactionPendingEmail,
+  sendTransactionFailedEmail,
+} from "../core/mail.js";
 
 const transactionReferenceSuffix = customAlphabet(
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -13,6 +18,52 @@ const transactionReferenceSuffix = customAlphabet(
 
 const generateTransactionReference = () => {
   return `TXN-${new Date().toISOString().split("T")[0]}-${transactionReferenceSuffix()}`;
+};
+
+const notifyTransactionStatus = async (transaction) => {
+  try {
+    if (!transaction?.userId) return;
+
+    const user =
+      (await prisma.member.findUnique({
+        where: { uid: transaction.userId },
+        select: { email: true, fullname: true, businessName: true },
+      })) ||
+      (await prisma.agent.findUnique({
+        where: { uid: transaction.userId },
+        select: { email: true, fullname: true },
+      })) ||
+      (await prisma.company.findUnique({
+        where: { uid: transaction.userId },
+        select: { email: true, name: true },
+      }));
+
+    if (!user?.email) return;
+
+    const payload = {
+      to: user.email,
+      name: user.fullname || user.name || user.businessName || "Valued Customer",
+      reference: transaction.reference,
+      amount: transaction.amount,
+      currency: transaction.currency || "NGN",
+      type: transaction.type,
+      category: transaction.category,
+      date: transaction.date || new Date(),
+    };
+
+    if (transaction.status === "SUCCESS") {
+      await sendTransactionSuccessEmail(payload);
+    } else if (transaction.status === "PENDING") {
+      await sendTransactionPendingEmail(payload);
+    } else if (transaction.status === "FAILED") {
+      await sendTransactionFailedEmail({
+        ...payload,
+        reason: transaction.metadata?.reason || "Transaction was not completed",
+      });
+    }
+  } catch (err) {
+    console.warn("Transaction status email warning:", err?.message || err);
+  }
 };
 
 const WAT_OFFSET_MS = 60 * 60 * 1000; // UTC+1, no DST in Nigeria
@@ -95,6 +146,8 @@ const createPaymentTransaction = async (req, res) => {
         metadata: value.metadata || null,
       },
     });
+
+    void notifyTransactionStatus(transaction);
 
     return res.status(201).json({
       ok: true,
@@ -394,6 +447,10 @@ const updatePaymentTransaction = async (req, res) => {
         ...(metadata && { metadata }),
       },
     });
+
+    if (status && status !== transaction.status) {
+      void notifyTransactionStatus(updatedTransaction);
+    }
 
     return res.status(200).json({
       ok: true,

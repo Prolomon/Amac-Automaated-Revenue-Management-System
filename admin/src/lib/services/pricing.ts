@@ -148,3 +148,21 @@ export async function togglePricing(id: string): Promise<{ ok: boolean; pricing?
   return data;
 }
 
+export async function getPublicPricing(centerId?: string): Promise<{ ok: boolean; data?: Pricing[]; message?: string }> {
+  const url = centerId
+    ? `${API_URL}/pricing/${encodeURIComponent(centerId)}/all?center=${encodeURIComponent(centerId)}`
+    : `${API_URL}/pricing/all/all`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch pricing");
+  }
+  return data;
+}
+
+

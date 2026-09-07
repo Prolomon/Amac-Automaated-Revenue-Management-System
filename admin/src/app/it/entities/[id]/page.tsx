@@ -17,7 +17,17 @@ import {
   Phone,
   MapPin,
   FileText,
+  X,
+  CreditCard,
+  Layers,
+  Home,
+  Eye,
+  Check,
+  Clock,
+  XCircle,
 } from "lucide-react";
+import { updateDocumentStatus, DocumentStatus } from "@/lib/services/document";
+
 import {
   getMember,
   deleteMember,
@@ -30,7 +40,7 @@ import {
 import { getPaymentsByUser } from "@/lib/services/payments";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
 import { useAuth } from "@/context/AuthContext";
-import { getWallet, Wallet as WalletType } from "@/lib/services/wallet";
+import { getWallet, createWallet, Wallet as WalletType } from "@/lib/services/wallet";
 import { Agent, getAgents } from "@/lib/services/agent";
 import { Company, getCompanies } from "@/lib/services/company";
 import { useToast } from "@/context/ToastContext";
@@ -129,10 +139,106 @@ export default function EntityDetailsPage({ params }) {
   const [availablePricing, setAvailablePricing] = useState<Pricing[]>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [walletBvn, setWalletBvn] = useState("");
+  const [creatingWallet, setCreatingWallet] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const primaryProperty = (member as any)?.property || (member as any)?.properties?.[0] || null;
+  const allProperties = (member as any)?.properties?.length
+    ? (member as any).properties
+    : (primaryProperty ? [primaryProperty] : []);
+
+  const primaryDocument = (member as any)?.document || (member as any)?.documents?.[0] || null;
+  const allDocuments = (member as any)?.documents?.length
+    ? (member as any).documents
+    : (primaryDocument ? [primaryDocument] : []);
+
+  const [updatingDocStatus, setUpdatingDocStatus] = useState<string | null>(null);
+
+  const handleUpdateDocStatus = async (docId: string, newStatus: DocumentStatus) => {
+    if (!docId) return;
+    setUpdatingDocStatus(docId);
+    try {
+      await updateDocumentStatus(docId, newStatus);
+      addToast("success", `Document status updated to ${newStatus}`);
+      setMember((prev: any) => {
+        if (!prev) return prev;
+        const currentDocs = prev.documents || (prev.document ? [prev.document] : []);
+        const updatedDocs = currentDocs.map((d: any) =>
+          d.id === docId ? { ...d, status: newStatus } : d
+        );
+        const updatedPrimary =
+          prev.document?.id === docId
+            ? { ...prev.document, status: newStatus }
+            : (updatedDocs[0] || prev.document);
+        return {
+          ...prev,
+          documents: updatedDocs,
+          document: updatedPrimary,
+        };
+      });
+    } catch (err: any) {
+      console.error("Failed to update document status:", err);
+      addToast("error", err?.message || "Failed to update document status");
+    } finally {
+      setUpdatingDocStatus(null);
+    }
+  };
 
   const isRateLimitError = (error: unknown) => {
     if (!(error instanceof Error)) return false;
     return /too many requests|429/i.test(error.message || "");
+  };
+
+  const handleCreateWalletSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanBvn = walletBvn.trim();
+    if (!cleanBvn) {
+      addToast("error", "Please enter member BVN");
+      return;
+    }
+    if (!/^\d{11}$/.test(cleanBvn)) {
+      addToast("error", "BVN must be exactly 11 digits");
+      return;
+    }
+    const memberUid = member?.uid;
+    if (!memberUid) {
+      addToast("error", "Member UID is not available");
+      return;
+    }
+    const resolvedName = (
+      member?.businessName ||
+      member?.fullname ||
+      form.businessName ||
+      form.fullname ||
+      ""
+    ).trim();
+    if (!resolvedName) {
+      addToast("error", "Member name could not be resolved from UID");
+      return;
+    }
+
+    try {
+      setCreatingWallet(true);
+      const res = await createWallet(resolvedName, cleanBvn, "MEMBER", memberUid);
+      if (res?.ok) {
+        addToast("success", res?.message || "Settlement wallet created successfully");
+        setIsWalletModalOpen(false);
+        setWalletBvn("");
+        await fetchWalletData();
+      } else {
+        addToast("error", res?.message || "Failed to create wallet account");
+      }
+    } catch (err: any) {
+      console.error(err);
+      addToast(
+        "error",
+        err?.message || err?.error || "An error occurred while creating wallet",
+      );
+    } finally {
+      setCreatingWallet(false);
+    }
   };
 
   const fetchData = useCallback(() => {
@@ -1069,9 +1175,22 @@ export default function EntityDetailsPage({ params }) {
 
             {/* wallet section */}
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <Wallet className="h-4 w-4 text-emerald-600" />
-                Settlement Account
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <Wallet className="h-4 w-4 text-emerald-600" />
+                  Settlement Account
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletBvn("");
+                    setIsWalletModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 shadow-sm"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  {isExist ? "Re-link Wallet" : "Create Wallet"}
+                </button>
               </div>
 
               {isExist ? (
@@ -1117,10 +1236,398 @@ export default function EntityDetailsPage({ params }) {
                   <p className="mt-1 text-xs text-amber-700">
                     This member does not have a provisioned wallet account yet.
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWalletBvn("");
+                      setIsWalletModalOpen(true);
+                    }}
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-sm"
+                  >
+                    <Wallet className="h-3.5 w-3.5" />
+                    Create Member Wallet
+                  </button>
                 </div>
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* IDENTIFICATION DOCUMENT & PROPERTY DETAILS */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Document Card */}
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Compliance & Identity
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Identification Document
+                </h3>
+              </div>
+            </div>
+            {primaryDocument ? (
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const st = String(primaryDocument.status || "PENDING").toUpperCase();
+                  if (st === "VERIFIED") {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Verified
+                      </span>
+                    );
+                  }
+                  if (st === "REJECTED") {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                        <XCircle className="h-3.5 w-3.5" />
+                        Rejected
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                      <Clock className="h-3.5 w-3.5" />
+                      Pending
+                    </span>
+                  );
+                })()}
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Not Provided
+              </span>
+            )}
+          </div>
+
+          {primaryDocument ? (
+            <div className="mt-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Document Type
+                  </p>
+                  <p className="mt-1 text-sm font-semibold uppercase text-slate-800">
+                    {primaryDocument.type}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Document Number / ID
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-slate-800">
+                    {primaryDocument.number}
+                  </p>
+                </div>
+
+                {/* Status & Review Controls */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 sm:col-span-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Document Status
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {(() => {
+                          const st = String(primaryDocument.status || "PENDING").toUpperCase();
+                          if (st === "VERIFIED") {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-100/60 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                VERIFIED
+                              </span>
+                            );
+                          }
+                          if (st === "REJECTED") {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-100/60 px-2.5 py-1 text-xs font-bold text-red-800">
+                                <XCircle className="h-3.5 w-3.5 text-red-600" />
+                                REJECTED
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-100/60 px-2.5 py-1 text-xs font-bold text-amber-800">
+                              <Clock className="h-3.5 w-3.5 text-amber-600" />
+                              PENDING
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {primaryDocument.id && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={updatingDocStatus === primaryDocument.id || String(primaryDocument.status || "").toUpperCase() === "VERIFIED"}
+                          onClick={() => handleUpdateDocStatus(primaryDocument.id, "VERIFIED")}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-40 transition"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Verify
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingDocStatus === primaryDocument.id || String(primaryDocument.status || "").toUpperCase() === "REJECTED"}
+                          onClick={() => handleUpdateDocStatus(primaryDocument.id, "REJECTED")}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-red-700 disabled:opacity-40 transition"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingDocStatus === primaryDocument.id || String(primaryDocument.status || "PENDING").toUpperCase() === "PENDING"}
+                          onClick={() => handleUpdateDocStatus(primaryDocument.id, "PENDING")}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          Set Pending
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {allDocuments.length > 1 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600">
+                    Additional Documents ({allDocuments.length - 1})
+                  </p>
+                  {allDocuments.slice(1).map((doc: any, i: number) => {
+                    const docStatus = String(doc.status || "PENDING").toUpperCase();
+                    return (
+                      <div
+                        key={doc.id || i}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold uppercase text-slate-700">
+                            {doc.type}
+                          </span>
+                          <span className="font-mono text-slate-600">
+                            {doc.number}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                              docStatus === "VERIFIED"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : docStatus === "REJECTED"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {docStatus}
+                          </span>
+                        </div>
+
+                        {doc.id && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={updatingDocStatus === doc.id || docStatus === "VERIFIED"}
+                              onClick={() => handleUpdateDocStatus(doc.id, "VERIFIED")}
+                              className="rounded px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-30"
+                            >
+                              Verify
+                            </button>
+                            <button
+                              type="button"
+                              disabled={updatingDocStatus === doc.id || docStatus === "REJECTED"}
+                              onClick={() => handleUpdateDocStatus(doc.id, "REJECTED")}
+                              className="rounded px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-30"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              disabled={updatingDocStatus === doc.id || docStatus === "PENDING"}
+                              onClick={() => handleUpdateDocStatus(doc.id, "PENDING")}
+                              className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-30"
+                            >
+                              Pending
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-800">
+                <p className="font-semibold">Verification Record</p>
+                <p className="mt-0.5 text-blue-700">
+                  This identification document is bound to Member UID{" "}
+                  <span className="font-mono font-semibold">{member?.uid}</span>{" "}
+                  ({memberType === "BUSINESS" ? "CAC Entity" : "Individual ID"}).
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+              <FileText className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-2 font-medium">No identification document uploaded</p>
+              <p className="text-xs text-slate-400">
+                {memberType === "BUSINESS"
+                  ? "CAC registration document has not been registered yet."
+                  : "NIN, Passport, Driver's License or Voter's Card has not been registered yet."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Property Card */}
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Home className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Asset & Premises
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Registered Property
+                </h3>
+              </div>
+            </div>
+            {primaryProperty ? (
+              <div className="flex items-center gap-2">
+                {primaryProperty.pid && (
+                  <span className="inline-flex items-center gap-1 font-mono rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                    {primaryProperty.pid}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                  <Layers className="h-3.5 w-3.5" />
+                  {primaryProperty.type || "Property"}
+                </span>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
+                None Registered
+              </span>
+            )}
+          </div>
+
+          {primaryProperty ? (
+            <div className="mt-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property ID (PID)
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-bold text-emerald-700">
+                    {primaryProperty.pid || primaryProperty.id || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Name
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.name || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Type
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.type || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Size
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.size || "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Cloudinary Images Gallery */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    Property Photos ({primaryProperty.images?.length || 0})
+                  </p>
+                  {primaryProperty.images?.length > 0 && (
+                    <span className="text-[11px] text-slate-400">Click photo to preview</span>
+                  )}
+                </div>
+
+                {primaryProperty.images && primaryProperty.images.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+                    {primaryProperty.images.map((imgUrl: string, idx: number) => (
+                      <div
+                        key={idx}
+                        onClick={() => setPreviewImage(imgUrl)}
+                        className="group relative h-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 cursor-pointer transition hover:border-emerald-500 hover:shadow-md"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Property photo ${idx + 1}`}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                          <Eye className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center text-xs text-slate-400">
+                    No property images uploaded.
+                  </div>
+                )}
+              </div>
+
+              {allProperties.length > 1 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600">
+                    Additional Properties ({allProperties.length - 1})
+                  </p>
+                  {allProperties.slice(1).map((p: any, i: number) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs"
+                    >
+                      <span className="font-semibold text-slate-700">
+                        {p.name} ({p.type})
+                      </span>
+                      <span className="text-slate-500">{p.size}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+              <Home className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-2 font-medium">No property record associated</p>
+              <p className="text-xs text-slate-400">
+                Premises and property size details can be configured during registration or updates.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1872,6 +2379,148 @@ export default function EntityDetailsPage({ params }) {
           </div>
         )}
       </div>
+
+      {/* CREATE WALLET MODAL */}
+      {isWalletModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Create Member Wallet
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Provision a dedicated settlement account
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWalletModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateWalletSubmit} className="mt-5 space-y-4">
+              {/* Member UID Display */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Member UID
+                </label>
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+                  <span className="font-mono text-sm font-semibold text-slate-800">
+                    {member?.uid || "—"}
+                  </span>
+                  <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                    Resolved UID
+                  </span>
+                </div>
+              </div>
+
+              {/* Resolved Member Name Display */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Member / Business Name (From UID)
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-semibold text-slate-800">
+                  {member?.businessName ||
+                    member?.fullname ||
+                    form.businessName ||
+                    form.fullname ||
+                    "—"}
+                </div>
+              </div>
+
+              {/* BVN Input Only */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Member BVN <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <CreditCard className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={walletBvn}
+                    onChange={(e) =>
+                      setWalletBvn(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Enter 11-digit Bank Verification Number"
+                    className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-3 text-sm font-mono tracking-wider text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Collect only the 11-digit BVN. The member's UID and name will
+                  automatically bind this settlement wallet.
+                </p>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsWalletModalOpen(false)}
+                  disabled={creatingWallet}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingWallet || walletBvn.trim().length !== 11}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 transition"
+                >
+                  {creatingWallet ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Create Wallet
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* IMAGE PREVIEW MODAL */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl bg-slate-950 p-2 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white/90 hover:bg-black hover:text-white transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Property Preview"
+              className="max-h-[85vh] w-auto max-w-full rounded-xl object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

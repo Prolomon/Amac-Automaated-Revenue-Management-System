@@ -3,6 +3,7 @@
 
 datasource db {
   provider = "postgresql"
+  relationMode = "prisma"
 }
 
 generator client {
@@ -35,12 +36,17 @@ model Member {
   notifications    Notification[]
   payments         Payment[]
   agent            String?
-  agentData        Agent?          @relation(fields: [agent], references: [uid], onDelete: Cascade)
+  agentData        Agent?           @relation(fields: [agent], references: [uid], onDelete: Cascade)
 
-  demandNotices     Demand[]
-  requests  Request[]
+  demandNotices Demand[]
+  requests      Request[]
+  properties    Property[]
+  documents     Document[]
+  wallets       Wallet[]   @relation("memberUserId")
+  propertyId    String?
 
   @@index([uid, email, center, status, type])
+  @@index([propertyId])
 }
 
 model Company {
@@ -62,27 +68,30 @@ model Company {
 
   members   Member[]
   terminals Terminal[]
+  wallet    Wallet[]   @relation("companyUserId")
 
   @@index([uid, email, center, zone, status, category])
 }
 
 model Staff {
-  id         String   @id @default(cuid())
-  uid        String   @unique
-  fullname   String
-  email      String   @unique
-  phone      String
-  gender     String
-  status     Boolean  @default(true)
-  password   String
-  location   Json?
-  avatar     String?
-  center     String
-  role       String   @default("STAFF")
+  id           String      @id @default(cuid())
+  uid          String      @unique
+  fullname     String
+  email        String      @unique
+  phone        String
+  gender       String
+  status       Boolean     @default(true)
+  password     String
+  location     Json?
+  avatar       String?
+  center       String
+  role         String      @default("STAFF")
   departmentId String?
-  department Department? @relation(fields: [departmentId], references: [uid], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  department   Department? @relation(fields: [departmentId], references: [uid], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  wallet Wallet[] @relation("staffUserId")
 
   @@index([uid, email, center, status, phone])
 }
@@ -90,9 +99,14 @@ model Staff {
 model Wallet {
   id              String   @id @default(cuid())
   userId          String?
+  member          Member?  @relation("memberUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_member_userId_fkey")
+  admin           Admin?   @relation("adminUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_admin_userId_fkey")
+  company         Company? @relation("companyUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_company_userId_fkey")
+  staff           Staff?   @relation("staffUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_staff_userId_fkey")
+  agent           Agent?   @relation("agentUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_agent_userId_fkey")
   role            Role
   balance         Float    @default(0.00)
-  accountNo       String   
+  accountNo       String
   accountName     String
   accountHolderId String?  @default(cuid())
   currency        String
@@ -103,7 +117,7 @@ model Wallet {
   identification  String?
   verify          Boolean  @default(false)
 
-  demandNotices     Demand[]
+  demandNotices Demand[]
 
   @@index([userId])
 }
@@ -130,7 +144,7 @@ model Payment {
   due          DateTime         @default(now())
   amount       Float
   payment      String
-  pricing      Pricing @relation(fields: [payment], references: [id])
+  pricing      Pricing          @relation(fields: [payment], references: [id])
   status       PaymentStatus    @default(PENDING)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -151,23 +165,23 @@ model Payment {
 }
 
 model Request {
-  id          String   @id @default(cuid())
-  memberId    String
-  member      Member   @relation(fields: [memberId], references: [uid], onDelete: Cascade)
-  paymentId   String
-  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  adminId     String?
-  admin       Admin?   @relation("AdminRequests", fields: [adminId], references: [uid], onDelete: Cascade)
-  adminComment String?
-  approverId  String?
-  approver    Admin?   @relation("AdminApprovedRequests", fields: [approverId], references: [uid], onDelete: Cascade)
+  id              String        @id @default(cuid())
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [uid], onDelete: Cascade)
+  paymentId       String
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  adminId         String?
+  admin           Admin?        @relation("AdminRequests", fields: [adminId], references: [uid], onDelete: Cascade)
+  adminComment    String?
+  approverId      String?
+  approver        Admin?        @relation("AdminApprovedRequests", fields: [approverId], references: [uid], onDelete: Cascade)
   approverComment String?
-  reason      String
-  status      RequestStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  center      String
-  amount      Float?
+  reason          String
+  status          RequestStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  center          String
+  amount          Float?
 
   @@index([memberId, status])
   @@index([adminId, status])
@@ -198,29 +212,30 @@ model Transaction {
 }
 
 model Agent {
-  id          String   @id @default(cuid())
-  uid         String   @unique
-  fullname    String
-  email       String   @unique
-  phone       String
-  gender      String
-  status      Boolean  @default(true)
-  password    String
-  location    String
-  avatar      String?
-  center      String
-  batchNo     String?
-  company     String?
-  role        Role     @default(ADMIN)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  uid       String   @unique
+  fullname  String
+  email     String   @unique
+  phone     String
+  gender    String
+  status    Boolean  @default(true)
+  password  String
+  location  String
+  avatar    String?
+  center    String
+  batchNo   String?
+  company   String?
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members    Member[]
-  terminals  Terminal[]
+  members   Member[]
+  terminals Terminal[]
+  wallet    Wallet[]   @relation("agentUserId")
 
   @@index([uid, email, center, id, status])
 }
- 
+
 model Admin {
   id            String   @id @default(cuid())
   uid           String   @unique
@@ -228,7 +243,7 @@ model Admin {
   email         String   @unique
   password      String
   phone         String
-  adminName     String    @default("")
+  adminName     String   @default("")
   adminEmail    String
   adminPhone    String
   adminLocation String
@@ -244,10 +259,11 @@ model Admin {
   paymentConfig Json?
   ledger        Float    @default(0.00)
   createdAt     DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  updatedAt     DateTime @default(now()) @updatedAt
 
   requests         Request[] @relation("AdminRequests")
   approvedRequests Request[] @relation("AdminApprovedRequests")
+  wallets          Wallet[]  @relation("adminUserId")
 
   @@index([uid, email, center, state, status])
 }
@@ -330,20 +346,20 @@ model Payout {
 }
 
 model Demand {
-  id          String       @id @default(cuid())
-  userId      String
-  paymentId   String
-  reference   String?      @default("")
-  amount      Float
-  center      String
-  walletId    String?
-  wallet      Wallet?      @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  status      DemandStatus @default(PENDING)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  member      Member       @relation(fields: [userId], references: [uid], onDelete: Cascade)
-  payment     Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  isSent      Boolean      @default(false)
+  id        String       @id @default(cuid())
+  userId    String
+  paymentId String
+  reference String?      @default("")
+  amount    Float
+  center    String
+  walletId  String?
+  wallet    Wallet?      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  status    DemandStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  member    Member       @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  payment   Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  isSent    Boolean      @default(false)
 
   @@index([userId, paymentId, status])
 }
@@ -425,10 +441,10 @@ model Terminal {
   status    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  companyId   String?
-  agentId     String?
-  agent       Agent?    @relation(fields: [agentId], references: [uid], onDelete: Cascade)
-  company     Company?  @relation(fields: [companyId], references: [uid], onDelete: Cascade)
+  companyId String?
+  agentId   String?
+  agent     Agent?   @relation(fields: [agentId], references: [uid], onDelete: Cascade)
+  company   Company? @relation(fields: [companyId], references: [uid], onDelete: Cascade)
 
   @@index([uid, center, status, agentId, companyId])
 }
@@ -468,3 +484,43 @@ model ActivityLog {
 
   @@index([userId, userRole, createdAt])
 }
+
+model Property {
+  id        String   @id @default(cuid())
+  pid       String?  @unique
+  name      String
+  type      String
+  size      String
+  images    String[] @default([])
+  center    String?
+  memberId  String?
+  member    Member?  @relation(fields: [memberId], references: [uid], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([pid])
+  @@index([center])
+}
+
+model Document {
+  id        String         @id @default(cuid())
+  type      String
+  number    String
+  data      Json?
+  status    DocumentStatus @default(PENDING)
+  memberId  String
+  member    Member         @relation(fields: [memberId], references: [uid], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([memberId])
+  @@index([status])
+}
+
+enum DocumentStatus {
+  VERIFIED
+  REJECTED
+  PENDING
+}
+

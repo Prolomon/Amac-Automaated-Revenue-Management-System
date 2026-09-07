@@ -7,15 +7,14 @@ import {
   loginAgentSchema,
 } from "../validator/agentValidator.js";
 import { customAlphabet } from "nanoid";
-import { sendEmail } from "../service/mail.js";
 import { createCustomer, createAccount } from "../service/paystack.js";
 import {
-  accountCreation,
-  walletCreation,
-  loginAlert,
-  resetCode,
-  resetSuccessful,
-} from "../service/templates.js";
+  sendLoginSuccessEmail,
+  sendAccountCreationEmail,
+  sendForgotPasswordEmail,
+  sendResetPasswordEmail,
+  sendProfileUpdateEmail,
+} from "../core/mail.js";
 
 const generateAgentUidSuffix = customAlphabet(
   "0123456789",
@@ -112,25 +111,15 @@ const createAgent = async (req, res) => {
         .status(500)
         .json({ ok: false, message: "Failed to create agent" });
 
-    void sendEmail(
-      agent.email,
-      "Welcome to URMS Agent Panel",
-      await accountCreation(agent.fullname, agent.email, agent.phone),
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Welcome email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    sendAccountCreationEmail({
+      to: agent.email,
+      name: agent.fullname,
+      email: agent.email,
+      phone: agent.phone,
+      role: "Agent",
+    }).catch((error) => {
+      console.error("Agent account creation email failed:", error?.message || error);
+    });
 
     const { password, ...agentWithoutPassword } = agent;
     return res.status(201).json({
@@ -419,6 +408,18 @@ const updateAgent = async (req, res) => {
 
     if (!agent)
       return res.status(404).json({ ok: false, message: "Agent not found" });
+
+    sendProfileUpdateEmail({
+      to: agent.email,
+      name: agent.fullname,
+      updatedFields: Object.keys(value),
+    }).catch((emailErr) => {
+      console.error(
+        "Agent profile update email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     const { password, ...agentWithoutPassword } = agent;
     res.status(200).json({
       ok: true,
@@ -521,25 +522,17 @@ const loginAgent = async (req, res) => {
     // Return agent data
     const { password: pwd, ...agentWithoutPassword } = agent;
 
-    void sendEmail(
-      agent.email,
-      "Welcome to URMS Agent Panel",
-      await loginAlert(agent.fullname, new Date().toLocaleString(), ip),
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Welcome email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    sendLoginSuccessEmail({
+      to: agent.email,
+      name: agent.fullname,
+      ipAddress: ip,
+      device: req.headers["user-agent"],
+    }).catch((error) => {
+      console.error(
+        "Agent login email failed:",
+        error?.message || error,
+      );
+    });
 
     return res.status(200).json({
       ok: true,
@@ -583,14 +576,11 @@ const forgotPassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
-    void sendEmail(
-      agent.email,
-      "Password Reset",
-      await resetCode(
-        agent.fullname || agent.email.split("@")[0] || "Agent",
-        code,
-      ),
-    ).catch((emailErr) => {
+    sendForgotPasswordEmail({
+      to: agent.email,
+      name: agent.fullname || agent.email.split("@")[0] || "Agent",
+      resetCode: code,
+    }).catch((emailErr) => {
       console.error(
         "Agent password reset email failed:",
         emailErr?.message || emailErr,

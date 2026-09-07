@@ -310,3 +310,38 @@ export async function dashboardStats(
   const data = await response.json();
   return data;
 }
+
+export type PublicCenter = {
+  id: string;
+  uid: string;
+  center: string;
+  adminName?: string;
+  state?: string;
+  lga?: string;
+  address?: string;
+  prefix?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  status?: boolean;
+};
+
+export async function getPublicCenters(): Promise<{
+  ok: boolean;
+  data: PublicCenter[];
+  message?: string;
+}> {
+  const response = await fetch(`${API_URL}/admin/centers`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch centers");
+  }
+
+  const data = await response.json();
+  return data;
+}
+

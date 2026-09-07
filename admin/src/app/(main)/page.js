@@ -31,8 +31,14 @@ export default function LandingPage() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
+                href="/register"
+                className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0E1F17] shadow-md transition-transform hover:-translate-y-0.5"
+              >
+                Register New Entity
+              </Link>
+              <Link
                 href="/auth/admin"
-                className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0E1F17] transition-transform hover:-translate-y-0.5"
+                className="inline-flex rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
               >
                 Login to Dashboard
               </Link>

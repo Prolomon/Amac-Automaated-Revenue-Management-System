@@ -15,6 +15,7 @@ import {
 } from "../service/wallet.js";
 import argon2 from "argon2";
 import { customAlphabet } from "nanoid";
+import { sendWalletCreationEmail } from "../core/mail.js";
 
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 
@@ -92,6 +93,42 @@ const createWallet = async (req, res) => {
         });
       }
       throw createErr;
+    }
+
+    try {
+      let userEmail = null;
+      let userName = wallet.accountName || name;
+
+      if (role === "USER" || role === "MEMBER") {
+        const m = await prisma.member.findFirst({ where: { OR: [{ uid: id }, { id }] }, select: { email: true, fullname: true } });
+        if (m) { userEmail = m.email; userName = m.fullname || userName; }
+      } else if (role === "ADMIN") {
+        const a = await prisma.admin.findFirst({ where: { OR: [{ uid: id }, { id }] }, select: { email: true, adminName: true } });
+        if (a) { userEmail = a.email; userName = a.adminName || userName; }
+      } else if (role === "STAFF") {
+        const s = await prisma.staff.findFirst({ where: { OR: [{ uid: id }, { id }] }, select: { email: true, fullname: true } });
+        if (s) { userEmail = s.email; userName = s.fullname || userName; }
+      } else if (role === "AGENT") {
+        const ag = await prisma.agent.findFirst({ where: { OR: [{ uid: id }, { id }] }, select: { email: true, fullname: true } });
+        if (ag) { userEmail = ag.email; userName = ag.fullname || userName; }
+      } else if (role === "COMPANY") {
+        const c = await prisma.company.findFirst({ where: { OR: [{ uid: id }, { id }] }, select: { email: true, name: true } });
+        if (c) { userEmail = c.email; userName = c.name || userName; }
+      }
+
+      if (userEmail) {
+        void sendWalletCreationEmail({
+          to: userEmail,
+          name: userName,
+          accountNumber: wallet.accountNo,
+          bankName: wallet.bank?.name || "Nomba / Providus Bank",
+          bankCode: wallet.bank?.code || "110028",
+          accountName: wallet.accountName,
+          balance: wallet.balance || 0,
+        }).catch((err) => console.warn("Wallet creation email warning:", err?.message));
+      }
+    } catch (emailErr) {
+      console.warn("Wallet creation email lookup warning:", emailErr?.message);
     }
 
     return res

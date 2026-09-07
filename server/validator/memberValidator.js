@@ -46,33 +46,46 @@ const createMemberSchema = Joi.object({
       "any.only":
         "Billing frequency must be one of MONTHLY, YEARLY, or QUARTERLY",
     }),
-  category: Joi.string().trim().max(100).messages({
+  category: Joi.string().trim().max(100).optional().allow("", null).messages({
     "string.base": "Category must be a string",
     "string.max": "Category must be at most 100 characters long",
   }),
-  zone: Joi.string().trim().max(100).optional().messages({
+  zone: Joi.string().trim().max(100).optional().allow("", null).messages({
     "string.base": "Zone must be a string",
     "string.max": "Zone must be at most 100 characters long",
   }),
-  company: Joi.string().optional().messages({
+  company: Joi.string().optional().allow("", null).messages({
     "string.base": "Company must be a string",
   }),
   password: Joi.string().optional().default(Joi.ref("phone")).messages({
     "any.required": "Password is required",
   }),
-  location: Joi.object().optional().messages({
+  location: Joi.object().optional().allow(null).messages({
     "object.base": "Location must be a valid JSON object",
   }),
-  avatar: Joi.string().optional().messages({
+  avatar: Joi.string().optional().allow("", null).messages({
     "string.base": "Avatar must be a valid URI",
   }),
-  agent: Joi.string().optional().messages({
+  agent: Joi.string().optional().allow("", null).messages({
     "string.base": "Agent must be a string",
   }),
-  pricing: Joi.array().items(Joi.string()).optional().messages({
+  pricing: Joi.array().items(Joi.string()).optional().default([]).messages({
     "array.base": "Pricing must be an array",
   }),
   role: Joi.string().valid("USER", "ADMIN").optional().default("USER"),
+  property: Joi.object({
+    id: Joi.string().trim().optional().allow("", null),
+    pid: Joi.string().trim().optional().allow("", null),
+    name: Joi.string().trim().optional().allow("", null),
+    type: Joi.string().trim().optional().allow("", null),
+    size: Joi.string().trim().optional().allow("", null),
+    images: Joi.array().items(Joi.string()).optional().default([]),
+  }).optional().allow(null),
+  document: Joi.object({
+    type: Joi.string().trim().optional().allow("", null),
+    number: Joi.string().trim().optional().allow("", null),
+    data: Joi.object().optional().allow(null),
+  }).optional().allow(null),
 });
 
 const updateMemberSchema = Joi.object({

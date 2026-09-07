@@ -81,12 +81,6 @@ const disconnectPrisma = async () => {
   }
 };
 
-// Connect immediately on startup
-connectPrisma().catch((err) => {
-  console.error("Critical error initializing Prisma:", err.message || err);
-  console.log("Server will start but database operations may fail until connection is established");
-});
-
 // Handle graceful shutdown
 process.on("beforeExit", async () => {
   await disconnectPrisma();
@@ -107,4 +101,4 @@ process.once("SIGUSR2", async () => {
   process.kill(process.pid, "SIGUSR2");
 });
 
-export { prisma, connectPrisma, disconnectPrisma };
+export { prisma, prismaPool, connectPrisma, disconnectPrisma };

@@ -11,16 +11,17 @@ import {
   changeMemberCompanySchema,
 } from "../validator/memberValidator.js";
 import { createPaymentRecord, generatePaymentReference } from "./paymentController.js";
+import { generateUniquePropertyPid } from "./propertyController.js";
 import { customAlphabet } from "nanoid";
 import { sendEmail } from "../service/mail.js";
 import { deleteAccount } from "../service/wallet.js";
 import {
-  loginAlert,
-  accountCreation,
-  walletCreation,
-  resetCode,
-  resetSuccessful,
-} from "../service/templates.js";
+  sendLoginSuccessEmail,
+  sendAccountCreationEmail,
+  sendForgotPasswordEmail,
+  sendResetPasswordEmail,
+  sendProfileUpdateEmail,
+} from "../core/mail.js";
 
 const joseImport = () => import("jose");
 const jwtSecret = process.env.JWT_SECRET;
@@ -285,25 +286,16 @@ const createMember = async (req, res) => {
         .json({ ok: false, message: "Failed to create member" });
     }
 
-    void sendEmail(
-      member.email,
-      "Welcome to URMS Member Panel",
-      await accountCreation(member.fullname, member.email, member.phone),
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Welcome email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    void sendAccountCreationEmail({
+      to: member.email,
+      name: member.fullname || member.businessName || "Member",
+      email: member.email,
+      password: member.phone,
+      role: member.role || "MEMBER",
+      uid: member.uid,
+    }).catch((error) => {
+      console.error("Welcome email failure:", error?.message || error);
+    });
 
     let welcomeNotification = null;
 
@@ -327,11 +319,154 @@ const createMember = async (req, res) => {
       // Continue without notification - member was created successfully
     }
 
+    let createdProperty = null;
+    let createdDocument = null;
+
+    if (value.property && (value.property.id || value.property.name || value.property.type)) {
+      try {
+        const propIdInput = value.property.id ? String(value.property.id).trim() : "";
+        const propNameInput = String(value.property.name || "").trim();
+        const propTypeInput = String(value.property.type || "Commercial").trim();
+        const propSizeInput = String(value.property.size || "Standard").trim();
+        const pImages = Array.isArray(value.property.images) ? value.property.images : [];
+
+        let existingProperty = null;
+
+        // 1. Check if property exists by ID
+        if (propIdInput) {
+          existingProperty = await prisma.property.findUnique({
+            where: { id: propIdInput },
+          });
+        }
+
+        // 2. If not found by ID, check if property exists by Name (case-insensitive)
+        if (!existingProperty && propNameInput) {
+          existingProperty = await prisma.property.findFirst({
+            where: {
+              name: { equals: propNameInput, mode: "insensitive" },
+              ...(propTypeInput ? { type: { equals: propTypeInput, mode: "insensitive" } } : {}),
+            },
+          });
+          if (!existingProperty) {
+            existingProperty = await prisma.property.findFirst({
+              where: {
+                name: { equals: propNameInput, mode: "insensitive" },
+              },
+            });
+          }
+        }
+
+        if (existingProperty) {
+          // Property already exists - DO NOT RECREATE IT
+          if (!existingProperty.pid) {
+            try {
+              const backfilledPid = await generateUniquePropertyPid();
+              existingProperty = await prisma.property.update({
+                where: { id: existingProperty.id },
+                data: { pid: backfilledPid },
+              });
+            } catch (fixErr) {
+              console.warn("Property pid backfill notice:", fixErr.message);
+            }
+          }
+
+          // If existing property lacks center, update it
+          if (!existingProperty.center && (member.center || value.center)) {
+            const propCenter = member.center || value.center;
+            try {
+              existingProperty = await prisma.property.update({
+                where: { id: existingProperty.id },
+                data: { center: propCenter },
+              });
+            } catch (cErr) {
+              console.warn("Property center update notice:", cErr.message);
+            }
+          }
+
+          createdProperty = existingProperty;
+
+          // If new images were provided and existing property has no images, update images
+          if (pImages.length > 0 && (!existingProperty.images || existingProperty.images.length === 0)) {
+            try {
+              createdProperty = await prisma.property.update({
+                where: { id: existingProperty.id },
+                data: { images: pImages },
+              });
+            } catch (upErr) {
+              console.warn("Property image update notice:", upErr.message);
+            }
+          }
+        } else {
+          // Property does not exist - create new property with center
+          const propId = propIdInput || `prop_${customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 16)()}`;
+          const propPid = await generateUniquePropertyPid();
+          const propCenter = member.center || value.center || null;
+
+          createdProperty = await prisma.property.create({
+            data: {
+              id: propId,
+              pid: propPid,
+              name: propNameInput || "Default Property",
+              type: propTypeInput,
+              size: propSizeInput,
+              images: pImages,
+              memberId: member.uid,
+              center: propCenter,
+            },
+          });
+        }
+
+        // Link member to property via propertyId
+        const propToLink = createdProperty || existingProperty;
+        if (propToLink?.id) {
+          try {
+            await prisma.member.update({
+              where: { uid: member.uid },
+              data: { propertyId: propToLink.id },
+            });
+          } catch (linkErr) {
+            console.warn("Member propertyId link notice:", linkErr.message);
+          }
+        }
+      } catch (propErr) {
+        console.warn("Auto property check/creation notice:", propErr.message);
+      }
+    }
+
+    if (value.document && value.document.number) {
+      try {
+        const docId = `doc_${customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 16)()}`;
+        const docType = String(
+          value.document.type || (value.type === "BUSINESS" ? "cac" : "nin")
+        )
+          .trim()
+          .toLowerCase();
+        createdDocument = await prisma.document.create({
+          data: {
+            id: docId,
+            type: docType,
+            number: String(value.document.number).trim(),
+            data: value.document.data || null,
+            status: "PENDING",
+            memberId: member.uid,
+          },
+        });
+      } catch (docErr) {
+        console.warn("Auto document creation notice:", docErr.message);
+      }
+    }
+
     const { password, ...memberWithoutPassword } = member;
     return res.status(201).json({
       ok: true,
       message: "Member created successfully",
-      member: memberWithoutPassword,
+      member: {
+        ...memberWithoutPassword,
+        property: createdProperty,
+        document: createdDocument,
+        properties: createdProperty ? [createdProperty] : [],
+        documents: createdDocument ? [createdDocument] : [],
+      },
       welcomeNotification,
       initialPayment,
     });
@@ -446,13 +581,44 @@ const getMember = async (req, res) => {
       select: memberSafeSelect,
     });
     if (!member) return res.status(404).json({ error: "Member not found" });
-    res
-      .status(200)
-      .json({
-        data: member,
-        ok: true,
-        message: "Member retrieved successfully",
+
+    let properties = [];
+    let documents = [];
+
+    try {
+      properties = await prisma.property.findMany({
+        where: {
+          OR: [
+            { memberId: member.uid },
+            ...(member.propertyId ? [{ id: member.propertyId }, { pid: member.propertyId }] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
       });
+    } catch (pErr) {
+      console.warn("Property fetch notice in getMember:", pErr.message);
+    }
+
+    try {
+      documents = await prisma.document.findMany({
+        where: { memberId: member.uid },
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (dErr) {
+      console.warn("Document fetch notice in getMember:", dErr.message);
+    }
+
+    res.status(200).json({
+      data: {
+        ...member,
+        properties,
+        documents,
+        property: properties[0] || null,
+        document: documents[0] || null,
+      },
+      ok: true,
+      message: "Member retrieved successfully",
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -503,6 +669,16 @@ const updateMember = async (req, res) => {
         "Failed to create update notification:",
         notificationError.message || notificationError,
       );
+    }
+
+    if (member.email) {
+      void sendProfileUpdateEmail({
+        to: member.email,
+        name: member.fullname || member.businessName || "Member",
+        time: new Date().toLocaleString(),
+      }).catch((err) => {
+        console.warn("Profile update email warning:", err?.message);
+      });
     }
 
     const { password, ...memberWithoutPassword } = member;
@@ -634,25 +810,14 @@ const login = async (req, res) => {
     // Return member data
     const { password: pwd, ...memberWithoutPassword } = member;
 
-    void sendEmail(
-      member.email,
-      "Login Alert from URMS",
-      await loginAlert(member.fullname, new Date().toLocaleString(), ip),
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Login alert email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    void sendLoginSuccessEmail({
+      to: member.email,
+      name: member.fullname || member.businessName || "Member",
+      ip,
+      time: new Date().toLocaleString(),
+    }).catch((error) => {
+      console.error("Login alert email failure:", error?.message || error);
+    });
 
     return res.status(200).json({
       ok: true,
@@ -701,11 +866,11 @@ const forgotPassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
-    void sendEmail(
-      member.email,
-      "Password Reset",
-      await resetCode(member.fullname || member.businessName || "Member", code),
-    ).catch((emailErr) => {
+    void sendForgotPasswordEmail({
+      to: member.email,
+      name: member.fullname || member.businessName || "Member",
+      code,
+    }).catch((emailErr) => {
       console.error(
         "Member password reset email failed:",
         emailErr?.message || emailErr,
@@ -746,7 +911,7 @@ const resetPassword = async (req, res) => {
 
     const existingMember = await prisma.member.findUnique({
       where: { uid: targetUid },
-      select: { uid: true },
+      select: { uid: true, email: true, fullname: true, businessName: true },
     });
 
     if (!existingMember) {
@@ -758,6 +923,16 @@ const resetPassword = async (req, res) => {
       where: { uid: targetUid },
       data: { password: hashedPassword },
     });
+
+    if (existingMember.email) {
+      void sendResetPasswordEmail({
+        to: existingMember.email,
+        name: existingMember.fullname || existingMember.businessName || "Member",
+        time: new Date().toLocaleString(),
+      }).catch((emailErr) => {
+        console.error("Password reset confirmation email failed:", emailErr?.message || emailErr);
+      });
+    }
 
     try {
       await prisma.notification.create({

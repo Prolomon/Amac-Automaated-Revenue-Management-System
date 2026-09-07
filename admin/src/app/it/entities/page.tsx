@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useCallback } from "react";
 import {
   Search,
@@ -7,14 +8,16 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Building2,
+  User,
 } from "lucide-react";
 import Link from "next/link";
-import { getMembers, getAllMembers, Member } from "@/lib/services/member";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/context/ToastContext";
+import { getMembers, getAllMembers, Member } from "@/lib/services/member";
 import { getAllAdmins, Admin } from "@/lib/services/admin";
+import { useToast } from "@/context/ToastContext";
 
-export default function EntitiesPage() {
+export default function ITEntitiesPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,20 +25,20 @@ export default function EntitiesPage() {
   const [center, setCenter] = useState("");
   const [centers, setCenters] = useState<Admin[]>([]);
   const [members, setMembers] = useState<Member[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(100);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [meta, setMeta] = useState({
     page: 1,
     limit: 100,
     total: 0,
     totalPages: 1,
   });
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(100);
-  const [statusFilter, setStatusFilter] = useState("All");
 
-  // Load the list of all centers (centers are admins)
+  // Load centers (center administrators)
   useEffect(() => {
-    const load = async () => {
+    const loadCenters = async () => {
       try {
         const data = await getAllAdmins();
         const list = Array.isArray(data?.data) ? data.data : data?.admins || [];
@@ -44,10 +47,10 @@ export default function EntitiesPage() {
         addToast("error", "Failed to load centers");
       }
     };
-    load();
+    loadCenters();
   }, [addToast]);
 
-  // Read the ?center= query param on mount
+  // Read URL query param on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -55,7 +58,6 @@ export default function EntitiesPage() {
     if (c) setCenter(c);
   }, []);
 
-  // Sync the selected center to the URL (?center=centerId)
   const updateCenter = (value: string) => {
     setCenter(value);
     const params = new URLSearchParams(window.location.search);
@@ -71,20 +73,23 @@ export default function EntitiesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Passing "ADMIN" returns entities across all centers (server treats it as no filter)
-      const effectiveCenter = center;
-
-      if (effectiveCenter) {
-        const memberData = await getMembers(page, limit, effectiveCenter);
-        setMembers(memberData?.data || []);
-        setMeta(memberData?.meta || { page, limit, total: 0, totalPages: 1 });
-        return;
+      let memberData;
+      if (center) {
+        memberData = await getMembers(page, limit, center);
+      } else {
+        memberData = await getAllMembers(page, limit);
       }
 
-      const memberData = await getAllMembers(page, limit);
-
-      setMembers(memberData?.data || []);
-      setMeta(memberData?.meta || { page, limit, total: 0, totalPages: 1 });
+      const list = Array.isArray(memberData?.data) ? memberData.data : [];
+      setMembers(list);
+      setMeta(
+        memberData?.meta || {
+          page,
+          limit,
+          total: list.length,
+          totalPages: Math.max(1, Math.ceil(list.length / limit)),
+        },
+      );
     } catch (error) {
       addToast("error", "Failed to fetch entities. Please try again.");
     } finally {
@@ -96,17 +101,14 @@ export default function EntitiesPage() {
     fetchData();
   }, [fetchData]);
 
-  // reset to page 1 when search or filters change (deferred to avoid cascading renders)
   useEffect(() => {
     const id = setTimeout(() => setPage(1), 0);
     return () => clearTimeout(id);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, center]);
 
   const memberList = Array.isArray(members) ? members : [];
   const filteredMembers = memberList.filter((m) => {
     const q = searchTerm.trim().toLowerCase();
-
-    // search across uid, fullname, businessName, email, phone
     const matchesQuery =
       !q ||
       [m.uid, m.fullname, m.businessName, m.email, m.phone]
@@ -123,382 +125,312 @@ export default function EntitiesPage() {
     return matchesQuery && matchesStatus && matchesType;
   });
 
-  // CSV helpers — include fields that are not shown in the table
   const escapeCSV = (val: string | number | null | undefined) => {
     if (val === null || val === undefined) return "";
     const s = typeof val === "string" ? val : String(val);
     return `"${s.replace(/"/g, '""')}"`;
   };
 
-  const buildCSV = (rows: any[]) => {
-    const headers = [
-      "id",
-      "Entity ID",
-      "Fullname",
-      "Type",
-      "Business Name",
-      "Category",
-      "Email",
-      "Phone",
-      "Billing Frequency",
-      // "City",
-      // "State",
-      // "Address",
-      // "Country",
-      "Role",
-      "createdAt",
-      "updatedAt",
-    ];
-
-    const lines = [headers.join(",")];
-
-    rows.forEach((r: any) => {
-      const line = [
-        escapeCSV(r.id),
-        escapeCSV(r.uid),
-        escapeCSV(r.fullname),
-        escapeCSV(r.type),
-        escapeCSV(r.businessName),
-        escapeCSV(r.category),
-        escapeCSV(r.email),
-        escapeCSV(r.phone),
-        escapeCSV(r.billingFrequency),
-        // escapeCSV(r.location?.city),
-        // escapeCSV(r.location?.state),
-        // escapeCSV(r.location?.address),
-        // escapeCSV(r.location?.country),
-        escapeCSV(r.role),
-        escapeCSV(r.createdAt),
-        escapeCSV(r.updatedAt),
-      ].join(",");
-      lines.push(line);
-    });
-
-    return lines.join("\n");
-  };
-
   const handleDownload = () => {
     try {
-      const rows = filteredMembers.length ? filteredMembers : members;
-      const csv = buildCSV(rows);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const date = new Date().toISOString().slice(0, 10);
-      const filename = `AMAC ENTITY ${date}.csv`;
+      const rows = filteredMembers.length ? filteredMembers : memberList;
+      const headers = [
+        "Entity ID",
+        "Fullname",
+        "Type",
+        "Business Name",
+        "Category",
+        "Center",
+        "Zone",
+        "Email",
+        "Phone",
+        "Billing Frequency",
+        "Status",
+        "Created At",
+      ];
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const lines = [
+        headers.join(","),
+        ...rows.map((r: any) =>
+          [
+            escapeCSV(r.uid),
+            escapeCSV(r.fullname),
+            escapeCSV(r.type),
+            escapeCSV(r.businessName),
+            escapeCSV(r.category),
+            escapeCSV(r.center),
+            escapeCSV(r.zone),
+            escapeCSV(r.email),
+            escapeCSV(r.phone),
+            escapeCSV(r.billingFrequency),
+            escapeCSV(r.status ? "Active" : "Inactive"),
+            escapeCSV(r.createdAt),
+          ].join(","),
+        ),
+      ];
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `AMAC_IT_ENTITIES_${date}.csv`;
+      link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      addToast("error", "Failed to export entities. Please try again.");
+      addToast("error", "Failed to export entities");
     }
   };
 
   const start = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
   const end = Math.min(meta.page * meta.limit, meta.total);
-  const pages = Array.from(
-    { length: Math.max(1, meta.totalPages) },
-    (_, i) => i + 1,
-  );
-
-  const categoryBadgeClass = (businessType = "") => {
-    const type = businessType.toUpperCase();
-
-    if (type === "SMALL") {
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    }
-
-    if (type === "MEDIUM") {
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    }
-
-    if (type === "LARGE") {
-      return "border-violet-200 bg-violet-50 text-violet-700";
-    }
-
-    return "border-slate-200 bg-slate-50 text-slate-700";
-  };
-
-  const typeBadgeClass = (type = "") => {
-    const t = type.toUpperCase();
-
-    if (t === "INDIVIDUAL") {
-      return "border-purple-200 bg-purple-50 text-purple-700";
-    }
-
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  };
-
-  const truncateString = (str: string, maxLength: number) => {
-    if (str.length <= maxLength) {
-      return str;
-    }
-    return str.slice(0, maxLength) + "...";
-  };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-4 md:p-6">
-      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
-              Entity Management
-            </h2>
-            <p className="mt-1 text-sm text-slate-600 md:text-base">
-              {meta.total} entities • Manage businesses and tax-paying entities
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <button
-              onClick={() => fetchData()}
-              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4 cursor-pointer"
-            >
-              <RefreshCw
-                size={18}
-                className={`${loading ? "animate-spin" : ""}`}
-              />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-            <>
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 md:px-4 cursor-pointer"
-                  onClick={() => {
-                    router.push("/it/entities/add");
-                  }}
-                >
-                  <Plus size={18} />
-                  <span className="hidden sm:inline">Add Entity</span>
-                </button>
-                <button
-                  onClick={() => handleDownload()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4 cursor-pointer"
-                >
-                  <Download size={18} />
-                  <span className="hidden sm:inline">Export</span>
-                </button>
-            </>
-          </div>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Top Banner matching IT Admins style */}
+      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-cyan-50 p-5 md:p-6 ring-1 ring-emerald-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Entities</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Manage businesses and tax-paying entities across all council centers
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <button
+            onClick={() => fetchData()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 cursor-pointer"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={handleDownload}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+          >
+            <Download size={16} />
+            Export
+          </button>
+          <Link
+            href="/it/entities/add"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 shadow-sm"
+          >
+            <Plus size={18} />
+            Add Entity
+          </Link>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 md:p-5 ring-1 ring-slate-100 shadow-sm">
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-            <div className="relative w-full">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={18}
-              />
-              <input
-                type="text"
-                placeholder="Search by Entity ID, business name, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-transparent py-2.5 pl-10 pr-4 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
-              />
-            </div>
-
+      {/* Main Table Card */}
+      <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm">
+        {/* Filter Toolbar */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 p-4 md:p-5 border-b border-slate-100">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, ID, email or phone..."
+              className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
             <select
               value={center}
               onChange={(e) => updateCenter(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
+              className="rounded-xl border border-slate-200 bg-white py-2.5 px-3.5 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 cursor-pointer"
             >
               <option value="">All Centers</option>
               {centers.map((c) => (
                 <option key={c.uid || c.id} value={c.uid}>
-                  {c.adminName || c.adminEmail || c.email || c.uid}
+                  {c.center || c.adminName || c.adminEmail || c.uid}
                 </option>
               ))}
             </select>
-
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white py-2.5 px-3.5 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 cursor-pointer"
+            >
+              <option value="All Types">All Types</option>
+              <option value="BUSINESS">Business</option>
+              <option value="INDIVIDUAL">Individual</option>
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
+              className="rounded-xl border border-slate-200 bg-white py-2.5 px-3.5 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 cursor-pointer"
             >
-              <option hidden>All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="All">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
             </select>
-
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
-              >
-                <option hidden>All Types</option>
-                <option value="BUSINESS">Business</option>
-                <option value="INDIVIDUAL">Individual</option>
-              </select>
-              <select
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="flex-1 rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 text-sm text-slate-600 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none"
-              >
-                <option hidden>Limit</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-                <option value={300}>300</option>
-                <option value={400}>400</option>
-                <option value={500}>500</option>
-                <option value={600}>600</option>
-                <option value={700}>700</option>
-                <option value={800}>800</option>
-                <option value={900}>900</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
+            <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="rounded-xl border border-slate-200 bg-white py-2.5 px-3.5 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 cursor-pointer"
+            >
+              <option value={100}>100 / page</option>
+              <option value={200}>200 / page</option>
+              <option value={500}>500 / page</option>
+            </select>
           </div>
-          {loading ? (
-            <div className="col-span-full py-16 text-center">
-              <div className="flex flex-col items-center justify-center">
-                <div className="mb-4 animate-spin">
-                  <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto block">
-              <table className="min-w-max w-full text-left">
-                <thead className="border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Entity ID
-                    </th>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Business Name
-                    </th>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Category
-                    </th>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Type
-                    </th>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Zone
-                    </th>
-                    <th className="py-3 px-2 md:px-4 text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-sm">
-                      Email
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredMembers.length > 0 ? (
-                    filteredMembers.map((entity) => (
-                      <tr
-                        key={entity.uid}
-                        className="transition-colors hover:bg-slate-50"
-                      >
-                        <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate">
-                          {true ? (
-                            <Link
-                              href={`/it/entities/${entity.uid}`}
-                              className="rounded-lg text-xs font-medium text-slate-600 transition-colors hover:text-emerald-600 md:text-sm"
+        </div>
+
+        {/* Loading Spinner */}
+        {loading ? (
+          <div className="py-16 text-center">
+            <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
+            <p className="text-xs text-slate-500">Loading entities...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-160 text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3 md:px-4">Entity</th>
+                  <th className="px-3 py-3 md:px-4">Center</th>
+                  <th className="px-3 py-3 md:px-4">Type</th>
+                  <th className="px-3 py-3 md:px-4">Category</th>
+                  <th className="px-3 py-3 md:px-4">Zone</th>
+                  <th className="px-3 py-3 md:px-4">Contact</th>
+                  <th className="px-3 py-3 md:px-4">Status</th>
+                  <th className="px-3 py-3 md:px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.length > 0 ? (
+                  filteredMembers.map((entity) => {
+                    const isBusiness = entity.type === "BUSINESS";
+                    const displayName = isBusiness
+                      ? entity.businessName || entity.fullname
+                      : entity.fullname || entity.businessName;
+
+                    return (
+                      <tr key={entity.uid || entity.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-4 md:px-4">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                                isBusiness
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-purple-50 text-purple-600"
+                              }`}
                             >
-                              {entity.uid}
-                            </Link>
-                          ) : (
-                            entity.uid
-                          )}
+                              {isBusiness ? <Building2 size={16} /> : <User size={16} />}
+                            </span>
+                            <div className="min-w-0">
+                              <Link
+                                href={`/it/entities/${entity.uid}`}
+                                className="font-semibold text-slate-900 hover:text-emerald-600 transition-colors block truncate max-w-[200px]"
+                              >
+                                {displayName || "—"}
+                              </Link>
+                              <p className="text-xs text-slate-500 font-mono">{entity.uid}</p>
+                            </div>
+                          </div>
                         </td>
-                        <td className="py-4 text-xs px-2 md:px-4 font-medium text-slate-900 md:text-sm truncate capitalize">
-                          {truncateString(
-                            entity.businessName || entity.fullname,
-                            20,
-                          )}
-                        </td>
-                        <td className="py-4 px-2 md:px-4">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${categoryBadgeClass(
-                              entity.category || "",
-                            )}`}
-                          >
-                            {entity.category || "—"}
+                        <td className="px-3 py-4 md:px-4 text-slate-600">
+                          <span className="text-xs font-medium text-slate-700 block truncate max-w-[140px]" title={entity.center}>
+                            {entity.center || "—"}
                           </span>
                         </td>
-                        <td className="py-4 px-2 md:px-4">
+                        <td className="px-3 py-4 md:px-4">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${typeBadgeClass(
-                              entity.type || "",
-                            )}`}
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              isBusiness
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-purple-50 text-purple-700"
+                            }`}
                           >
                             {entity.type || "—"}
                           </span>
                         </td>
-                        <td className="py-4 text-xs px-2 md:px-4 text-slate-600 md:text-sm">
-                          {entity.zone || "—"}
+                        <td className="px-3 py-4 md:px-4 text-slate-600">
+                          <span
+                            className="text-xs font-medium text-slate-700 block truncate max-w-[150px]"
+                            title={entity.category}
+                          >
+                            {entity.category || "—"}
+                          </span>
                         </td>
-                        <td className="py-4 text-xs px-2 md:px-4 text-slate-600 md:text-sm">
-                          {entity.email || "—"}
+                        <td className="px-3 py-4 md:px-4 text-slate-600">
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            Zone {entity.zone || "A"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 md:px-4 text-slate-600">
+                          <p className="text-xs text-slate-800 truncate max-w-[180px]">
+                            {entity.email || "—"}
+                          </p>
+                          <p className="text-[11px] text-slate-500">{entity.phone || "—"}</p>
+                        </td>
+                        <td className="px-3 py-4 md:px-4">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              entity.status
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {entity.status ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 md:px-4 text-right">
+                          <Link
+                            href={`/it/entities/${entity.uid}`}
+                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                          >
+                            View
+                          </Link>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center">
-                        <p className="text-slate-500 text-sm">
-                          No entities found
-                        </p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="border-t border-slate-100 p-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <p className="text-xs md:text-sm text-slate-600">
-                Showing{" "}
-                <span className="font-semibold text-slate-900">
-                  {start}-{end}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-slate-900">
-                  {meta.total}
-                </span>{" "}
-                entities
-              </p>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-12 text-center md:px-6">
+                      <p className="text-slate-500 text-sm">No entities found</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, meta.page - 1))}
-                  disabled={meta.page <= 1}
-                  className={`rounded-lg p-2 transition-colors ${meta.page <= 1 ? "cursor-not-allowed bg-slate-50 text-slate-300" : "text-emerald-600 hover:bg-emerald-50"}`}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="hidden md:flex items-center gap-1">
-                  {pages.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${p === meta.page ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-                <div className="md:hidden">
-                  <span className="text-sm font-medium text-slate-600">
-                    Page {meta.page} of {meta.totalPages}
-                  </span>
-                </div>
-                <button
-                  onClick={() =>
-                    setPage(Math.min(meta.totalPages, meta.page + 1))
-                  }
-                  disabled={meta.page >= meta.totalPages}
-                  className={`rounded-lg p-2 transition-colors ${meta.page >= meta.totalPages ? "cursor-not-allowed bg-slate-50 text-slate-300" : "text-emerald-600 hover:bg-emerald-50"}`}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
+        {/* Pagination matching IT Admins style */}
+        <div className="border-t border-slate-100 p-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <p className="text-xs md:text-sm text-slate-600">
+              Showing <span className="font-semibold text-slate-900">{start}-{end}</span> of{" "}
+              <span className="font-semibold text-slate-900">{meta.total}</span> entities
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(Math.max(1, meta.page - 1))}
+                disabled={meta.page <= 1}
+                className={`rounded-lg p-2 transition-colors ${
+                  meta.page <= 1
+                    ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                    : "text-emerald-600 hover:bg-emerald-50"
+                }`}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-sm font-medium text-slate-600">
+                Page {meta.page} of {meta.totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(meta.totalPages, meta.page + 1))}
+                disabled={meta.page >= meta.totalPages}
+                className={`rounded-lg p-2 transition-colors ${
+                  meta.page >= meta.totalPages
+                    ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                    : "text-emerald-600 hover:bg-emerald-50"
+                }`}
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
           </div>
         </div>

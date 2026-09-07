@@ -9,8 +9,13 @@ const jwtSecret = process.env.JWT_SECRET;
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
 import { sendEmail } from "../service/mail.js";
 
-import { verifyProtocol } from "../service/mail.js";
-import { accountCreation, resetSuccessful, resetCode } from "../service/templates.js";
+import {
+  sendLoginSuccessEmail,
+  sendAccountCreationEmail,
+  sendForgotPasswordEmail,
+  sendResetPasswordEmail,
+  sendProfileUpdateEmail,
+} from "../core/mail.js";
 
 const random6Digit = () => {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
@@ -118,29 +123,16 @@ const createAdmin = async (req, res) => {
         .json({ ok: false, message: "Failed to create admin" });
     }
 
-    void sendEmail(
-      admin.email,
-      "Welcome to URMS Admin Panel",
-      await accountCreation(
-        admin.adminName || admin.center,
-        admin.email,
-        admin.phone,
-      ),
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Welcome email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    void sendAccountCreationEmail({
+      to: admin.email,
+      name: admin.adminName || admin.center,
+      email: admin.email,
+      password: admin.phone,
+      role: admin.role || "ADMIN",
+      uid: admin.uid,
+    }).catch((error) => {
+      console.error("Admin account creation email failed:", error?.message || error);
+    });
 
     return res.status(201).json({
       ok: true,
@@ -337,6 +329,14 @@ const updateAdmin = async (req, res) => {
     if (!admin)
       return res.status(404).json({ ok: false, message: "Admin not found" });
 
+    if (admin.email || admin.adminEmail) {
+      void sendProfileUpdateEmail({
+        to: admin.email || admin.adminEmail,
+        name: admin.adminName || admin.center || "Admin",
+        time: new Date().toLocaleString(),
+      }).catch((err) => console.warn("Admin profile update email warning:", err?.message));
+    }
+
     const { password, ...adminWithoutPassword } = admin;
 
     res.status(200).json({
@@ -452,20 +452,14 @@ const loginAdmin = async (req, res) => {
       type: admin.role === "ADMIN" ? "admin" : "it",
     });
 
-    // void sendEmail(
-    //   admin.email,
-    //   "Login Alert from URMS",
-    //   await loginAlert(
-    //     admin.adminName || admin.center || "Admin",
-    //     new Date().toLocaleString(),
-    //     ip,
-    //   ),
-    // ).catch((emailErr) => {
-    //   console.error(
-    //     "Admin login alert email failed:",
-    //     emailErr?.message || emailErr,
-    //   );
-    // });
+    void sendLoginSuccessEmail({
+      to: admin.email || admin.adminEmail,
+      name: admin.adminName || admin.center || "Admin",
+      time: new Date().toLocaleString(),
+      ip,
+    }).catch((emailErr) => {
+      console.warn("Admin login alert email warning:", emailErr?.message);
+    });
 
     return res.status(200).json({
       ok: true,
@@ -513,28 +507,13 @@ const forgotPassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
-    void sendEmail(
-      admin.email,
-      "Password Reset",
-      await resetCode(
-        admin.adminName || admin.center || admin.email?.split("@")[0] || "Admin",
-        code,
-      )
-    )
-      .then((result) => {
-        if (!result?.ok) {
-          console.error(
-            "Welcome email failed:",
-            result?.error || "Unknown email error",
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "Unexpected email send failure:",
-          error?.message || error,
-        );
-      });
+    void sendForgotPasswordEmail({
+      to: admin.email,
+      name: admin.adminName || admin.center || admin.email?.split("@")[0] || "Admin",
+      code,
+    }).catch((error) => {
+      console.error("Admin forgot password email failed:", error?.message || error);
+    });
 
 
     return res.status(200).json({
@@ -599,16 +578,12 @@ const changePassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
-    void sendEmail(
-      admin.email,
-      "Password Changed Successfully",
-      await resetSuccessful(
-        admin.adminName || admin.center || "Admin",
-        ip,
-        new Date().toLocaleString(),
-        "password",
-      ),
-    ).catch((emailErr) => {
+    void sendResetPasswordEmail({
+      to: admin.email,
+      name: admin.adminName || admin.center || "Admin",
+      time: new Date().toLocaleString(),
+      ip,
+    }).catch((emailErr) => {
       console.error(
         "Admin password change email failed:",
         emailErr?.message || emailErr,
@@ -819,6 +794,45 @@ const dashboardStats = async (req, res) => {
     return res.status(500).json({ ok: false, message: "Server error" });
   }
 };
+
+const getPublicCenters = async (req, res) => {
+  try {
+    const centers = await prisma.admin.findMany({
+      where: {
+        status: true,
+      },
+      select: {
+        id: true,
+        uid: true,
+        center: true,
+        adminName: true,
+        email: true,
+        phone: true,
+        state: true,
+        lga: true,
+        address: true,
+        prefix: true,
+        avatar: true,
+        status: true,
+      },
+      orderBy: {
+        center: "asc",
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      data: centers,
+    });
+  } catch (err) {
+    console.error("Error fetching public centers:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error fetching centers",
+    });
+  }
+};
+
 export {
   createAdmin,
   getAllAdmins,
@@ -831,5 +845,7 @@ export {
   changePassword,
   updatePaymentConfig,
   updateAdminStatus,
-  dashboardStats
+  dashboardStats,
+  getPublicCenters,
 };
+

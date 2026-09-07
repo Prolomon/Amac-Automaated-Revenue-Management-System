@@ -16,6 +16,7 @@ import {
   BadgePercent,
   Network,
   ClipboardList,
+  Home,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -57,6 +58,11 @@ export default function Sidebar({ onClose }) {
         href: "/it/entities",
         label: "Entities",
         icon: <Building2 size={18} />,
+      },
+      {
+        href: "/it/properties",
+        label: "Properties",
+        icon: <Home size={18} />,
       },
       { href: "/it/admins", label: "Admins", icon: <ShieldCheck size={18} /> },
       { href: "/it/payments", label: "Payments", icon: <HandCoins size={18} /> },
@@ -129,6 +135,11 @@ export default function Sidebar({ onClose }) {
         href: "/admin/entities",
         label: "Entities",
         icon: <Building2 size={18} />,
+      },
+      {
+        href: "/admin/properties",
+        label: "Properties",
+        icon: <Home size={18} />,
       },
       { href: "/admin/tiers", label: "Pricing", icon: <Tag size={18} /> },
       { href: "/admin/terminal", label: "Terminals", icon: <Monitor size={18} /> },

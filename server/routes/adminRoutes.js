@@ -11,13 +11,15 @@ import {
   changePassword,
   updatePaymentConfig,
   updateAdminStatus,
-  dashboardStats
+  dashboardStats,
+  getPublicCenters,
 } from '../controller/adminController.js';
 import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
 
 const router = express.Router();
 
+router.get('/centers', getPublicCenters);
 router.post('/',  createAdmin);
 router.post('/login', loginAdmin);
 router.post('/:uid/forgot-password', authMiddleware, roleMiddleware(['admin', 'it', "staff"]), forgotPassword);

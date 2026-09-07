@@ -19,10 +19,12 @@ import {
   getMembersByPricingId,
   getAllMembers
 } from '../controller/memberController.js';
+import { getPublicCenters } from '../controller/adminController.js';
 import {authMiddleware} from '../middleware/auth.js';
 import {roleMiddleware} from '../middleware/role.js';
 import { loginLimiter } from '../middleware/rateLimiter.js';
 
+router.get('/centers', getPublicCenters);
 router.post('/login', loginLimiter, login);
 router.post('/forgot-password/:id', authMiddleware, roleMiddleware(['member', 'admin', "staff", "it", "company"]), forgotPassword);
 router.post('/', createMember);

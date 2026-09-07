@@ -7,6 +7,11 @@ import {
   approveRequestSchema,
   rejectRequestSchema,
 } from "../validator/requestValidator.js";
+import {
+  sendDisputePendingEmail,
+  sendDisputeApprovedEmail,
+  sendDisputeRejectedEmail,
+} from "../core/mail.js";
 
 const validationErrorResponse = (res, error) => {
   const errors = error.details.map((detail) => detail.message);
@@ -102,6 +107,18 @@ const createRequest = async (req, res) => {
         approver: true,
       },
     });
+
+    if (newRequest.member?.email) {
+      void sendDisputePendingEmail({
+        to: newRequest.member.email,
+        name: newRequest.member.fullname || newRequest.member.businessName || "Taxpayer",
+        requestId: newRequest.id,
+        paymentId: newRequest.paymentId,
+        amount: newRequest.payment?.amount || 0,
+        reason: newRequest.reason,
+        date: new Date().toLocaleString(),
+      }).catch((err) => console.warn("Dispute pending email warning:", err?.message));
+    }
 
     return res.status(201).json({
       ok: true,
@@ -743,6 +760,19 @@ const approveRequest = async (req, res) => {
       },
     });
 
+    if (updatedRequest.member?.email) {
+      void sendDisputeApprovedEmail({
+        to: updatedRequest.member.email,
+        name: updatedRequest.member.fullname || updatedRequest.member.businessName || "Taxpayer",
+        requestId: updatedRequest.id,
+        paymentId: updatedRequest.paymentId,
+        amount: updatedRequest.amount || 0,
+        comment: updatedRequest.approverComment || value.reason || "Approved",
+        approverName: updatedRequest.approver?.adminName || "Administrator",
+        date: new Date().toLocaleString(),
+      }).catch((err) => console.warn("Dispute approved email warning:", err?.message));
+    }
+
     return res.status(200).json({
       ok: true,
       message: "Request approved successfully",
@@ -816,6 +846,19 @@ const rejectRequest = async (req, res) => {
         approver: true,
       },
     });
+
+    if (updatedRequest.member?.email) {
+      void sendDisputeRejectedEmail({
+        to: updatedRequest.member.email,
+        name: updatedRequest.member.fullname || updatedRequest.member.businessName || "Taxpayer",
+        requestId: updatedRequest.id,
+        paymentId: updatedRequest.paymentId,
+        amount: updatedRequest.payment?.amount || 0,
+        comment: updatedRequest.approverComment || updatedRequest.adminComment || value.reason || "Declined",
+        rejecterName: updatedRequest.approver?.adminName || updatedRequest.admin?.adminName || "Administrator",
+        date: new Date().toLocaleString(),
+      }).catch((err) => console.warn("Dispute rejected email warning:", err?.message));
+    }
 
     return res.status(200).json({
       ok: true,

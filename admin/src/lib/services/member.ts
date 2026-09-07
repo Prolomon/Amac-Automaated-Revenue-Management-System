@@ -45,7 +45,35 @@ export type Member = {
   createdAt?: string;
   updatedAt?: string;
   agent?: string;
-  agentData: Agent;
+  agentData?: Agent;
+  property?: Property;
+  document?: Document;
+  properties?: Property[];
+  documents?: Document[];
+};
+
+export type Property = {
+  id?: string;
+  pid?: string;
+  name: string;
+  type: string;
+  size: string;
+  images: string[];
+  center?: string | null;
+  memberId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  membersCount?: number | string;
+};
+
+export type Document = {
+  id?: string;
+  type: "nin" | "cac" | "passport" | "voters card" | "drivers lincense" | string;
+  number: string;
+  data?: any;
+  memberId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export async function getMembers( page: number, limit: number, id: string, ): Promise<{ data: Member[]; ok: boolean; message?: string; meta: { total: number; page: number; limit: number; totalPages: number };
@@ -239,3 +267,20 @@ export async function changeCompany(
   }
   return data;
 }
+
+export async function getProperties(): Promise<{ ok: boolean; data: Property[] }> {
+  try {
+    const response = await fetch(`${API_URL}/property`, {
+      headers: { ...buildHeaders(false) },
+    });
+    if (!response.ok) {
+      return { ok: false, data: [] };
+    }
+    const data = await response.json();
+    return { ok: true, data: data.data || [] };
+  } catch (error) {
+    console.error("Failed to fetch properties:", error);
+    return { ok: false, data: [] };
+  }
+}
+

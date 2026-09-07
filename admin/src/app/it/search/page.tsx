@@ -6,6 +6,7 @@ import { getMembers } from "@/lib/services/member";
 import { getPayments, Payment } from "@/lib/services/payments";
 import { getCompanies, Company } from "@/lib/services/company";
 import { getPricingByCenter, Pricing } from "@/lib/services/pricing";
+import { getProperties, Property } from "@/lib/services/property";
 import { useToast } from "@/context/ToastContext";
 import Link from "next/link";
 import {
@@ -18,6 +19,7 @@ import {
   XCircle,
   ChevronRight,
   RefreshCw,
+  Home,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getCenterId } from "@/lib/permissions";
@@ -31,12 +33,14 @@ export default function AdvancedSearchPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [pricing, setPricing] = useState<Pricing[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [selectedPricingId, setSelectedPricingId] = useState("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
@@ -56,17 +60,19 @@ export default function AdvancedSearchPage() {
         return;
       }
 
-      const [paymentsRes, membersRes, companiesRes, pricingRes] = await Promise.all([
+      const [paymentsRes, membersRes, companiesRes, pricingRes, propertiesRes] = await Promise.all([
         getPayments(centerId, 1, 1000).catch(() => ({ ok: false, payments: [] })),
         getMembers(1, 1000, centerId).catch(() => ({ ok: false, data: [] })),
         getCompanies(centerId, 1, 100).catch(() => ({ ok: false, data: [] })),
         getPricingByCenter(centerId).catch(() => ({ ok: false, data: [] })),
+        getProperties({ center: centerId }).catch(() => ({ ok: false, data: [] })),
       ]);
 
       setPayments(paymentsRes?.payments || []);
       setMembers(membersRes?.data || []);
       setCompanies(companiesRes?.data || []);
       setPricing(pricingRes?.data || []);
+      setProperties(propertiesRes?.data || []);
 
       addToast("success", "Data loaded for advanced search");
     } catch (error: any) {
@@ -87,6 +93,7 @@ export default function AdvancedSearchPage() {
     setSearchTerm("");
     setSelectedPartnerId("");
     setSelectedPricingId("");
+    setSelectedPropertyId("");
     setMinAmount("");
     setMaxAmount("");
     setSelectedStatus("");
@@ -184,9 +191,60 @@ export default function AdvancedSearchPage() {
         }
       }
 
+      // Property Filter (Payments by property occupancy)
+      if (selectedPropertyId) {
+        const propObj = properties.find(
+          (pr) => pr.id === selectedPropertyId || pr.pid === selectedPropertyId
+        );
+        const propPid = propObj?.pid;
+        const propName = propObj?.name?.toLowerCase();
+
+        const payer = members.find((m) => m.uid === p.userId || m.id === p.userId);
+        if (!payer) {
+          if (propObj?.memberId !== p.userId) return false;
+        } else {
+          const matchId =
+            payer.propertyId === selectedPropertyId ||
+            payer.property?.id === selectedPropertyId ||
+            payer.property?.pid === selectedPropertyId;
+          const matchPid =
+            propPid &&
+            (payer.propertyId === propPid || payer.property?.pid === propPid);
+          const matchCreator = propObj?.memberId && propObj.memberId === payer.uid;
+          const matchLocId =
+            payer.location?.propertyId === selectedPropertyId ||
+            (propPid && payer.location?.propertyId === propPid);
+          const matchName =
+            propName &&
+            ((payer.property?.name &&
+              payer.property.name.toLowerCase() === propName) ||
+              (payer.location?.propertyName &&
+                payer.location.propertyName.toLowerCase() === propName));
+          const matchMulti =
+            Array.isArray(payer.properties) &&
+            payer.properties.some(
+              (pr: any) =>
+                pr.id === selectedPropertyId ||
+                (propPid && pr.pid === propPid) ||
+                (propName && pr.name?.toLowerCase() === propName)
+            );
+
+          if (
+            !matchId &&
+            !matchPid &&
+            !matchCreator &&
+            !matchLocId &&
+            !matchName &&
+            !matchMulti
+          ) {
+            return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [payments, pricing, searchTerm, selectedPartnerId, selectedPricingId, minAmount, maxAmount, selectedStatus, lateFilter, dateFrom, dateTo]);
+  }, [payments, members, properties, pricing, searchTerm, selectedPartnerId, selectedPricingId, selectedPropertyId, minAmount, maxAmount, selectedStatus, lateFilter, dateFrom, dateTo]);
 
   // 2. FILTERED MEMBERS
   const filteredMembers = useMemo(() => {
@@ -223,9 +281,54 @@ export default function AdvancedSearchPage() {
         }
       }
 
+      // Property Filter
+      if (selectedPropertyId) {
+        const propObj = properties.find(
+          (pr) => pr.id === selectedPropertyId || pr.pid === selectedPropertyId
+        );
+        const propPid = propObj?.pid;
+        const propName = propObj?.name?.toLowerCase();
+
+        const matchId =
+          m.propertyId === selectedPropertyId ||
+          m.property?.id === selectedPropertyId ||
+          m.property?.pid === selectedPropertyId;
+        const matchPid =
+          propPid &&
+          (m.propertyId === propPid || m.property?.pid === propPid);
+        const matchCreator = propObj?.memberId && propObj.memberId === m.uid;
+        const matchLocId =
+          m.location?.propertyId === selectedPropertyId ||
+          (propPid && m.location?.propertyId === propPid);
+        const matchName =
+          propName &&
+          ((m.property?.name && m.property.name.toLowerCase() === propName) ||
+            (m.location?.propertyName &&
+              m.location.propertyName.toLowerCase() === propName));
+        const matchMulti =
+          Array.isArray(m.properties) &&
+          m.properties.some(
+            (pr: any) =>
+              pr.id === selectedPropertyId ||
+              (propPid && pr.pid === propPid) ||
+              (propName && pr.name?.toLowerCase() === propName)
+          );
+
+        if (
+          !matchId &&
+          !matchPid &&
+          !matchCreator &&
+          !matchLocId &&
+          !matchName &&
+          !matchMulti
+        ) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [members, searchTerm, selectedPartnerId, selectedPricingId]);
+  }, [members, properties, searchTerm, selectedPartnerId, selectedPricingId, selectedPropertyId]);
 
   function truncateSentence(count: number, sentence: string) {
     return sentence.length > count ? sentence.slice(0, count) + '...' : sentence;
@@ -313,6 +416,26 @@ export default function AdvancedSearchPage() {
               {pricing.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title} ({p.category}) - ₦{Number(p.price || 0).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Property / Premises Filter */}
+          <div className="space-y-1 relative">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1">
+              <Home size={13} className="text-emerald-600" />
+              Property / Premises
+            </label>
+            <select
+              value={selectedPropertyId}
+              onChange={(e) => setSelectedPropertyId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 appearance-none text-slate-700"
+            >
+              <option value="">All Properties</option>
+              {properties.map((pr) => (
+                <option key={pr.id || pr.pid} value={pr.id || pr.pid}>
+                  {pr.name} {pr.pid ? `(${pr.pid})` : ""}
                 </option>
               ))}
             </select>

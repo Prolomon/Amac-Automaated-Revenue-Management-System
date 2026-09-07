@@ -23,10 +23,17 @@ import { requestRouter } from './requestRoutes.js';
 import { departmentRouter } from './departmentRoutes.js';
 import { activityLogRouter } from './activityLogRoutes.js';
 import { activityLogger } from '../middleware/activityLogger.js';
+import { getPublicCenters } from '../controller/adminController.js';
+
+import { propertyRouter } from './propertyRoutes.js';
+import { documentRouter } from './documentRoutes.js';
 
 // Apply database health check to all API routes
 router.use(checkDatabaseConnection);
 router.use(activityLogger);
+
+// Public route for revenue centers
+router.get('/centers', getPublicCenters);
 
 // This file will export all routes
 router.use('/upload', uploadRouter);
@@ -50,6 +57,8 @@ router.use('/terminal', terminalRouter);
 router.use('/request', requestRouter);
 router.use('/department', departmentRouter);
 router.use('/activity-log', activityLogRouter);
+router.use('/property', propertyRouter);
+router.use('/document', documentRouter);
 
 export  {router as apiRouter};
   

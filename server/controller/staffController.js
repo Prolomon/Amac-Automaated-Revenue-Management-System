@@ -11,8 +11,13 @@ import {
 const joseImport = () => import("jose");
 const jwtSecret = process.env.JWT_SECRET;
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
-import { sendEmail } from "../service/mail.js";
-import { accountCreation, walletCreation, resetSuccessful, resetCode, loginAlert } from "../service/templates.js";
+import {
+  sendLoginSuccessEmail,
+  sendAccountCreationEmail,
+  sendForgotPasswordEmail,
+  sendResetPasswordEmail,
+  sendProfileUpdateEmail,
+} from "../core/mail.js";
 
 const generateStaffUidSuffix = customAlphabet(
   "0123456789",
@@ -142,6 +147,19 @@ const createStaff = async (req, res) => {
         departmentId: value.departmentId || null,
       },
       select: staffSafeSelect,
+    });
+
+    sendAccountCreationEmail({
+      to: staff.email,
+      name: staff.fullname,
+      email: staff.email,
+      phone: staff.phone,
+      role: staff.role || "Staff",
+    }).catch((emailErr) => {
+      console.error(
+        "Staff account creation email failed:",
+        emailErr?.message || emailErr,
+      );
     });
 
     return res.status(201).json({
@@ -297,6 +315,17 @@ const updateStaff = async (req, res) => {
       select: staffSafeSelect,
     });
 
+    sendProfileUpdateEmail({
+      to: staff.email,
+      name: staff.fullname,
+      updatedFields: Object.keys(value),
+    }).catch((emailErr) => {
+      console.error(
+        "Staff profile update email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Staff updated successfully",
@@ -350,6 +379,17 @@ const resetPassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
+    sendForgotPasswordEmail({
+      to: staff.email,
+      name: staff.fullname || "Staff",
+      resetCode: code,
+    }).catch((emailErr) => {
+      console.error(
+        "Staff password reset email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Password reset successfully. Temporary password sent to email",
@@ -384,7 +424,7 @@ const changePassword = async (req, res) => {
 
     const staff = await prisma.staff.findUnique({
       where: { uid: staffUid },
-      select: { uid: true, password: true },
+      select: { uid: true, password: true, email: true, fullname: true },
     });
 
     if (!staff) {
@@ -407,6 +447,16 @@ const changePassword = async (req, res) => {
     await prisma.staff.update({
       where: { uid: staffUid },
       data: { password: hashedPassword },
+    });
+
+    sendResetPasswordEmail({
+      to: staff.email,
+      name: staff.fullname || "Staff",
+    }).catch((emailErr) => {
+      console.error(
+        "Staff change password email failed:",
+        emailErr?.message || emailErr,
+      );
     });
 
     return res.status(200).json({
@@ -470,15 +520,12 @@ const loginStaff = async (req, res) => {
     // Never send the password hash to the client.
     const { password, ...staffWithoutPassword } = staff;
 
-    void sendEmail(
-      staff.email,
-      "Login Alert from URMS",
-      await loginAlert(
-        staff.staffName || staff.center || "Staff",
-        new Date().toLocaleString(),
-        ip,
-      ),
-    ).catch((emailErr) => {
+    sendLoginSuccessEmail({
+      to: staff.email,
+      name: staff.fullname || staff.staffName || "Staff",
+      ipAddress: ip,
+      device: req.headers["user-agent"],
+    }).catch((emailErr) => {
       console.error(
         "Staff login alert email failed:",
         emailErr?.message || emailErr,

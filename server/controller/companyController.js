@@ -9,9 +9,15 @@ import {
   changePasswordSchema,
   loginCompanySchema,
 } from "../validator/companyValidator.js";
-import { sendEmail } from "../service/mail.js";
 import { verifyProtocol } from "../service/mail.js";
-import { loginAlert } from "../service/templates.js";
+import {
+  sendLoginSuccessEmail,
+  sendAccountCreationEmail,
+  sendForgotPasswordEmail,
+  sendResetPasswordEmail,
+  sendProfileUpdateEmail,
+  sendWalletCreationEmail,
+} from "../core/mail.js";
 
 const joseImport = () => import("jose");
 const jwtSecret = process.env.JWT_SECRET;
@@ -176,6 +182,32 @@ const createCompany = async (req, res) => {
       });
     }
 
+    sendAccountCreationEmail({
+      to: company.email,
+      name: company.name,
+      email: company.email,
+      phone: company.phone,
+      role: "Company",
+    }).catch((emailErr) => {
+      console.error(
+        "Company account creation email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
+    sendWalletCreationEmail({
+      to: company.email,
+      name: company.name,
+      accountNumber: wallet.accountNo,
+      bankName: wallet.bank?.name || value.data?.bankName,
+      currency: "NGN",
+    }).catch((emailErr) => {
+      console.error(
+        "Company wallet creation email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     return res.status(201).json({
       ok: true,
       message: "Company created successfully",
@@ -309,6 +341,17 @@ const updateCompany = async (req, res) => {
       select: companySafeSelect,
     });
 
+    sendProfileUpdateEmail({
+      to: company.email,
+      name: company.name,
+      updatedFields: Object.keys(value),
+    }).catch((emailErr) => {
+      console.error(
+        "Company profile update email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Company updated successfully",
@@ -366,6 +409,17 @@ const resetPassword = async (req, res) => {
       data: { password: hashedPassword },
     });
 
+    sendForgotPasswordEmail({
+      to: company.email,
+      name: company.name || "Company",
+      resetCode: code,
+    }).catch((emailErr) => {
+      console.error(
+        "Company password reset email failed:",
+        emailErr?.message || emailErr,
+      );
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Password reset successfully. Temporary password sent to email",
@@ -400,7 +454,7 @@ const changePassword = async (req, res) => {
 
     const company = await prisma.company.findFirst({
       where: { uid: companyUid },
-      select: { uid: true, password: true },
+      select: { uid: true, password: true, email: true, name: true },
     });
 
     if (!company) {
@@ -423,6 +477,16 @@ const changePassword = async (req, res) => {
     await prisma.company.update({
       where: { uid: companyUid },
       data: { password: hashedPassword },
+    });
+
+    sendResetPasswordEmail({
+      to: company.email,
+      name: company.name || "Company",
+    }).catch((emailErr) => {
+      console.error(
+        "Company change password email failed:",
+        emailErr?.message || emailErr,
+      );
     });
 
     return res.status(200).json({
@@ -500,15 +564,12 @@ const loginCompany = async (req, res) => {
       type: "company",
     });
 
-    void sendEmail(
-      company.email,
-      "Login Alert from URMS",
-      await loginAlert(
-        company.name || company.center || "Company",
-        new Date().toLocaleString(),
-        ip,
-      ),
-    ).catch((emailErr) => {
+    sendLoginSuccessEmail({
+      to: company.email,
+      name: company.name || company.center || "Company",
+      ipAddress: ip,
+      device: req.headers["user-agent"],
+    }).catch((emailErr) => {
       console.error(
         "Company login alert email failed:",
         emailErr?.message || emailErr,
