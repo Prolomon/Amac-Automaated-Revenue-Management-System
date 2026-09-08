@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check } from "lucide-react";
-import { getDemandsByCenter, getAllDemands, resendDemand } from "@/lib/services/demand";
+import { getDemandsByCenter, getAllDemands, resendDemand, downloadDemandPdf, downloadMultipleDemandsPdf } from "@/lib/services/demand";
 import withAuth from "@/components/withAuth";
 import { useToast } from "@/context/ToastContext";
 import { getAllAdmins, Admin } from "@/lib/services/admin";
@@ -12,6 +12,8 @@ function DemandsListPage() {
   const [demands, setDemands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [resendLoading, setResendLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [batchDownloading, setBatchDownloading] = useState(false);
   const { addToast } = useToast();
   const [center, setCenter] = useState("");
   const [centers, setCenters] = useState<Admin[]>([]);
@@ -134,6 +136,40 @@ function DemandsListPage() {
     }
   };
 
+  const handleSingleDownload = async (demandId: string, ref: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDownloadingId(demandId);
+    try {
+      await downloadDemandPdf(
+        demandId,
+        `AMAC_Demand_Notice_${(ref || demandId).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`
+      );
+      addToast("success", "Demand notice downloaded");
+    } catch (err: any) {
+      addToast("error", err?.message || "Failed to download demand notice");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleBatchDownload = async () => {
+    if (demands.length === 0) {
+      addToast("error", "No demands available to export");
+      return;
+    }
+    setBatchDownloading(true);
+    try {
+      const ids = demands.map((d) => d.id).filter(Boolean);
+      await downloadMultipleDemandsPdf(ids, `AMAC_Demand_Notices_Batch_${Date.now()}.pdf`);
+      addToast("success", `Downloaded ${ids.length} demand notices as PDF`);
+    } catch (err: any) {
+      addToast("error", err?.message || "Failed to download batch demand notices");
+    } finally {
+      setBatchDownloading(false);
+    }
+  };
+
   const handleFilterChange = (field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value, page: "1" }));
   };
@@ -197,10 +233,14 @@ function DemandsListPage() {
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
-            <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4">
-                  <Download size={18} />
-                  <span className="hidden sm:inline">Export</span>
-                </button>
+            <button
+              onClick={handleBatchDownload}
+              disabled={batchDownloading || loading || demands.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 md:px-4 disabled:opacity-50 cursor-pointer"
+            >
+              <Download size={18} className={batchDownloading ? "animate-spin" : ""} />
+              <span className="hidden sm:inline">{batchDownloading ? "Exporting..." : "Export Batch PDF"}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -308,31 +348,31 @@ function DemandsListPage() {
           ) : (
             <>
               {demands.map((demand, index) => {
-
-                const principal = Number(demand?.payment?.debt > 0 ? demand?.payment?.debt : demand?.payment?.amount);
+                const principal = Number(
+                  demand?.amount ?? Math.max(0, Number(demand?.payment?.amount || 0) - Number(demand?.payment?.paid || 0))
+                );
                 const vat = principal * 0.075;
-                const subtotal = principal + vat;
+                const charges = principal * 0.015;
+                const subtotal = principal + vat + charges;
 
-                // Get payment date and current date
-                const paymentDate = new Date(demand?.payment?.date);
+                // Get payment due date and current date
+                const rawDueDate = demand?.payment?.due || demand?.payment?.createdAt || demand?.createdAt;
+                const paymentDate = rawDueDate ? new Date(rawDueDate) : null;
                 const currentDate = new Date();
 
-                // Calculate days overdue
+                // Calculate days overdue / penalty
                 let daysOverdue = 0;
-                // if (currentDate > paymentDate) {
-                //   const diffTime = currentDate - paymentDate;
-                //   daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-                // }
-                if (currentDate > paymentDate) {
-                  const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
-                  daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+                let penalty = 0;
+                const isSettled = String(demand.status).toUpperCase() === 'PAID' || (demand?.payment?.paid && demand?.payment?.paid >= demand?.payment?.amount);
+
+                if (!isSettled && paymentDate && !isNaN(paymentDate.getTime()) && currentDate > paymentDate) {
+                  const diffTime = currentDate.getTime() - paymentDate.getTime();
+                  daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  const penaltyRatePerDay = 0.00005;
+                  penalty = subtotal * penaltyRatePerDay * daysOverdue;
                 }
 
-                // Penalty: 0.005% per day overdue
-                const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-                const penalty = subtotal * penaltyRatePerDay * daysOverdue;
-
-                const totalAmount = subtotal + penalty + Number(demand?.payment?.discount || 0);
+                const totalAmount = subtotal + penalty;
 
                 return (
                   <div key={demand.id} className="block">
@@ -387,16 +427,24 @@ function DemandsListPage() {
 
                         <div className="mt-5">
                           <div className="grid gap-2">
-                            <Link href={`/it/demands/${demand?.payment?.id || demand.id}`}
-                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                            <Link href={`/it/demands/${demand.id}`}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                             >
                               <Eye size={16} />
                               View Details
                             </Link>
                             <button
+                              onClick={(e) => handleSingleDownload(demand.id, demand.reference, e)}
+                              disabled={downloadingId === demand.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-60 cursor-pointer"
+                            >
+                              <Download size={16} className={downloadingId === demand.id ? "animate-spin" : ""} />
+                              {downloadingId === demand.id ? "Downloading..." : "Download PDF"}
+                            </button>
+                            <button
                               onClick={(e) => { demand.id && handleResend(demand.id, e); }}
                               disabled={resendLoading || !demand.id || demand.status.toUpperCase() === 'PAID'}
-                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                             >
                               <RefreshCw className={resendLoading ? "animate-spin w-4 h-4" : "w-4 h-4"} />
                               {demand.status.toUpperCase() === 'PAID' ? 'Paid' : 'Send Reminder'}

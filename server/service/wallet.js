@@ -1,4 +1,3 @@
-
 import { customAlphabet } from "nanoid";
 
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
@@ -136,8 +135,6 @@ export const createAccount = async (name, id, bvn, expire) => {
         });
 
         const data = await response.json();
-
-        console.log('Nomba createAccount response', { data });
 
         if (!response.ok || !data?.status) {
             console.log('Nomba createAccount error', { data });
@@ -685,4 +682,4 @@ export const getAccountTerminals = async (accountId = process.env.NOMBA_ACCOUNT_
             data: null,
         };
     }
-};
+};

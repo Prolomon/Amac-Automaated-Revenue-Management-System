@@ -244,3 +244,55 @@ export async function resendDemand(
   }
   return data;
 }
+
+export async function downloadDemandPdf(demandId: string, filename?: string): Promise<void> {
+  const response = await fetch(`${API_URL}/demand/${demandId}/download`, {
+    headers: { ...buildHeaders() },
+  });
+
+  if (!response.ok) {
+    let errorMsg = "Failed to download demand notice";
+    try {
+      const errJson = await response.json();
+      if (errJson.message) errorMsg = errJson.message;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || `Demand_Notice_${demandId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+export async function downloadMultipleDemandsPdf(ids: string[], filename?: string): Promise<void> {
+  const response = await fetch(`${API_URL}/demand/download-many`, {
+    method: "POST",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!response.ok) {
+    let errorMsg = "Failed to download demand notices batch";
+    try {
+      const errJson = await response.json();
+      if (errJson.message) errorMsg = errJson.message;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || `Demand_Notices_Batch_${Date.now()}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}

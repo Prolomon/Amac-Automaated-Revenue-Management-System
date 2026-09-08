@@ -5,7 +5,7 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { apiRouter } from "../routes/index.js";
 import { startPaymentCron } from "../service/paymentCron.js";
-import { startDemandCron } from "../service/demandCron.js";
+import { startDemandCron, startDemandEmailCron } from "../service/demandCron.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -97,6 +97,7 @@ app.use("/api", apiRouter);
 
 startPaymentCron();
 startDemandCron();
+startDemandEmailCron();
 
 app.get("/", (req, res) => {
   res.send("Hello World!");

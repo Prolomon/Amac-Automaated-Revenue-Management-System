@@ -8,6 +8,21 @@ import {
   sendTransactionSuccessEmail,
   sendTransactionFailedEmail,
 } from "./mail.js";
+import {
+  sendPaymentPaidSms,
+  sendPaymentSuccessSms,
+  sendPaymentPendingSms,
+  sendTransactionSuccessSms,
+  sendTransactionFailedSms,
+} from "./sms.js";
+import {
+  sendPaymentPaidWhatsApp,
+  sendPaymentSuccessWhatsApp,
+  sendPaymentPendingWhatsApp,
+  sendTransactionSuccessWhatsApp,
+  sendTransactionFailedWhatsApp,
+} from "./whatsapp.js";
+
 
 const getWalletBankDetails = (wallet) => {
   const bank = wallet?.bank || {};
@@ -644,58 +659,194 @@ export const executeUnifiedPayment = async ({
         payoutResults.admin.message === "No admin wallet found");
     const allPayoutsOk = agentPayoutOk && adminPayoutOk;
 
-    // Send email notifications via mail engine
+    // Dispatch multi-channel notifications (Email, SMS, WhatsApp)
+    // Non-blocking & fault-tolerant: failure of any notification will NEVER affect the payment engine
     try {
       const recipientEmail = member?.email;
+      const recipientPhone = member?.phone;
       const recipientName = member?.fullname || member?.businessName || "Valued Customer";
+      const planReference = paymentRecord.reference || paymentRecord.id;
+      const notificationDate = new Date().toLocaleString();
 
+      const notificationTasks = [];
+
+      // 1. Email Notifications
       if (recipientEmail) {
-        if (isFullyPaid) {
-          await sendPaymentPaidEmail({
-            to: recipientEmail,
-            name: recipientName,
-            reference: receiptReference,
-            amount: payableAmount,
-            planId: paymentRecord.reference || paymentRecord.id,
-            date: new Date().toLocaleString(),
-            receipt,
-          });
-        } else {
-          await sendPaymentSuccessEmail({
-            to: recipientEmail,
-            name: recipientName,
-            reference: receiptReference,
-            amount: payableAmount,
-            planId: paymentRecord.reference || paymentRecord.id,
-            date: new Date().toLocaleString(),
-            debt: newDebt,
-            frequency: paymentRecord.frequency,
-            receipt,
-          });
+        notificationTasks.push(
+          (async () => {
+            try {
+              if (isFullyPaid) {
+                await sendPaymentPaidEmail({
+                  to: recipientEmail,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  receipt,
+                });
+              } else {
+                await sendPaymentSuccessEmail({
+                  to: recipientEmail,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  debt: newDebt,
+                  frequency: paymentRecord.frequency,
+                  receipt,
+                });
 
-          await sendPaymentPendingEmail({
-            to: recipientEmail,
-            name: recipientName,
-            reference: receiptReference,
-            amount: newDebt,
-            planId: paymentRecord.reference || paymentRecord.id,
-            dueDate: paymentRecord.due,
-            frequency: paymentRecord.frequency,
-          });
-        }
+                await sendPaymentPendingEmail({
+                  to: recipientEmail,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: newDebt,
+                  planId: planReference,
+                  dueDate: paymentRecord.due,
+                  frequency: paymentRecord.frequency,
+                });
+              }
 
-        await sendTransactionSuccessEmail({
-          to: recipientEmail,
-          name: recipientName,
-          reference: `${receiptReference}-SENDER`,
-          amount: payableAmount,
-          currency: "NGN",
-          channel,
-          date: new Date().toLocaleString(),
-        });
+              await sendTransactionSuccessEmail({
+                to: recipientEmail,
+                name: recipientName,
+                reference: `${receiptReference}-SENDER`,
+                amount: payableAmount,
+                currency: "NGN",
+                channel,
+                date: notificationDate,
+              });
+            } catch (emailErr) {
+              console.warn("Unified payment Email notification warning:", emailErr?.message || emailErr);
+            }
+          })()
+        );
       }
-    } catch (mailErr) {
-      console.warn("Unified payment email notification warning:", mailErr?.message || mailErr);
+
+      // 2. SMS Notifications (via Infobip)
+      if (recipientPhone) {
+        notificationTasks.push(
+          (async () => {
+            try {
+              if (isFullyPaid) {
+                await sendPaymentPaidSms({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  receipt,
+                });
+              } else {
+                await sendPaymentSuccessSms({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  debt: newDebt,
+                  frequency: paymentRecord.frequency,
+                  receipt,
+                });
+
+                await sendPaymentPendingSms({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: newDebt,
+                  planId: planReference,
+                  dueDate: paymentRecord.due,
+                  frequency: paymentRecord.frequency,
+                });
+              }
+
+              await sendTransactionSuccessSms({
+                to: recipientPhone,
+                phone: recipientPhone,
+                name: recipientName,
+                reference: `${receiptReference}-SENDER`,
+                amount: payableAmount,
+                currency: "NGN",
+                channel,
+                date: notificationDate,
+              });
+            } catch (smsErr) {
+              console.warn("Unified payment SMS notification warning:", smsErr?.message || smsErr);
+            }
+          })()
+        );
+      }
+
+      // 3. WhatsApp Notifications (via Infobip)
+      if (recipientPhone) {
+        notificationTasks.push(
+          (async () => {
+            try {
+              if (isFullyPaid) {
+                await sendPaymentPaidWhatsApp({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  receipt,
+                });
+              } else {
+                await sendPaymentSuccessWhatsApp({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: payableAmount,
+                  planId: planReference,
+                  date: notificationDate,
+                  debt: newDebt,
+                  frequency: paymentRecord.frequency,
+                  receipt,
+                });
+
+                await sendPaymentPendingWhatsApp({
+                  to: recipientPhone,
+                  phone: recipientPhone,
+                  name: recipientName,
+                  reference: receiptReference,
+                  amount: newDebt,
+                  planId: planReference,
+                  dueDate: paymentRecord.due,
+                  frequency: paymentRecord.frequency,
+                });
+              }
+
+              await sendTransactionSuccessWhatsApp({
+                to: recipientPhone,
+                phone: recipientPhone,
+                name: recipientName,
+                reference: `${receiptReference}-SENDER`,
+                amount: payableAmount,
+                currency: "NGN",
+                channel,
+                date: notificationDate,
+              });
+            } catch (whatsAppErr) {
+              console.warn("Unified payment WhatsApp notification warning:", whatsAppErr?.message || whatsAppErr);
+            }
+          })()
+        );
+      }
+
+      // Concurrently settle all notification channels without blocking or throwing
+      await Promise.allSettled(notificationTasks);
+    } catch (notificationDispatchErr) {
+      console.warn("Unified payment notification dispatch warning:", notificationDispatchErr?.message || notificationDispatchErr);
     }
 
     return {
@@ -728,27 +879,75 @@ export const executeUnifiedPayment = async ({
   } catch (err) {
     console.error("executeUnifiedPayment error:", err);
 
-    // Send transaction failed notification if user can be identified
+    // Send transaction failed notification (Email, SMS, WhatsApp) if user can be identified
     if (userId) {
       try {
         const failedMember = await prisma.member.findUnique({
           where: { uid: userId },
-          select: { email: true, fullname: true, businessName: true },
+          select: { email: true, phone: true, fullname: true, businessName: true },
         });
-        if (failedMember?.email) {
-          await sendTransactionFailedEmail({
-            to: failedMember.email,
-            name: failedMember.fullname || failedMember.businessName || "Valued Customer",
-            reference: paymentId,
-            amount,
-            currency: "NGN",
-            channel,
-            date: new Date().toLocaleString(),
-            reason: err?.message || "Payment execution error",
-          });
+
+        if (failedMember) {
+          const failName = failedMember.fullname || failedMember.businessName || "Valued Customer";
+          const failDate = new Date().toLocaleString();
+          const failReason = err?.message || "Payment execution error";
+          const failTasks = [];
+
+          if (failedMember.email) {
+            failTasks.push(
+              sendTransactionFailedEmail({
+                to: failedMember.email,
+                name: failName,
+                reference: paymentId,
+                amount,
+                currency: "NGN",
+                channel,
+                date: failDate,
+                reason: failReason,
+              }).catch((emailErr) => {
+                console.warn("Failed payment email notification warning:", emailErr?.message || emailErr);
+              })
+            );
+          }
+
+          if (failedMember.phone) {
+            failTasks.push(
+              sendTransactionFailedSms({
+                to: failedMember.phone,
+                phone: failedMember.phone,
+                name: failName,
+                reference: paymentId,
+                amount,
+                currency: "NGN",
+                channel,
+                date: failDate,
+                reason: failReason,
+              }).catch((smsErr) => {
+                console.warn("Failed payment SMS notification warning:", smsErr?.message || smsErr);
+              })
+            );
+
+            failTasks.push(
+              sendTransactionFailedWhatsApp({
+                to: failedMember.phone,
+                phone: failedMember.phone,
+                name: failName,
+                reference: paymentId,
+                amount,
+                currency: "NGN",
+                channel,
+                date: failDate,
+                reason: failReason,
+              }).catch((whatsAppErr) => {
+                console.warn("Failed payment WhatsApp notification warning:", whatsAppErr?.message || whatsAppErr);
+              })
+            );
+          }
+
+          await Promise.allSettled(failTasks);
         }
-      } catch (failedMailErr) {
-        console.warn("Failed payment notification warning:", failedMailErr?.message);
+      } catch (failedNotificationErr) {
+        console.warn("Failed payment notification dispatch warning:", failedNotificationErr?.message || failedNotificationErr);
       }
     }
 

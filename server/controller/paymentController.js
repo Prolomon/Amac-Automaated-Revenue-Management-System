@@ -7,6 +7,9 @@ import {
 import { customAlphabet } from "nanoid";
 import { executeUnifiedPayment } from "../core/payment.js";
 import { sendPaymentCreatedEmail, sendPaymentPendingEmail } from "../core/mail.js";
+import { sendPaymentCreatedSms, sendPaymentPendingSms } from "../core/sms.js";
+import { sendPaymentCreatedWhatsApp, sendPaymentPendingWhatsApp } from "../core/whatsapp.js";
+
 
 const paymentReferenceSuffix = customAlphabet("0123456789", 8);
 
@@ -142,13 +145,119 @@ const createPaymentRecord = async (data, client = prisma) => {
   });
 };
 
+const notifyPaymentCreated = async (payment, client = prisma) => {
+  if (!payment) return;
+
+  try {
+    const notificationType = payment.status === "SUCCESS" ? "SUCCESS" : "PENDING";
+    const notificationTitle =
+      payment.status === "SUCCESS" ? "Payment Successful" : "New Payment Bill Issued";
+    const notificationDescription =
+      payment.status === "SUCCESS"
+        ? `Your payment of ₦${Number(payment.amount).toLocaleString()} has been processed successfully.`
+        : `A new revenue bill of ₦${Number(payment.amount).toLocaleString()} (Ref: ${payment.reference}) has been issued, due on ${new Date(payment.due).toLocaleDateString()}.`;
+
+    await client.notification.create({
+      data: {
+        userId: payment.userId,
+        title: notificationTitle,
+        description: notificationDescription,
+        type: notificationType,
+        date: new Date(),
+      },
+    }).catch((e) => console.warn("Failed to create in-app notification:", e?.message));
+  } catch (notificationError) {
+    console.warn("Notification creation error:", notificationError?.message || notificationError);
+  }
+
+  try {
+    const payingMember = await client.member.findUnique({
+      where: { uid: payment.userId },
+      select: { email: true, phone: true, fullname: true, businessName: true },
+    });
+
+    if (payingMember) {
+      const recipientName = payingMember.fullname || payingMember.businessName || "Taxpayer";
+      const payload = {
+        name: recipientName,
+        reference: payment.reference,
+        amount: payment.amount,
+        planId: payment.id,
+        dueDate: payment.due,
+        frequency: payment.frequency,
+      };
+
+      const tasks = [];
+
+      // Email notifications
+      if (payingMember.email) {
+        tasks.push(
+          sendPaymentCreatedEmail({ ...payload, to: payingMember.email }).catch((err) =>
+            console.warn("Payment created email warning:", err?.message)
+          )
+        );
+        if (payment.status === "PENDING") {
+          tasks.push(
+            sendPaymentPendingEmail({ ...payload, to: payingMember.email }).catch((err) =>
+              console.warn("Payment pending email warning:", err?.message)
+            )
+          );
+        }
+      }
+
+      // SMS notifications
+      if (payingMember.phone) {
+        tasks.push(
+          sendPaymentCreatedSms({ ...payload, to: payingMember.phone, phone: payingMember.phone }).catch((err) =>
+            console.warn("Payment created SMS warning:", err?.message)
+          )
+        );
+        if (payment.status === "PENDING") {
+          tasks.push(
+            sendPaymentPendingSms({ ...payload, to: payingMember.phone, phone: payingMember.phone }).catch((err) =>
+              console.warn("Payment pending SMS warning:", err?.message)
+            )
+          );
+        }
+      }
+
+      // WhatsApp notifications
+      if (payingMember.phone) {
+        tasks.push(
+          sendPaymentCreatedWhatsApp({ ...payload, to: payingMember.phone, phone: payingMember.phone }).catch((err) =>
+            console.warn("Payment created WhatsApp warning:", err?.message)
+          )
+        );
+        if (payment.status === "PENDING") {
+          tasks.push(
+            sendPaymentPendingWhatsApp({ ...payload, to: payingMember.phone, phone: payingMember.phone }).catch((err) =>
+              console.warn("Payment pending WhatsApp warning:", err?.message)
+            )
+          );
+        }
+      }
+
+      await Promise.allSettled(tasks);
+    }
+  } catch (err) {
+    console.warn("Multi-channel payment notification error:", err?.message);
+  }
+};
+
 const createRecurringPaymentForPayment = async (payment, client = prisma) => {
   const nextDueDate = getNextDueDate(payment.due, payment.frequency);
+  const startOfNextDueDay = new Date(nextDueDate.getFullYear(), nextDueDate.getMonth(), nextDueDate.getDate(), 0, 0, 0);
+  const endOfNextDueDay = new Date(nextDueDate.getFullYear(), nextDueDate.getMonth(), nextDueDate.getDate(), 23, 59, 59, 999);
+
+  // Check if a payment for this cycle already exists
   const existingNextPayment = await client.payment.findFirst({
     where: {
       userId: payment.userId,
       payment: payment.payment,
-      due: nextDueDate,
+      due: {
+        gte: startOfNextDueDay,
+        lte: endOfNextDueDay,
+      },
     },
     select: { id: true },
   });
@@ -157,19 +266,40 @@ const createRecurringPaymentForPayment = async (payment, client = prisma) => {
     return { created: false, payment: null };
   }
 
+  // Calculate accumulated debt:
+  // If previous payment was settled (PAID, COMPLETED, SUCCESS), debt carried over is 0.
+  // If previous payment was PENDING, unpaid amount is carried over into debt.
+  let accumulatedDebt = 0;
+  const isSettled = ["PAID", "COMPLETED", "SUCCESS"].includes(String(payment.status).toUpperCase());
+  if (isSettled) {
+    accumulatedDebt = 0;
+  } else {
+    const unpaidAmount = Math.max(0, Number(payment.amount || 0) - Number(payment.paid || 0));
+    accumulatedDebt = Number(payment.debt || 0) + unpaidAmount;
+  }
+
+  const uniqueId = await generateUniquePaymentId(client);
+
   const nextPayment = await client.payment.create({
     data: {
+      id: uniqueId,
       reference: generatePaymentReference(),
       userId: payment.userId,
       frequency: payment.frequency,
-      sessions: [],
-      debt: Number(payment.debt ?? 0),
+      sessions: normalizeSessions(payment.sessions),
+      debt: accumulatedDebt,
       due: nextDueDate,
       amount: Number(payment.amount),
       payment: payment.payment,
+      centerId: payment.centerId || null,
+      companyId: payment.companyId || null,
       status: "PENDING",
       isVerify: false,
     },
+  });
+
+  void notifyPaymentCreated(nextPayment, client).catch((err) => {
+    console.warn("Recurring payment notification error:", err?.message || err);
   });
 
   return { created: true, payment: nextPayment };
@@ -191,63 +321,9 @@ const createPayment = async (req, res) => {
 
     const payment = await createPaymentRecord(value);
 
-    try {
-      const notificationType =
-        payment.status === "SUCCESS" ? "SUCCESS" : "PENDING";
-      const notificationTitle =
-        payment.status === "SUCCESS" ? "Payment Successful" : "Payment Pending";
-      const notificationDescription =
-        payment.status === "SUCCESS"
-          ? `Your payment of ${payment.amount} has been processed successfully.`
-          : `Your payment of ${payment.amount} is pending approval.`;
-
-      await prisma.notification.create({
-        data: {
-          userId: payment.userId,
-          title: notificationTitle,
-          description: notificationDescription,
-          type: notificationType,
-          date: new Date(),
-        },
-      });
-    } catch (notificationError) {
-      console.error(
-        "Failed to create payment notification:",
-        notificationError.message || notificationError,
-      );
-    }
-
-    try {
-      const payingMember = await prisma.member.findUnique({
-        where: { uid: payment.userId },
-        select: { email: true, fullname: true, businessName: true },
-      });
-      if (payingMember?.email) {
-        void sendPaymentCreatedEmail({
-          to: payingMember.email,
-          name: payingMember.fullname || payingMember.businessName || "Taxpayer",
-          reference: payment.reference,
-          amount: payment.amount,
-          planId: payment.id,
-          dueDate: payment.due,
-          frequency: payment.frequency,
-        }).catch((err) => console.warn("Payment created email warning:", err?.message));
-
-        if (payment.status === "PENDING") {
-          void sendPaymentPendingEmail({
-            to: payingMember.email,
-            name: payingMember.fullname || payingMember.businessName || "Taxpayer",
-            reference: payment.reference,
-            amount: payment.amount,
-            planId: payment.id,
-            dueDate: payment.due,
-            frequency: payment.frequency,
-          }).catch((err) => console.warn("Payment pending email warning:", err?.message));
-        }
-      }
-    } catch (emailErr) {
-      console.warn("Payment created email lookup warning:", emailErr?.message);
-    }
+    void notifyPaymentCreated(payment, prisma).catch((err) => {
+      console.warn("Create payment notification error:", err?.message || err);
+    });
 
     return res
       .status(201)
@@ -560,101 +636,114 @@ const getPaymentForUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || String(id).trim() === "") {
       return res
         .status(400)
-        .json({ ok: false, message: "User ID is required" });
+        .json({ ok: false, message: "User ID or Payment Reference is required" });
     }
 
+    const trimmedId = String(id).trim();
+
+    // 1. Try finding Member by uid, phone, or email
     let member = await prisma.member.findFirst({
       where: {
-        OR: [{ uid: id }, { phone: id }, { email: id }],
+        OR: [{ uid: trimmedId }, { phone: trimmedId }, { email: trimmedId }],
       },
     });
 
+    let agent = null;
+    let wallet = null;
+
     if (member) {
-      const payments = await prisma.payment.findMany({
-        where: { userId: member.uid },
-        include: { member: true, pricing: true },
-        orderBy: { createdAt: "desc" },
-      });
-
-      const agentUid = member.agent;
-
-      if (!agentUid) {
-        return res.status(500).json({
-          ok: false,
-          message: "Please Contact Support to assign an agent",
+      let payments = [];
+      try {
+        payments = await prisma.payment.findMany({
+          where: { userId: member.uid },
+          include: { member: true, pricing: true },
+          orderBy: { createdAt: "desc" },
+        });
+      } catch (relationErr) {
+        console.warn("Payment pricing relation lookup failed, falling back:", relationErr?.message);
+        payments = await prisma.payment.findMany({
+          where: { userId: member.uid },
+          include: { member: true },
+          orderBy: { createdAt: "desc" },
         });
       }
 
-      const agent = await prisma.agent.findFirst({
-        where: { uid: agentUid },
-      });
-
-      if (!agent) {
-        return res.status(500).json({
-          ok: false,
-          message: "Please Contact Support to assign an agent",
+      // Fetch agent if assigned (Agent is optional; do not throw or 500 if missing)
+      if (member.agent) {
+        agent = await prisma.agent.findFirst({
+          where: { uid: member.agent },
+        }).catch((e) => {
+          console.warn("Could not find agent record:", e?.message);
+          return null;
         });
       }
 
-      let wallet;
-
+      // Find member wallet, agent wallet, or fallback to admin wallet
       wallet = await prisma.wallet.findFirst({
         where: { userId: member.uid },
       });
 
-      if (!wallet) {
+      if (!wallet && member.agent) {
         wallet = await prisma.wallet.findFirst({
           where: { userId: member.agent },
         });
       }
 
-      const paymentList = await Promise.all(
-        payments.map(async (payment) => {
-          return { payment, wallet };
-        }),
-      );
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { role: "ADMIN" },
+        });
+      }
 
-      return res
-        .status(200)
-        .json({ ok: true, data: { payments: paymentList, member, agent } });
-    } else {
-      const payment = await prisma.payment.findFirst({
-        where: { reference: id },
-        include: { member: true, pricing: true },
+      const paymentList = payments.map((payment) => ({
+        payment,
+        wallet,
+      }));
+
+      return res.status(200).json({
+        ok: true,
+        data: { payments: paymentList, member, agent },
       });
+    } else {
+      // 2. Lookup by Payment reference, primary key id, or billing code
+      let payment = null;
+      try {
+        payment = await prisma.payment.findFirst({
+          where: {
+            OR: [
+              { reference: trimmedId },
+              { id: trimmedId },
+              { payment: trimmedId },
+            ],
+          },
+          include: { member: true, pricing: true },
+        });
+      } catch (relationErr) {
+        console.warn("Payment pricing relation lookup failed, falling back:", relationErr?.message);
+        payment = await prisma.payment.findFirst({
+          where: {
+            OR: [
+              { reference: trimmedId },
+              { id: trimmedId },
+              { payment: trimmedId },
+            ],
+          },
+          include: { member: true },
+        });
+      }
 
       if (!payment) {
         return res
           .status(404)
-          .json({ ok: false, message: "Payment not found" });
+          .json({ ok: false, message: "Payment or User record not found" });
       }
 
-      const agentUid = payment?.member?.agent;
-
-      if (!agentUid) {
-        return res.status(500).json({
-          ok: false,
-          message: "Please Contact Support to assign an agent | not member",
-        });
-      }
-
-      const agent = await prisma.agent.findFirst({
-        where: { uid: agentUid },
-      });
-
-      if (!agent) {
-        return res.status(500).json({
-          ok: false,
-          message: "Please Contact Support to assign an agent | not member",
-        });
-      }
-
-      member = await prisma.member.findFirst({
-        where: { uid: payment?.userId },
-      });
+      member = payment.member || (await prisma.member.findFirst({
+        where: { uid: payment.userId },
+      }));
 
       if (!member) {
         return res.status(404).json({
@@ -663,22 +752,43 @@ const getPaymentForUser = async (req, res) => {
         });
       }
 
-      let wallet = await prisma.wallet.findFirst({
+      const agentUid = member.agent || payment?.member?.agent;
+      if (agentUid) {
+        agent = await prisma.agent.findFirst({
+          where: { uid: agentUid },
+        }).catch((e) => {
+          console.warn("Could not find agent record:", e?.message);
+          return null;
+        });
+      }
+
+      wallet = await prisma.wallet.findFirst({
         where: { userId: member.uid },
       });
 
-      if (!wallet) {
+      if (!wallet && member.agent) {
         wallet = await prisma.wallet.findFirst({
           where: { userId: member.agent },
         });
       }
 
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { role: "ADMIN" },
+        });
+      }
+
       return res.status(200).json({
         ok: true,
-        data: { payments: [{ payment, wallet }], agent, member },
+        data: {
+          payments: [{ payment, wallet }],
+          agent,
+          member,
+        },
       });
     }
   } catch (err) {
+    console.error("getPaymentForUser error:", err);
     return res
       .status(500)
       .json({ ok: false, message: err?.message || "Server error" });

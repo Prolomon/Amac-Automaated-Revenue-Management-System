@@ -12,12 +12,14 @@ import {
   Globe,
   Printer,
   AlarmClock,
+  Download,
 } from "lucide-react";
 import {
   getDemand,
   Demand,
   resendDemand,
   getDemandByPayment,
+  downloadDemandPdf,
 } from "@/lib/services/demand";
 import { useParams } from "next/navigation";
 import withAuth from "@/components/withAuth";
@@ -39,6 +41,7 @@ function DemandDetailPage() {
   });
   const [moreInfoVisible, setMoreInfoVisible] = useState(false);
 
+  const [downloading, setDownloading] = useState(false);
   const router = useRouter();
 
   const fetchDemand = useCallback(async () => {
@@ -51,16 +54,19 @@ function DemandDetailPage() {
         return;
       }
 
-      if (params.id.includes("MEB")) {
+      try {
         response = await getDemand(params.id);
-      } else {
+        if (!response?.ok || !response?.data) {
+          response = await getDemandByPayment(params.id);
+        }
+      } catch {
         response = await getDemandByPayment(params.id);
       }
 
-      if (response.ok && response.data) {
+      if (response && response.ok && response.data) {
         setDemand(response.data);
       } else {
-        addToast("error", response.message || "Demand not found");
+        addToast("error", response?.message || "Demand not found");
       }
     } catch (err) {
       addToast(
@@ -71,6 +77,22 @@ function DemandDetailPage() {
       setLoading(false);
     }
   }, [addToast, params.id]);
+
+  const handleDownload = async () => {
+    if (!demand?.id) return;
+    setDownloading(true);
+    try {
+      await downloadDemandPdf(
+        demand.id,
+        `AMAC_Demand_Notice_${(demand.reference || demand.id).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`
+      );
+      addToast("success", "Demand notice PDF downloaded successfully");
+    } catch (err: any) {
+      addToast("error", err?.message || "Failed to download demand notice PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     fetchDemand();
@@ -223,29 +245,30 @@ function DemandDetailPage() {
 
   const pricingName = demand?.payment?.pricing?.title || "Revenue Assessment";
 
-  // Calculate for single payment
+  // Calculate for single payment using demand.amount (amount - paid)
   const principal = Number(
-    demand?.payment?.debt > 0 ? demand?.payment?.debt : demand?.payment?.amount,
+    demand?.amount ?? Math.max(0, Number(demand?.payment?.amount || 0) - Number(demand?.payment?.paid || 0))
   );
   const vat = principal * 0.075;
   const charges = principal * 0.015;
   const subtotal = principal + vat + charges;
 
-  // Get payment date and current date
-  const paymentDate = new Date(demand?.payment?.date);
+  // Get payment due date and current date
+  const rawDueDate = demand?.payment?.due || demand?.payment?.createdAt || demand?.createdAt;
+  const paymentDate = rawDueDate ? new Date(rawDueDate) : null;
   const currentDate = new Date();
 
   // Calculate days overdue
   let daysOverdue = 0;
+  let penalty = 0;
+  const isSettled = String(demand?.status).toUpperCase() === "PAID" || (demand?.payment?.paid && demand?.payment?.paid >= demand?.payment?.amount);
 
-  if (currentDate > paymentDate) {
-    const diffTime = currentDate.getTime() - paymentDate.getTime(); // ✅ use getTime()
-    daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
+  if (!isSettled && paymentDate && !isNaN(paymentDate.getTime()) && currentDate > paymentDate) {
+    const diffTime = currentDate.getTime() - paymentDate.getTime();
+    daysOverdue = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
+    penalty = subtotal * penaltyRatePerDay * daysOverdue;
   }
-
-  // Penalty: 0.005% per day overdue
-  const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-  const penalty = subtotal * penaltyRatePerDay * daysOverdue;
 
   const totalAmount = subtotal + penalty;
 
@@ -294,7 +317,7 @@ function DemandDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => router.back()}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-smfont-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
               >
                 <ArrowLeft size={16} />
                 <span className="hidden sm:inline">Back</span>
@@ -308,6 +331,14 @@ function DemandDetailPage() {
                   className={loading ? "animate-spin" : ""}
                 />
                 <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 cursor-pointer disabled:opacity-50"
+              >
+                <Download size={16} className={downloading ? "animate-spin" : ""} />
+                <span className="hidden sm:inline">{downloading ? "Downloading..." : "Download PDF"}</span>
               </button>
               {!readOnly ? (
                 <>

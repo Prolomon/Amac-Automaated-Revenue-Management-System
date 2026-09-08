@@ -1,10 +1,9 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
-import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { chromium } from 'playwright';
+import { createDemandNoticePdf } from "./demandPdf.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,112 +64,6 @@ if (resendApiKey) {
     resendAvailable = true;
   } catch (err) {
     console.error("Failed to initialize Resend client:", err);
-  }
-}
-
-let cachedBrowser = null;
-
-async function getBrowser() {
-  if (cachedBrowser) {
-    try {
-      if (cachedBrowser.isConnected()) {
-        return cachedBrowser;
-      }
-    } catch (e) {
-      cachedBrowser = null;
-    }
-  }
-
-  cachedBrowser = await chromium.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage'
-    ]
-  });
-  return cachedBrowser;
-}
-
-export async function generatePdfFromHtml(htmlContent, publicDir) {
-  let page;
-  try {
-    console.log("Generating PDF from HTML content...");
-    console.log("Public directory for resolving images:", publicDir);
-    console.log("HTML content length:", htmlContent.length);
-    console.log("Start Browser at: ", new Date().toISOString());
-    const browser = await getBrowser();
-    page = await browser.newPage();
-
-    // Inject viewport meta tag for proper scaling
-    let htmlWithViewport = htmlContent.replace(
-      /<head>/i,
-      `<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      @page {
-        size: A4;
-        margin: 0;
-      }
-
-      html,
-      body {
-        width: 210mm;
-        height: 297mm;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
-  `
-    );
-
-    // Resolve relative image URLs to absolute file:// URLs so Playwright can load them
-    if (publicDir) {
-      htmlWithViewport = htmlWithViewport.replace(
-        /<img([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi,
-        (match, before, src, after) => {
-          if (!src || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
-            return match;
-          }
-          const absolutePath = path.resolve(publicDir, src);
-          const absoluteUrl = 'file://' + absolutePath;
-          return `<img${before}src="${absoluteUrl}"${after}>`;
-        }
-      );
-    }
-
-    console.log("Setting page content for PDF generation...");
-    await page.setContent(htmlWithViewport, {
-      waitUntil: 'networkidle',
-      timeout: 120000,
-    });
-
-    console.log("Waiting for network to be idle before generating PDF...");
-    await page.waitForLoadState('networkidle');
-
-    try {
-      console.log("Generating PDF buffer...");
-      const pdfBuffer = await page.pdf({
-        printBackground: true,
-        preferCSSPageSize: true,
-        margin: {
-          top: '0',
-          right: '0',
-          bottom: '0',
-          left: '0'
-        }
-      });
-
-      console.log("PDF buffer generated successfully.");
-      return pdfBuffer;
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      throw err;
-    }
-  } finally {
-    if (page) {
-      await page.close().catch(err => console.error("Error closing page:", err));
-    }
   }
 }
 
@@ -286,9 +179,26 @@ export const sendEmail = async (to, subject, text, attachments = []) => {
   }
 };
 
-export const sendDemandNoticeEmail = async (to, subject, body, attachment, filename = "Demand_Notice.pdf", publicDir) => {
+/**
+ * Send demand notice email with PDF attachment.
+ * Accepts either:
+ * - A pre-generated PDF Buffer / Uint8Array
+ * - An object containing { demand, member, payment, wallet, pricing } to generate PDF on the fly
+ */
+export const sendDemandNoticeEmail = async (to, subject, body, attachment, filename = "Demand_Notice.pdf") => {
   try {
-    const pdfBuffer = await generatePdfFromHtml(attachment, publicDir);
+    let pdfBuffer;
+
+    if (Buffer.isBuffer(attachment) || attachment instanceof Uint8Array) {
+      pdfBuffer = Buffer.isBuffer(attachment) ? attachment : Buffer.from(attachment);
+    } else if (attachment && typeof attachment === "object" && attachment.demand) {
+      pdfBuffer = await createDemandNoticePdf(attachment);
+    } else if (attachment && typeof attachment === "string") {
+      pdfBuffer = Buffer.from(attachment);
+    } else {
+      throw new Error("Invalid attachment provided for demand notice email");
+    }
+
     const attachments = [
       {
         filename,

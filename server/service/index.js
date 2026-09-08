@@ -1,1 +1,3 @@
-// This file will export all services
+export * from "./mail.js";
+export * from "./sms.js";
+export * from "./whatsapp.js";

@@ -1,293 +1,355 @@
-import cron from 'node-cron';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { prisma } from '../config/db.js';
-import { sendDemandNoticeEmail } from './mail.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import cron from "node-cron";
+import { prisma } from "../config/db.js";
+import { sendDemandNoticeEmail } from "./mail.js";
+import { createDemandNoticePdf } from "./demandPdf.js";
 
 let demandCronStarted = false;
-let isProcessing = false;
+let demandEmailCronStarted = false;
+let isGeneratingDemands = false;
+let isSendingEmails = false;
 
-export const processDemands = async () => {
-  if (isProcessing) {
-    console.log('Demand processing already in progress, skipping.');
+/**
+ * 1. Demand Generation Job:
+ * Checks payments with status "PENDING".
+ * - If a demand notice with the same userId and payment reference (or paymentId) already exists,
+ *   it updates the existing demand notice with (amount - paid).
+ * - Else, generates a new demand notice with (amount - paid).
+ */
+export const processDemandGeneration = async () => {
+  if (isGeneratingDemands) {
+    console.log(
+      "[Demand Generation] Previous run still in progress, skipping.",
+    );
     return;
   }
-  isProcessing = true;
+  isGeneratingDemands = true;
+
   try {
-    console.log('Demand cron started at', new Date().toISOString());
+    console.log(
+      "[Demand Generation] Cron started at",
+      new Date().toISOString(),
+    );
 
-    // Find all demand records with CREATED status
-    // const createdDemands = await prisma.demand.findMany({
-    //   where: {
-    //     status: 'CREATED',
-    //   },
-    //   include: {
-    //     payment: {
-    //       include: {
-    //         member: true,
-    //       },
-    //     },
-    //     wallet: true,
-    //   },
-    // });
+    const pendingPayments = await prisma.payment.findMany({
+      where: {
+        status: "PENDING",
+      },
+      include: {
+        member: true,
+      },
+    });
 
-    // if (createdDemands.length === 0) {
-    //   console.log('No CREATED demand notices found to process');
-    //   return;
-    // }
+    if (pendingPayments.length === 0) {
+      console.log("[Demand Generation] No PENDING payments found");
+      return;
+    }
 
-    // // Process each demand individually - one email per demand/payment
-    // for (const demand of createdDemands) {
-    //   try {
-    //     const member = demand.payment?.member;
-    //     if (!member || !member.email) {
-    //       console.error(`Member not found or no email for userId: ${demand.userId}`);
-    //       continue;
-    //     }
+    console.log(
+      `[Demand Generation] Found ${pendingPayments.length} pending payments to process`,
+    );
 
-    //     // Fetch the single payment record for this demand
-    //     const payment = await prisma.payment.findUnique({
-    //       where: { id: demand.paymentId },
-    //     });
+    for (const payment of pendingPayments) {
+      try {
+        const remainingAmount = Math.max(
+          0,
+          Number(payment.amount || 0) - Number(payment.paid || 0),
+        );
 
-    //     if (!payment) {
-    //       console.error(`Payment not found for demand ${demand.id}`);
-    //       continue;
-    //     }
+        // Check if a demand notice already exists for this user and payment
+        const existingDemand = await prisma.demand.findFirst({
+          where: {
+            userId: payment.userId,
+            OR: [
+              { paymentId: payment.id },
+              ...(payment.reference ? [{ reference: payment.reference }] : []),
+            ],
+          },
+        });
 
-    //     // Fetch pricing record
-    //     const pricing = await prisma.pricing.findUnique({
-    //       where: { id: payment.payment },
-    //     });
-    //     const pricingName = pricing?.title || 'Revenue Assessment';
+        if (existingDemand) {
+          // Update the existing demand notice based on amount - paid
+          await prisma.demand.update({
+            where: { id: existingDemand.id },
+            data: {
+              amount: remainingAmount,
+              reference: payment.reference || existingDemand.reference,
+              center: payment.center || existingDemand.center,
+              walletId: payment.walletId || existingDemand.walletId,
+              status: remainingAmount <= 0 ? "PAID" : existingDemand.status,
+            },
+          });
+          console.log(
+            `[Demand Generation] Updated existing demand ${existingDemand.id} for payment ${payment.id} with remaining amount ${remainingAmount}`,
+          );
+        } else {
+          // Resolve wallet for taxpayer if not set on payment
+          let walletId = payment.walletId;
+          if (!walletId && payment.userId) {
+            const userWallet = await prisma.wallet.findFirst({
+              where: { userId: payment.userId },
+              select: { id: true },
+            });
+            walletId = userWallet ? userWallet.id : null;
+          }
+          if (!walletId && payment.member?.agent) {
+            const agentWallet = await prisma.wallet.findFirst({
+              where: { userId: payment.member.agent },
+              select: { id: true },
+            });
+            walletId = agentWallet ? agentWallet.id : null;
+          }
 
-    //     // Calculate for single payment
-    //     const principal = Number(payment.debt ? payment.debt : payment.amount);
-    //     const vat = principal * 0.075;
-    //     const charges = principal * 0.015;
-    //     const subtotal = principal + vat + charges;
+          const referenceNo =
+            payment.reference ||
+            `DN-${payment.id.substring(0, 10).toUpperCase()}`;
 
-    //     // BUG FIX: was `payment?.date`, a field that doesn't exist on the
-    //     // payment model — new Date(undefined) produces an Invalid Date, and
-    //     // any comparison against an Invalid Date is always false, so
-    //     // daysOverdue silently stuck at 0 and penalty was always 0 for
-    //     // every demand notice, regardless of how overdue the payment
-    //     // actually was. Every other overdue calculation in this codebase
-    //     // uses `payment.due` — matched that here.
-    //     const paymentDate = new Date(payment?.due);
-    //     const currentDate = new Date();
+          await prisma.demand.create({
+            data: {
+              userId: payment.userId,
+              paymentId: payment.id,
+              reference: referenceNo,
+              amount: remainingAmount,
+              center:
+                payment.center || payment.member?.center || "HEADQUARTERS",
+              walletId: walletId || null,
+              status: remainingAmount <= 0 ? "PAID" : "CREATED",
+              isSent: false,
+            },
+          });
 
-    //     // Calculate days overdue / penalty — skipped entirely when the
-    //     // payment is already fully settled (debt cleared and something has
-    //     // actually been paid), so a settled member's demand notice doesn't
-    //     // show a nonzero penalty just because `due` is in the past.
-    //     let daysOverdue = 0;
-    //     let penalty = 0;
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: { idDemand: true },
+          });
 
-    //     const isFullySettled = Number(payment?.debt) === 0 && Number(payment?.paid) > 0;
+          console.log(
+            `[Demand Generation] Generated new demand notice for payment ${payment.id}, reference: ${referenceNo}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[Demand Generation] Error processing payment ${payment.id}:`,
+          err,
+        );
+      }
+    }
 
-    //     if (!isFullySettled) {
-    //       if (currentDate > paymentDate) {
-    //         const diffTime = currentDate - paymentDate;
-    //         daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // convert ms → days
-    //       }
-
-    //       // Penalty: 0.005% per day overdue
-    //       const penaltyRatePerDay = 0.00005; // 0.005% = 0.00005
-    //       penalty = subtotal * penaltyRatePerDay * daysOverdue;
-    //     }
-
-    //     const totalAmount = subtotal + penalty;
-
-    //     const formatCurrency = (amount) => {
-    //       return Number(amount || 0).toLocaleString('en-US', {
-    //         minimumFractionDigits: 2,
-    //         maximumFractionDigits: 2,
-    //       });
-    //     };
-
-    //     const formatDate = (date) => {
-    //       const d = new Date(date);
-    //       const months = [
-    //         'January', 'February', 'March', 'April', 'May', 'June',
-    //         'July', 'August', 'September', 'October', 'November', 'December',
-    //       ];
-    //       const day = String(d.getDate()).padStart(2, '0');
-    //       const month = months[d.getMonth()];
-    //       const year = d.getFullYear();
-    //       return `${day} ${month} ${year}`;
-    //     };
-
-    //     const getAssessmentPeriod = (frequency) => {
-    //       const now = new Date();
-    //       const year = now.getFullYear();
-    //       const months = [
-    //         'January', 'February', 'March', 'April', 'May', 'June',
-    //         'July', 'August', 'September', 'October', 'November', 'December',
-    //       ];
-    //       const currentMonth = months[now.getMonth()];
-
-    //       switch ((frequency || 'MONTHLY').toUpperCase()) {
-    //         case 'YEARLY':
-    //           return `Jan - Dec ${year}`;
-    //         case 'QUARTERLY': {
-    //           const quarter = Math.floor(now.getMonth() / 3);
-    //           const qStart = months[quarter * 3];
-    //           const qEnd = months[quarter * 3 + 2];
-    //           return `${qStart} - ${qEnd} ${year}`;
-    //         }
-    //         case 'BIWEEKLY': {
-    //           const weekNum = Math.ceil(now.getDate() / 14);
-    //           return `Period ${weekNum} - ${currentMonth} ${year}`;
-    //         }
-    //         case 'WEEKLY': {
-    //           const weekNum = Math.ceil(now.getDate() / 7);
-    //           return `Week ${weekNum} - ${currentMonth} ${year}`;
-    //         }
-    //         case 'DAILY':
-    //           return formatDate(now);
-    //         case 'MONTHLY':
-    //         default:
-    //           return `${currentMonth} ${year}`;
-    //       }
-    //     };
-
-    //     const liabilityRows = `
-    //       <tr class="font-medium text-[#1e293b]">
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">${pricingName} - Principal Assessment</td>
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(principal)}</td>
-    //       </tr>
-    //       <tr class="font-medium text-[#1e293b]">
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">Value Added Tax (VAT) @ 7.5%</td>
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(vat)}</td>
-    //       </tr>
-    //       <tr class="font-medium text-[#1e293b]">
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0]">Payment Processing Charges @ 1.5%</td>
-    //         <td class="py-2 px-4 border-b border-[#e2e8f0] text-right w-32.5">${formatCurrency(charges)}</td>
-    //       </tr>
-    //     `;
-
-    //     // Generate reference numbers - use demand's own reference
-    //     const now = new Date();
-    //     const year = now.getFullYear();
-    //     const referenceNo = demand.reference.replace(/[^A-Z0-9]/g, '/').substring(0, 20);
-    //     const auditTrack = `AUD/${year}/${Math.floor(Math.random() * 999)}`;
-    //     const paymentRef = payment.reference || payment.id.substring(0, 12).toUpperCase();
-    //     const wallet = demand.wallet;
-
-    //     // Build location string
-    //     let locationStr = 'N/A';
-    //     if (member.location) {
-    //       try {
-    //         const loc = typeof member.location === 'string'
-    //           ? JSON.parse(member.location)
-    //           : member.location;
-    //         const parts = [];
-    //         if (loc.address) parts.push(loc.address);
-    //         if (loc.city) parts.push(loc.city);
-    //         if (loc.state) parts.push(loc.state);
-    //         if (loc.lga) parts.push(loc.lga);
-    //         if (loc.country) parts.push(loc.country);
-    //         locationStr = parts.length > 0 ? parts.join(', ') : 'N/A';
-    //       } catch {
-    //         locationStr = String(member.location);
-    //       }
-    //     }
-
-    //     // Generate QR code URL
-    //     const qrData = `https://urms.afriverge.com/payment/${payment?.reference}/checkout`;
-    //     const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=240`;
-
-    //     // Read HTML template
-    //     const templatePath = path.join(__dirname, '..', 'service', 'templates', 'index.html');
-
-    //     if (!fs.existsSync(templatePath)) {
-    //       console.error(`Email template not found at ${templatePath}`);
-    //       continue;
-    //     }
-
-    //     let htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
-
-    //     // Replace placeholders
-    //     const replacements = {
-    //       '{{MEMBER_NAME}}': member.businessName || member.fullname || 'N/A',
-    //       '{{MEMBER_LOCATION}}': locationStr,
-    //       '{{MEMBER_TIN}}': member.uid,
-    //       '{{REFERENCE_NO}}': 'AMAC' + '/' + 'DN' + '/' + referenceNo,
-    //       '{{DATE_OF_ISSUE}}': formatDate(now),
-    //       '{{ASSESSMENT_PERIOD}}': getAssessmentPeriod(payment.frequency || 'MONTHLY'),
-    //       '{{AUDIT_TRACK}}': auditTrack,
-    //       '{{LIABILITY_ROWS}}': liabilityRows,
-    //       '{{SUBTOTAL_AMOUNT}}': formatCurrency(subtotal),
-    //       '{{PENALTY_AMOUNT}}': formatCurrency(penalty),
-    //       '{{TOTAL_AMOUNT}}': formatCurrency(totalAmount),
-    //       '{{QR_CODE_URL}}': qrCodeUrl,
-    //       '{{PAYMENT_REFERENCE}}': paymentRef,
-    //       '{{SETTLEMENT_ACCOUNT_NAME}}': 'AMAC Revenue Account',
-    //       '{{SETTLEMENT_ACCOUNT_NUMBER}}': '1310770007',
-    //       '{{SETTLEMENT_BANK_NAME}}': 'Zenith Bank',
-    //       '{{PAYMENT_ACCOUNT_NAME}}': wallet?.accountName || `Zenith/Amac/${paymentRef}`,
-    //       '{{PAYMENT_ACCOUNT_NUMBER}}': wallet?.accountNo || 'N/A',
-    //       '{{PAYMENT_BANK_NAME}}': wallet?.bank?.name || 'N/A',
-    //     };
-
-    //     for (const [key, value] of Object.entries(replacements)) {
-    //       htmlTemplate = htmlTemplate.split(key).join(value);
-    //     }
-
-    //     const memberName = member.businessName || member.fullname || 'Taxpayer';
-    //     const subject = `Demand Notice - ${referenceNo} - ${memberName}`;
-    //     const body = `Dear ${memberName},
-    //       Please find attached your demand notice for the assessment period ${getAssessmentPeriod(payment.frequency || 'MONTHLY')}. The total amount due is ${formatCurrency(totalAmount)}.`
-
-    //     // Send email
-    //     const emailResult = await sendDemandNoticeEmail(member.email, subject, body, htmlTemplate, `${(memberName)}-demand-document-${new Date().toISOString().split('T')[0]}.pdf`,);
-
-    //     if (emailResult.ok) {
-    //       // Update this specific demand record to PENDING
-    //       await prisma.demand.update({
-    //         where: { id: demand.id },
-    //         data: {
-    //           status: 'PENDING',
-    //           isSent: true,
-    //         },
-    //       });
-    //       console.log(`Successfully sent demand notice to ${member.email} for demand ${demand.id}`);
-    //     } else {
-    //       console.error(`Failed to send demand notice to ${member.email} for demand ${demand.id}:`, emailResult.error);
-    //     }
-    //   } catch (err) {
-    //     console.error(`Error processing demand ${demand.id}:`, err);
-    //   }
-    // }
-
-    console.log('Demand cron completed at', new Date().toISOString());
+    console.log("[Demand Generation] Completed at", new Date().toISOString());
   } catch (error) {
-    console.error('Demand cron error:', error);
+    console.error("[Demand Generation] Cron error:", error);
   } finally {
-    isProcessing = false;
+    isGeneratingDemands = false;
   }
 };
 
+/**
+ * 2. Dedicated Demand Mail Job:
+ * Finds unsent demand notices, generates official PDFs via pure pdf-lib,
+ * and sends email notifications.
+ */
+export const processDemandEmails = async () => {
+  if (isSendingEmails) {
+    console.log(
+      "[Demand Email Cron] Previous email run still in progress, skipping.",
+    );
+    return;
+  }
+  isSendingEmails = true;
+
+  try {
+    console.log("[Demand Email Cron] Started at", new Date().toISOString());
+
+    const unsentDemands = await prisma.demand.findMany({
+      where: {
+        isSent: false,
+        status: { in: ["CREATED", "PENDING"] },
+        amount: { gt: 0 },
+      },
+      include: {
+        member: true,
+        payment: true,
+        wallet: true,
+      },
+    });
+
+    if (unsentDemands.length === 0) {
+      console.log("[Demand Email Cron] No unsent demand notices to email");
+      return;
+    }
+
+    console.log(
+      `[Demand Email Cron] Found ${unsentDemands.length} unsent demand notices`,
+    );
+
+    for (const demand of unsentDemands) {
+      try {
+        const member = demand.member || demand.payment?.member;
+        if (!member || !member.email) {
+          console.warn(
+            `[Demand Email Cron] Demand ${demand.id} has no member email, skipping.`,
+          );
+          continue;
+        }
+
+        const payment = demand.payment;
+        if (!payment) {
+          console.warn(
+            `[Demand Email Cron] Payment missing for demand ${demand.id}, skipping.`,
+          );
+          continue;
+        }
+
+        // Fetch pricing record if available
+        let pricing = null;
+        if (payment.payment) {
+          pricing = await prisma.pricing.findUnique({
+            where: { id: payment.payment },
+          });
+        }
+
+        // Ensure wallet details are resolved
+        let wallet = demand.wallet;
+        if (!wallet && demand.userId) {
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: demand.userId },
+          });
+        }
+        if (!wallet && member.agent) {
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: member.agent },
+          });
+        }
+
+        // Generate PDF using pure pdf-lib (zero browser dependency)
+        const pdfBuffer = await createDemandNoticePdf({
+          demand,
+          member,
+          payment,
+          wallet,
+          pricing,
+        });
+
+        const memberName = member.businessName || member.fullname || "Taxpayer";
+        const referenceNo = demand.reference || payment.reference || demand.id;
+        const subject = `Official AMAC Demand Notice - ${referenceNo} - ${memberName}`;
+        const formattedAmount = `NGN ${Number(demand.amount || 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+            <div style="background-color: #15803d; padding: 16px 20px; border-radius: 8px 8px 0 0; color: #ffffff;">
+              <h2 style="margin: 0; font-size: 20px;">ABUJA MUNICIPAL AREA COUNCIL</h2>
+              <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Unified Revenue & Compliance Directorate</p>
+            </div>
+            <div style="padding: 24px 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
+              <p>Dear <strong>${memberName}</strong>,</p>
+              <p>Please find attached your official AMAC Demand Notice under reference <strong>AMAC/DN/${referenceNo}</strong>.</p>
+              <div style="background-color: #f8fafc; border-left: 4px solid #15803d; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+                <p style="margin: 0; font-size: 13px; color: #64748b;">Total Compliance Assessment Due:</p>
+                <p style="margin: 4px 0 0 0; font-size: 22px; font-weight: bold; color: #0f172a;">${formattedAmount}</p>
+              </div>
+              <p>Please review the attached PDF document for your complete liability breakdown, statutory schedule, and approved settlement instructions.</p>
+              <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an official computer-generated notice. If you have already completed payment for this assessment, please disregard this notice.</p>
+            </div>
+          </div>
+        `;
+
+        const filename = `AMAC_Demand_Notice_${referenceNo.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+        const emailResult = await sendDemandNoticeEmail(
+          member.email,
+          subject,
+          emailHtml,
+          pdfBuffer,
+          filename,
+        );
+
+        if (emailResult.ok) {
+          await prisma.demand.update({
+            where: { id: demand.id },
+            data: {
+              status: "PENDING",
+              isSent: true,
+            },
+          });
+          console.log(
+            `[Demand Email Cron] Sent demand notice to ${member.email} for demand ${demand.id}`,
+          );
+        } else {
+          console.error(
+            `[Demand Email Cron] Failed to send email to ${member.email}:`,
+            emailResult.error,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[Demand Email Cron] Error emailing demand ${demand.id}:`,
+          err,
+        );
+      }
+    }
+
+    console.log("[Demand Email Cron] Completed at", new Date().toISOString());
+  } catch (error) {
+    console.error("[Demand Email Cron] Cron error:", error);
+  } finally {
+    isSendingEmails = false;
+  }
+};
+
+/**
+ * Backward-compatible helper that runs both generation and email sender
+ */
+export const processDemands = async () => {
+  await processDemandGeneration();
+  await processDemandEmails();
+};
+
+/**
+ * Start the Demand Generation Cron
+ */
 export const startDemandCron = () => {
   if (demandCronStarted) {
     return;
   }
-
   demandCronStarted = true;
 
-  // Run once on startup after 10 seconds to allow DB/Prisma to initialize
+  // Run once on startup after 10s to allow DB connection to initialize
   setTimeout(() => {
-    console.log('Running startup demand cron check...');
-    processDemands();
+    console.log("[Demand Generation] Running startup check...");
+    processDemandGeneration();
   }, 10000);
 
-  // Run every 5 minutes
-  cron.schedule('*/5 * * * *', processDemands);
+  // Run every 10 minutes
+  cron.schedule("*/10 * * * *", processDemandGeneration);
+  console.log(
+    "[Demand Generation] Cron scheduled successfully (every 10 minutes)",
+  );
+};
 
-  console.log('Demand cron job scheduled successfully');
+/**
+ * Start the Demand Email Sender Cron
+ */
+export const startDemandEmailCron = () => {
+  if (demandEmailCronStarted) {
+    return;
+  }
+  demandEmailCronStarted = true;
+
+  // Run once on startup after 15s
+  setTimeout(() => {
+    console.log("[Demand Email Cron] Running startup check...");
+    processDemandEmails();
+  }, 15000);
+
+  // Run every 7 hours
+  cron.schedule("0 0 * * *", async () => {
+    const lastRun = await getLastRunTimestamp(); // however you persist this
+    const daysSince = (Date.now() - lastRun) / (1000 * 60 * 60 * 24);
+    if (daysSince >= 7) {
+      await processDemandEmails();
+      await setLastRunTimestamp(Date.now());
+    }
+  });
+  console.log(
+    "[Demand Email Cron] Cron scheduled successfully (every 7 hours)",
+  );
 };

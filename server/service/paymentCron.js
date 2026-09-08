@@ -1,8 +1,15 @@
 import cron from 'node-cron';
 import { prisma } from '../config/db.js';
-import { createRecurringPaymentForPayment, createPaymentRecord, getNextDueDate } from '../controller/paymentController.js';
+import {
+  createRecurringPaymentForPayment,
+  createPaymentRecord,
+  getNextDueDate,
+} from '../controller/paymentController.js';
 
 let paymentCronStarted = false;
+
+// Allowed payment statuses eligible for recurring recreation
+const RECURRING_ELIGIBLE_STATUSES = ['PENDING', 'SUCCESS', 'PAID', 'COMPLETED'];
 
 export const startPaymentCron = () => {
   if (paymentCronStarted) {
@@ -11,42 +18,74 @@ export const startPaymentCron = () => {
 
   paymentCronStarted = true;
 
+  // Run hourly at minute 0
   cron.schedule('0 * * * *', async () => {
     try {
       const now = new Date();
+      // End of current date (23:59:59.999) ensures payments due today (equal to current date) or earlier are matched
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
+      console.log(`[Payment Cron] Running recurring check at ${now.toISOString()}...`);
+
+      // 1. Fetch payments where status is PENDING, SUCCESS, PAID, or COMPLETED and due date is on or before current date
       const duePayments = await prisma.payment.findMany({
         where: {
-          due: {
-            lte: now,
+          status: {
+            in: RECURRING_ELIGIBLE_STATUSES,
           },
+          due: {
+            lte: endOfToday,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
 
+      console.log(`[Payment Cron] Found ${duePayments.length} payments due on or before ${now.toISOString().slice(0, 10)} eligible for renewal.`);
+
       for (const payment of duePayments) {
-        // BUG FIX: previously, once a payment's `due` date passed, it kept
-        // matching `due: { lte: now }` on every hourly cron run forever —
-        // nothing checked whether a recurring payment for the *next* cycle
-        // had already been created. That caused a brand new payment to be
-        // generated every hour for as long as the overdue payment sat in
-        // the table, instead of once per billing cycle.
+        const nextDueDate = getNextDueDate(payment.due, payment.frequency);
+        const startOfNextDueDay = new Date(nextDueDate.getFullYear(), nextDueDate.getMonth(), nextDueDate.getDate(), 0, 0, 0);
+        const endOfNextDueDay = new Date(nextDueDate.getFullYear(), nextDueDate.getMonth(), nextDueDate.getDate(), 23, 59, 59, 999);
+
+        // Check whether a recurring payment for the next cycle has already been created
         const alreadyRenewed = await prisma.payment.findFirst({
           where: {
             userId: payment.userId,
-            payment: payment.payment, // same pricing plan
-            createdAt: { gt: payment.createdAt },
+            payment: payment.payment,
+            OR: [
+              {
+                due: {
+                  gte: startOfNextDueDay,
+                  lte: endOfNextDueDay,
+                },
+              },
+              {
+                createdAt: { gt: payment.createdAt },
+                due: { gt: payment.due },
+              },
+            ],
           },
           select: { id: true },
-        }); 
+        });
 
-        if (alreadyRenewed) continue;
+        if (alreadyRenewed) {
+          continue;
+        }
 
-        await createRecurringPaymentForPayment(payment, prisma);
+        const result = await createRecurringPaymentForPayment(payment, prisma);
+        if (result.created) {
+          console.log(
+            `[Payment Cron] Recreated recurring payment ${result.payment.reference} for user ${payment.userId} (Due: ${new Date(result.payment.due).toLocaleDateString()}, Previous Status: ${payment.status})`
+          );
+        }
       }
 
+      // 2. Ensure active members with assigned pricing plans have an active payment record
       const members = await prisma.member.findMany({
         where: { status: true },
-        select: { uid: true, pricing: true },
+        select: { uid: true, pricing: true, center: true, company: true },
       });
 
       for (const member of members) {
@@ -77,42 +116,65 @@ export const startPaymentCron = () => {
           select: { id: true, due: true, createdAt: true, frequency: true },
         });
 
-        if (latestPayment && new Date(latestPayment.due) > now) {
+        // If member already has a payment whose due date is in the future, nothing to do
+        if (latestPayment && new Date(latestPayment.due) > endOfToday) {
           continue;
         }
 
-        // BUG FIX: previously, even after confirming the current cycle was
-        // already overdue (the check above), this computed nextDueDate one
-        // full period PAST that due date and then waited for that to also
-        // pass before creating anything — silently skipping an entire
-        // billing cycle for the member. The overdue check above already
-        // establishes it's time to renew, so just use that next due date
-        // directly instead of gating on it again.
         let dueDate;
         if (latestPayment) {
           dueDate = getNextDueDate(latestPayment.due, pricingFrequency);
         } else {
-          dueDate = new Date();
+          dueDate = now;
         }
 
-        try {
-          await createPaymentRecord({
+        const startOfNextDueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0);
+        const endOfNextDueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 23, 59, 59, 999);
+
+        // Check if next payment already exists
+        const nextExists = await prisma.payment.findFirst({
+          where: {
             userId: member.uid,
-            frequency: pricingFrequency,
-            sessions: [],
-            debt: 0,
-            due: dueDate,
-            amount: Number(selectedPricing.price),
             payment: selectedPricing.id,
-            status: 'PENDING',
-            isVerify: false,
-          }, prisma);
+            due: {
+              gte: startOfNextDueDay,
+              lte: endOfNextDueDay,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (nextExists) continue;
+
+        try {
+          const seeded = await createPaymentRecord(
+            {
+              userId: member.uid,
+              frequency: pricingFrequency,
+              sessions: [],
+              debt: 0,
+              due: dueDate,
+              amount: Number(selectedPricing.price),
+              payment: selectedPricing.id,
+              centerId: member.center || null,
+              companyId: member.company || null,
+              status: 'PENDING',
+              isVerify: false,
+            },
+            prisma
+          );
+
+          console.log(`[Payment Cron] Seeded payment ${seeded.reference} for member ${member.uid}`);
         } catch (err) {
-          console.error('Failed to seed payment for member', member.uid, err?.message || err);
+          console.error('[Payment Cron] Failed to seed payment for member', member.uid, err?.message || err);
         }
       }
     } catch (error) {
-      console.error('Payment cron error:', error?.message || error);
+      console.error('[Payment Cron] Execution error:', error?.message || error);
     }
   });
+};
+
+export default {
+  startPaymentCron,
 };

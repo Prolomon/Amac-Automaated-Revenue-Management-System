@@ -1,5 +1,6 @@
 import { prisma } from "../config/db.js";
-import { processDemands } from "../service/demandCron.js";
+import { processDemands, processDemandEmails } from "../service/demandCron.js";
+import { createDemandNoticePdf, createMultipleDemandNoticesPdf } from "../service/demandPdf.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -491,13 +492,15 @@ export const createDemandNoticeByPayment = async (req, res) => {
 
 export const getDemands = async (req, res) => {
   try {
-    const { status, startDate, endDate, page = 1, limit = 50 } = req.query;
+    const { status, startDate, endDate, page = 1, limit = 50, center, userId } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
+    // Build where clause on prisma.demand
     const where = {};
     if (status) where.status = status;
+    if (center) where.center = center;
+    if (userId) where.userId = userId;
 
     // Date range filter
     if (startDate || endDate) {
@@ -506,43 +509,31 @@ export const getDemands = async (req, res) => {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    // Get demands with payment and member info
-    const [paymentList, total] = await Promise.all([
-      prisma.payment.findMany({
+    // Get demands with payment, member, and wallet info
+    const [demands, total] = await Promise.all([
+      prisma.demand.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip,
         take: Number(limit),
         include: {
-          pricing: true,
           member: true,
+          payment: {
+            include: {
+              pricing: true,
+            },
+          },
+          wallet: true,
         },
       }),
-      prisma.payment.count({ where }),
+      prisma.demand.count({ where }),
     ]);
-
-    const demands = paymentList.map((payment) => ({
-      id: payment.id,
-      userId: payment.userId,
-      paymentId: payment.id,
-      reference: payment.reference || "",
-      amount: payment.amount,
-      center: payment.center,
-      walletId: payment.walletId || null,
-      status: payment.status,
-      createdAt: payment.createdAt,
-      updatedAt: payment.updatedAt,
-      member: payment.member,
-      pricing: payment.pricing,
-      payment,
-      isSent: false,
-    }));
 
     return res.status(200).json({
       ok: true,
       data: demands,
       meta: {
-        total,
+        total: String(total),
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(total / Number(limit)),
@@ -568,50 +559,48 @@ export const getDemandById = async (req, res) => {
       });
     }
 
-    const payment = await prisma.payment.findFirst({
-      where: { id },
+    const demand = await prisma.demand.findFirst({
+      where: {
+        OR: [
+          { id },
+          { reference: id },
+          { paymentId: id },
+          { payment: { reference: id } },
+        ],
+      },
       include: {
-        pricing: true,
         member: true,
+        payment: {
+          include: {
+            pricing: true,
+          },
+        },
+        wallet: true,
       },
     });
 
-    if (!payment) {
+    if (!demand) {
       return res.status(404).json({
         ok: false,
         message: "Demand not found",
       });
     }
 
-    let wallet;
-
-    wallet = await prisma.wallet.findFirst({
-      where: { userId: payment.member.uid },
-    });
-
-    if (!wallet) {
-      wallet = await prisma.wallet.findFirst({
-        where: { userId: payment.member.agent },
+    // Ensure wallet fallback if demand.wallet is null
+    if (!demand.wallet) {
+      let wallet = await prisma.wallet.findFirst({
+        where: { userId: demand.member?.uid || demand.userId },
       });
+      if (!wallet && demand.member?.agent) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: demand.member.agent },
+        });
+      }
+      if (wallet) {
+        demand.wallet = wallet;
+        demand.walletId = wallet.id;
+      }
     }
-
-    const demand = {
-      id: payment.id,
-      userId: payment.userId,
-      paymentId: payment.id,
-      reference: payment.reference || "",
-      amount: payment.amount,
-      center: payment.center,
-      walletId: wallet.id || null,
-      wallet,
-      status: payment.status,
-      createdAt: payment.createdAt,
-      updatedAt: payment.updatedAt,
-      member: payment.member,
-      pricing: payment.pricing,
-      payment,
-      isSent: false,
-    };
 
     return res.status(200).json({
       ok: true,
@@ -633,7 +622,7 @@ export const getDemandByCenter = async (req, res) => {
     if (!id) {
       return res.status(400).json({
         ok: false,
-        message: "Demand ID is required",
+        message: "Center ID is required",
       });
     }
 
@@ -641,61 +630,48 @@ export const getDemandByCenter = async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
-    const where = {};
+    const where = {
+      center: id,
+    };
     if (status) where.status = status;
 
-    // Date range filter
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    // Get demands with payment and member info
-    const [paymentList, total] = await Promise.all([
-      prisma.payment.findMany({
+    const [demands, total] = await Promise.all([
+      prisma.demand.findMany({
         where,
         include: {
-          pricing: true,
           member: true,
+          payment: {
+            include: {
+              pricing: true,
+            },
+          },
+          wallet: true,
         },
         orderBy: { createdAt: "desc" },
         skip,
         take: Number(limit),
       }),
-      prisma.payment.count({ where }),
+      prisma.demand.count({ where }),
     ]);
-
-    const demands = paymentList.map((payment) => ({
-      id: payment.id,
-      userId: payment.userId,
-      paymentId: payment.id,
-      reference: payment.reference || "",
-      amount: payment.amount,
-      center: payment.center,
-      walletId: payment.walletId || null,
-      status: payment.status,
-      createdAt: payment.createdAt,
-      updatedAt: payment.updatedAt,
-      member: payment.member,
-      pricing: payment.pricing,
-      payment,
-      isSent: false,
-    }));
 
     return res.status(200).json({
       ok: true,
       data: demands,
       meta: {
-        total,
+        total: String(total),
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
   } catch (err) {
-    console.error("getDemands error:", err);
+    console.error("getDemandByCenter error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
@@ -710,68 +686,58 @@ export const getDemandByPayment = async (req, res) => {
     if (!id) {
       return res.status(400).json({
         ok: false,
-        message: "Demand ID is required",
+        message: "Payment ID is required",
       });
     }
 
-    // Get demands with payment and member info
-    const payment = await prisma.payment.findFirst({
+    let demand = await prisma.demand.findFirst({
       where: {
-        OR: [{ id: id }, { reference: id }],
+        OR: [
+          { paymentId: id },
+          { payment: { reference: id } },
+          { reference: id },
+          { id },
+        ],
       },
       include: {
-        pricing: true,
         member: true,
+        payment: {
+          include: {
+            pricing: true,
+          },
+        },
+        wallet: true,
       },
     });
 
-    if (!payment) {
+    if (!demand) {
       return res.status(404).json({
         ok: false,
-        message: "Demand not found",
+        message: "Demand not found for this payment",
       });
     }
 
-    if (!payment.member) {
-      return res.status(404).json({
-        ok: false,
-        message: "Demand not found (no member linked to this payment)",
+    if (!demand.wallet) {
+      let wallet = await prisma.wallet.findFirst({
+        where: { userId: demand.member?.uid || demand.userId },
       });
+      if (!wallet && demand.member?.agent) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: demand.member.agent },
+        });
+      }
+      if (wallet) {
+        demand.wallet = wallet;
+        demand.walletId = wallet.id;
+      }
     }
-
-    let wallet = await prisma.wallet.findFirst({
-      where: { userId: payment.member.uid },
-    });
-
-    if (!wallet && payment.member.agent) {
-      wallet = await prisma.wallet.findFirst({
-        where: { userId: payment.member.agent },
-      });
-    }
-
-    const demand = {
-      id: payment.id,
-      userId: payment.userId,
-      paymentId: payment.id,
-      reference: payment.reference || "",
-      amount: payment.amount,
-      center: payment.center,
-      wallet,
-      walletId: wallet?.id || null,
-      status: payment.status,
-      createdAt: payment.createdAt,
-      updatedAt: payment.updatedAt,
-      member: payment.member,
-      pricing: payment.pricing,
-      payment,
-      isSent: false,
-    };
 
     return res.status(200).json({
       ok: true,
       data: demand,
     });
   } catch (err) {
+    console.error("getDemandByPayment error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
@@ -786,7 +752,7 @@ export const getDemandByUser = async (req, res) => {
     if (!id) {
       return res.status(400).json({
         ok: false,
-        message: "Demand ID is required",
+        message: "User ID is required",
       });
     }
 
@@ -794,25 +760,26 @@ export const getDemandByUser = async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
-    const where = {};
-    if (id) where.userId = id;
+    const where = { userId: id };
     if (status) where.status = status;
 
-    // Date range filter
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    // Get demands with payment and member info
     const [demands, total] = await Promise.all([
       prisma.demand.findMany({
         where,
         include: {
-          payment: true,
           member: true,
+          payment: {
+            include: {
+              pricing: true,
+            },
+          },
+          wallet: true,
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -825,14 +792,14 @@ export const getDemandByUser = async (req, res) => {
       ok: true,
       data: demands,
       meta: {
-        total,
+        total: String(total),
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
   } catch (err) {
-    console.error("getDemands error:", err);
+    console.error("getDemandByUser error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
@@ -851,7 +818,6 @@ export const resendDemandNotice = async (req, res) => {
       });
     }
 
-    // Fetch demand with payment and member details
     const demand = await prisma.demand.findUnique({
       where: { id },
       include: {
@@ -867,7 +833,6 @@ export const resendDemandNotice = async (req, res) => {
       });
     }
 
-    // Re-check payment for current pricing/price
     const payment = await prisma.payment.findUnique({
       where: { id: demand.paymentId },
     });
@@ -879,19 +844,19 @@ export const resendDemandNotice = async (req, res) => {
       });
     }
 
-    // Reset demand to CREATED status so cron will handle the resend
+    const remainingAmount = Math.max(0, Number(payment.amount || 0) - Number(payment.paid || 0));
+
     await prisma.demand.update({
       where: { id },
       data: {
         status: "CREATED",
         isSent: false,
-        amount: Number(payment.amount) - Number(payment.debt),
+        amount: remainingAmount,
       },
     });
 
-    // Trigger instant email processing in the background
-    processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err),
+    processDemandEmails().catch((err) =>
+      console.error("Error in background demand email processing:", err)
     );
 
     return res.status(200).json({
@@ -899,10 +864,10 @@ export const resendDemandNotice = async (req, res) => {
       message: "Demand notice queued for resend. Email is being sent.",
       data: {
         demandId: id,
-        memberEmail: demand.member.email,
+        memberEmail: demand.member?.email,
         memberName:
-          demand.member.fullname || demand.member.businessName || "N/A",
-        amount: formatCurrency(Number(payment.amount) - Number(payment.debt)),
+          demand.member?.fullname || demand.member?.businessName || "N/A",
+        amount: formatCurrency(remainingAmount),
         priceRechecked: true,
         status: "CREATED",
         note: "Email is being sent instantly in the background",
@@ -910,6 +875,165 @@ export const resendDemandNotice = async (req, res) => {
     });
   } catch (err) {
     console.error("resendDemandNotice error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
+/**
+ * Download a single demand notice PDF
+ * GET /api/demand/:id/download
+ */
+export const downloadDemandNotice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: "Demand ID is required",
+      });
+    }
+
+    const demand = await prisma.demand.findFirst({
+      where: {
+        OR: [
+          { id },
+          { reference: id },
+          { paymentId: id },
+          { payment: { reference: id } },
+        ],
+      },
+      include: {
+        member: true,
+        payment: {
+          include: {
+            pricing: true,
+          },
+        },
+        wallet: true,
+      },
+    });
+
+    if (!demand) {
+      return res.status(404).json({
+        ok: false,
+        message: "Demand notice not found",
+      });
+    }
+
+    let wallet = demand.wallet;
+    if (!wallet && demand.userId) {
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: demand.userId },
+      });
+    }
+    if (!wallet && demand.member?.agent) {
+      wallet = await prisma.wallet.findFirst({
+        where: { userId: demand.member.agent },
+      });
+    }
+
+    const pdfBuffer = await createDemandNoticePdf({
+      demand,
+      member: demand.member,
+      payment: demand.payment,
+      wallet,
+      pricing: demand.payment?.pricing,
+    });
+
+    const cleanRef = (demand.reference || demand.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filename = `AMAC_Demand_Notice_${cleanRef}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.end(pdfBuffer);
+  } catch (err) {
+    console.error("downloadDemandNotice error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
+/**
+ * Batch download multiple demand notices merged into one PDF
+ * POST /api/demand/download-many
+ * Body: { ids: string[] }
+ */
+export const downloadMultipleDemandNotices = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "ids must be a non-empty array of demand IDs or references",
+      });
+    }
+
+    const demands = await prisma.demand.findMany({
+      where: {
+        OR: [
+          { id: { in: ids } },
+          { reference: { in: ids } },
+          { paymentId: { in: ids } },
+        ],
+      },
+      include: {
+        member: true,
+        payment: {
+          include: {
+            pricing: true,
+          },
+        },
+        wallet: true,
+      },
+    });
+
+    if (demands.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        message: "No matching demand notices found",
+      });
+    }
+
+    const demandsDataList = await Promise.all(
+      demands.map(async (demand) => {
+        let wallet = demand.wallet;
+        if (!wallet && demand.userId) {
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: demand.userId },
+          });
+        }
+        if (!wallet && demand.member?.agent) {
+          wallet = await prisma.wallet.findFirst({
+            where: { userId: demand.member.agent },
+          });
+        }
+        return {
+          demand,
+          member: demand.member,
+          payment: demand.payment,
+          wallet,
+          pricing: demand.payment?.pricing,
+        };
+      })
+    );
+
+    const mergedPdfBuffer = await createMultipleDemandNoticesPdf(demandsDataList);
+    const filename = `AMAC_Demand_Notices_Batch_${Date.now()}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", mergedPdfBuffer.length);
+    return res.end(mergedPdfBuffer);
+  } catch (err) {
+    console.error("downloadMultipleDemandNotices error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
