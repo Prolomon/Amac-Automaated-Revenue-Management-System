@@ -450,7 +450,7 @@ export default function AddEnumeratorPage() {
                     guarantor2: { ...form.guarantor2, name: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="tel"
@@ -463,7 +463,7 @@ export default function AddEnumeratorPage() {
                     guarantor2: { ...form.guarantor2, phone: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="email"
@@ -475,7 +475,7 @@ export default function AddEnumeratorPage() {
                     guarantor2: { ...form.guarantor2, email: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="text"
@@ -487,7 +487,7 @@ export default function AddEnumeratorPage() {
                     guarantor2: { ...form.guarantor2, address: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
           </div>
