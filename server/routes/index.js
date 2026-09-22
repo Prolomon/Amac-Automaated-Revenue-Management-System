@@ -24,9 +24,11 @@ import { departmentRouter } from './departmentRoutes.js';
 import { activityLogRouter } from './activityLogRoutes.js';
 import { activityLogger } from '../middleware/activityLogger.js';
 import { getPublicCenters } from '../controller/adminController.js';
+import { refreshTokenHandler } from '../controller/authController.js';
 
 import { propertyRouter } from './propertyRoutes.js';
 import { documentRouter } from './documentRoutes.js';
+import { enumeratorRouter } from './enumeratorRoutes.js';
 
 // Apply database health check to all API routes
 router.use(checkDatabaseConnection);
@@ -34,6 +36,13 @@ router.use(activityLogger);
 
 // Public route for revenue centers
 router.get('/centers', getPublicCenters);
+
+// Authentication token refresh endpoints
+router.post('/auth/refresh-token', refreshTokenHandler);
+router.post('/auth/refresh', refreshTokenHandler);
+router.post('/member/refresh-token', refreshTokenHandler);
+router.post('/agent/refresh-token', refreshTokenHandler);
+router.post('/admin/refresh-token', refreshTokenHandler);
 
 // This file will export all routes
 router.use('/upload', uploadRouter);
@@ -59,6 +68,7 @@ router.use('/department', departmentRouter);
 router.use('/activity-log', activityLogRouter);
 router.use('/property', propertyRouter);
 router.use('/document', documentRouter);
+router.use('/enumerator', enumeratorRouter);
 
 export  {router as apiRouter};
   

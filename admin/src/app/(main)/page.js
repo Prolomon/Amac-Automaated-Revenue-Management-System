@@ -37,10 +37,10 @@ export default function LandingPage() {
                 Register New Entity
               </Link>
               <Link
-                href="/auth/admin"
+                href="/payment"
                 className="inline-flex rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
               >
-                Login to Dashboard
+                Make Payment
               </Link>
               <a
                 href="#recruitment"

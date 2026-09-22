@@ -32,7 +32,7 @@ export function MainHeader() {
             {/* Official government identification bar */}
             <div className="bg-emerald-900 text-emerald-50">
                 <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-1.5 text-xs md:px-6">
-                    <Image src="/icon.png" alt="" width={14} height={14} className="opacity-90" aria-hidden="true" />
+                    <Image src="/icon.png" alt="" width={14} height={14} className="opacity-90" aria-hidden="true" style={{ width: "auto", height: "auto" }} />
                     <span>
                         An official portal of the <span className="font-semibold">Abuja Municipal Area Council</span>, Federal Capital Territory
                     </span>
@@ -43,7 +43,7 @@ export function MainHeader() {
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
                     <Link href="/" className="flex items-center gap-3">
                         <div className="rounded-md border-2 border-emerald-800 bg-white p-1">
-                            <Image src="/icon.png" alt="Karu Revenue Logo" width={34} height={34} />
+                            <Image src="/icon.png" alt="Karu Revenue Logo" width={34} height={34} style={{ width: "auto", height: "auto" }} />
                         </div>
                         <div>
                             <p className="text-sm font-bold leading-tight text-slate-900">Amac Revenue Management System</p>

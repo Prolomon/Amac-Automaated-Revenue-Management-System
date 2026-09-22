@@ -50,6 +50,8 @@ export type Member = {
   document?: Document;
   properties?: Property[];
   documents?: Document[];
+  bvn?: string;
+  wallet?: any;
 };
 
 export type Property = {
@@ -70,6 +72,7 @@ export type Document = {
   id?: string;
   type: "nin" | "cac" | "passport" | "voters card" | "drivers lincense" | string;
   number: string;
+  bvn?: string;
   data?: any;
   memberId?: string;
   createdAt?: string;

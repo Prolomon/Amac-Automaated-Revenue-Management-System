@@ -136,7 +136,7 @@ export async function deleteCompany(id: string): Promise<{ ok: boolean; message?
     return data;
 } 
 
-export async function login( email: string, password: string ): Promise<{ ok: boolean; company?: Company; message?: string, token: string, role: string }> {
+export async function login( email: string, password: string ): Promise<{ ok: boolean; company?: Company; message?: string, token: string, accessToken?: string, refreshToken?: string, role: string }> {
   const response = await fetch(`${API_URL}/company/login`, {
     method: "POST",
     headers: {

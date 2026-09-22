@@ -67,6 +67,8 @@ export async function login(
   admin?: Admin;
   message?: string;
   token: string;
+  accessToken?: string;
+  refreshToken?: string;
   role: string;
 }> {
   const response = await fetch(`${API_URL}/admin/login`, {

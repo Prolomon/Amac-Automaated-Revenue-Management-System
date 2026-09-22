@@ -2,7 +2,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { getPayment, makePayment } from "@/lib/services/payment";
-import { Payment } from "@/lib/types";
+import { createRequest, getRequestsByPayment } from "@/lib/services/request";
+import { Payment, Request } from "@/lib/types";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -25,13 +26,11 @@ const PENALTY_RATE_PER_DAY = 0.00005;
 
 /**
  * Single source of truth for the fee breakdown.
- * Previously this math was duplicated (once in the "Pay now" card button,
- * once inline in the modal render) and read slightly different fields
- * each time, which let the two silently drift apart.
+ * Incorporates discount adjustments, overdue penalties, VAT, and processing fees.
  */
 function computeBreakdown(payment: Payment | null) {
     if (!payment) {
-        return { principal: 0, vat: 0, charges: 0, subtotal: 0, daysOverdue: 0, penalty: 0, total: 0 };
+        return { principal: 0, vat: 0, charges: 0, subtotal: 0, daysOverdue: 0, penalty: 0, discount: 0, total: 0 };
     }
 
     const principal = Number(
@@ -52,9 +51,10 @@ function computeBreakdown(payment: Payment | null) {
     }
 
     const penalty = subtotal * PENALTY_RATE_PER_DAY * daysOverdue;
-    const total = subtotal + penalty;
+    const discount = Number(payment.discount || 0);
+    const total = Math.max(0, subtotal + penalty - discount);
 
-    return { principal, vat, charges, subtotal, daysOverdue, penalty, total };
+    return { principal, vat, charges, subtotal, daysOverdue, penalty, discount, total };
 }
 
 export default function MakePayment() {
@@ -68,6 +68,10 @@ export default function MakePayment() {
     const [paymentAmount, setPaymentAmount] = useState<string>("");
     const [secureTokenInput, setSecureTokenInput] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [requests, setRequests] = useState<Request[]>([]);
+    const [loadingRequests, setLoadingRequests] = useState(false);
+    const [discountReason, setDiscountReason] = useState("");
+    const [requestSubmitting, setRequestSubmitting] = useState(false);
     const { pin } = useWallet();
 
     const formatAmount = (value: number, withSymbol = true) => {
@@ -90,6 +94,25 @@ export default function MakePayment() {
             });
     };
 
+    const fetchRequests = useCallback(async (paymentTargetId?: string) => {
+        const idToQuery = paymentTargetId || payment?.id || (search.reference as string);
+        if (!idToQuery) return;
+        setLoadingRequests(true);
+        try {
+            const data = await getRequestsByPayment(idToQuery, token as string);
+            if (data.ok && (data.data || data.requests)) {
+                setRequests(data.data || data.requests || []);
+            } else {
+                setRequests([]);
+            }
+        } catch (err) {
+            console.warn("Error fetching discount requests:", err);
+            setRequests([]);
+        } finally {
+            setLoadingRequests(false);
+        }
+    }, [payment?.id, search.reference, token]);
+
     const fetchPayments = useCallback(async () => {
         setLoading(true);
         try {
@@ -102,6 +125,7 @@ export default function MakePayment() {
 
             if (data.ok && data.payment) {
                 setPayment(data.payment);
+                fetchRequests(data.payment.id || data.payment.reference);
             } else {
                 setPayment(null);
                 failed(data.message || "Failed to fetch payments");
@@ -112,7 +136,7 @@ export default function MakePayment() {
         } finally {
             setLoading(false);
         }
-    }, [currentUser?.uid, token, failed]);
+    }, [currentUser?.uid, token, failed, search.reference, fetchRequests]);
 
     useEffect(() => {
         fetchPayments();
@@ -120,8 +144,44 @@ export default function MakePayment() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchPayments();
+        await Promise.all([fetchPayments(), fetchRequests()]);
         setRefreshing(false);
+    };
+
+    const handleDiscountRequest = async () => {
+        if (!discountReason.trim()) {
+            failed("Please enter a reason for the discount request");
+            return;
+        }
+
+        if (!payment) {
+            failed("No payment selected");
+            return;
+        }
+
+        setRequestSubmitting(true);
+        try {
+            const res = await createRequest(
+                {
+                    memberId: currentUser?.uid || "",
+                    paymentId: payment.id || payment.reference,
+                    reason: discountReason.trim(),
+                },
+                token as string
+            );
+
+            if (res.ok) {
+                success(res.message || "Discount request submitted successfully");
+                setDiscountReason("");
+                fetchRequests(payment.id || payment.reference);
+            } else {
+                failed(res.message || "Failed to submit discount request");
+            }
+        } catch (err: any) {
+            failed(err?.message || "An error occurred while requesting discount");
+        } finally {
+            setRequestSubmitting(false);
+        }
     };
 
     const closePaymentModal = () => {
@@ -330,10 +390,139 @@ export default function MakePayment() {
                                 </Text>
                             </View>
 
+                            {breakdown.discount > 0 ? (
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: "#166534", fontWeight: "700" }]}>
+                                        Approved Discount
+                                    </Text>
+                                    <Text style={[styles.detailValueBold, { color: "#166534" }]}>
+                                        -{formatAmount(breakdown.discount)}
+                                    </Text>
+                                </View>
+                            ) : null}
+
                             <View style={[styles.detailRow, styles.totalRow]}>
                                 <Text style={styles.totalLabel}>Total Payable Amount</Text>
                                 <Text style={styles.totalValue}>{formatAmount(totalAmount)}</Text>
                             </View>
+                        </View>
+
+                        {/* Discount Requests Section */}
+                        <View style={styles.discountSection}>
+                            <View style={styles.discountHeaderRow}>
+                                <Text style={styles.discountHeaderTitle}>Discount Requests</Text>
+                                {requests.length > 0 && (
+                                    <View style={styles.requestCountBadge}>
+                                        <Text style={styles.requestCountText}>
+                                            {requests.length} {requests.length === 1 ? "request" : "requests"}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {loadingRequests ? (
+                                <View style={styles.requestLoadingContainer}>
+                                    <ActivityIndicator size="small" color="#0ea360" />
+                                    <Text style={styles.requestLoadingText}>Loading requests...</Text>
+                                </View>
+                            ) : requests.length > 0 ? (
+                                <View style={styles.requestList}>
+                                    {requests.map((req, idx) => {
+                                        const isApproved = req.status === "APPROVED";
+                                        const isRejected = req.status === "REJECTED";
+                                        return (
+                                            <View key={req.id || idx} style={styles.requestCard}>
+                                                <View style={styles.requestCardTop}>
+                                                    <View style={{ flex: 1, paddingRight: 8 }}>
+                                                        <Text style={styles.requestIdText}>ID: {req.id}</Text>
+                                                        <Text style={styles.requestDateText}>{formatDate(req.createdAt)}</Text>
+                                                    </View>
+                                                    <View
+                                                        style={[
+                                                            styles.requestStatusBadge,
+                                                            isApproved
+                                                                ? styles.requestStatusApproved
+                                                                : isRejected
+                                                                ? styles.requestStatusRejected
+                                                                : styles.requestStatusPending,
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.requestStatusText,
+                                                                isApproved
+                                                                    ? styles.requestStatusTextApproved
+                                                                    : isRejected
+                                                                    ? styles.requestStatusTextRejected
+                                                                    : styles.requestStatusTextPending,
+                                                            ]}
+                                                        >
+                                                            {req.status}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.requestReasonBox}>
+                                                    <Text style={styles.requestReasonLabel}>Reason:</Text>
+                                                    <Text style={styles.requestReasonText}>{req.reason || "No reason specified."}</Text>
+                                                </View>
+                                                {req.approverComment ? (
+                                                    <View style={[styles.requestReasonBox, { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }]}>
+                                                        <Text style={[styles.requestReasonLabel, { color: "#166534" }]}>Council Approval Note:</Text>
+                                                        <Text style={[styles.requestReasonText, { color: "#166534" }]}>{req.approverComment}</Text>
+                                                    </View>
+                                                ) : null}
+                                                {req.adminComment ? (
+                                                    <View style={[styles.requestReasonBox, { backgroundColor: "#f8fafc", borderColor: "#e2e8f0" }]}>
+                                                        <Text style={[styles.requestReasonLabel, { color: "#334155" }]}>Admin Note:</Text>
+                                                        <Text style={[styles.requestReasonText, { color: "#334155" }]}>{req.adminComment}</Text>
+                                                    </View>
+                                                ) : null}
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            ) : (
+                                <View style={styles.noRequestsBox}>
+                                    <Text style={styles.noRequestsText}>No discount requests for this bill yet.</Text>
+                                </View>
+                            )}
+
+                            {/* Discount Request Submission */}
+                            {payment?.status !== "SUCCESS" &&
+                                payment?.status !== "COMPLETED" &&
+                                (!payment?.discount || Number(payment.discount) === 0) && (
+                                    <View style={styles.requestFormCard}>
+                                        <Text style={styles.requestFormTitle}>Request a Bill Waiver or Discount</Text>
+                                        <Text style={styles.requestFormSubtitle}>
+                                            Submit a formal request to revenue administrators for consideration.
+                                        </Text>
+                                        <TextInput
+                                            style={styles.discountInput}
+                                            placeholder="Enter reason for request (e.g. property renovation, financial hardship, business closure)"
+                                            placeholderTextColor="#94a3b8"
+                                            multiline
+                                            numberOfLines={3}
+                                            value={discountReason}
+                                            onChangeText={setDiscountReason}
+                                            editable={!requestSubmitting}
+                                        />
+                                        <TouchableOpacity
+                                            style={[styles.requestSubmitButton, requestSubmitting && styles.requestSubmitButtonDisabled]}
+                                            onPress={handleDiscountRequest}
+                                            disabled={requestSubmitting}
+                                            activeOpacity={0.85}
+                                        >
+                                            {requestSubmitting ? (
+                                                <View style={styles.buttonRow}>
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                    <Text style={styles.requestSubmitButtonText}>Submitting Request...</Text>
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.requestSubmitButtonText}>Submit Discount Request</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                         </View>
 
                         <View style={styles.inputGroup}>
@@ -590,4 +779,184 @@ const styles = StyleSheet.create({
     errorText: { color: "#b91c1c", fontSize: 14, lineHeight: 20 },
     feeNote: { marginTop: 2, padding: 12, borderRadius: 10, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0" },
     feeNoteText: { color: "#475569", fontSize: 13, lineHeight: 19 },
+    discountSection: {
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        marginBottom: 12,
+    },
+    discountHeaderRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderBottomWidth: 1,
+        borderBottomColor: "#f1f5f9",
+        paddingBottom: 10,
+        marginBottom: 12,
+    },
+    discountHeaderTitle: {
+        fontSize: 15,
+        fontWeight: "800",
+        color: "#0f172a",
+    },
+    requestCountBadge: {
+        backgroundColor: "#e2f8ec",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+    },
+    requestCountText: {
+        color: "#0ea360",
+        fontSize: 11,
+        fontWeight: "700",
+    },
+    requestLoadingContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 14,
+        gap: 8,
+    },
+    requestLoadingText: {
+        color: "#64748b",
+        fontSize: 13,
+    },
+    requestList: {
+        gap: 10,
+        marginBottom: 14,
+    },
+    requestCard: {
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+    },
+    requestCardTop: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 8,
+    },
+    requestIdText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#1e293b",
+    },
+    requestDateText: {
+        fontSize: 11,
+        color: "#64748b",
+        marginTop: 2,
+    },
+    requestStatusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    requestStatusPending: {
+        backgroundColor: "#fef3c7",
+        borderColor: "#fde68a",
+    },
+    requestStatusApproved: {
+        backgroundColor: "#ecfdf5",
+        borderColor: "#a7f3d0",
+    },
+    requestStatusRejected: {
+        backgroundColor: "#fee2e2",
+        borderColor: "#fecaca",
+    },
+    requestStatusText: {
+        fontSize: 10,
+        fontWeight: "800",
+        textTransform: "uppercase",
+        letterSpacing: 0.3,
+    },
+    requestStatusTextPending: { color: "#b45309" },
+    requestStatusTextApproved: { color: "#166534" },
+    requestStatusTextRejected: { color: "#b91c1c" },
+    requestReasonBox: {
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: "#f1f5f9",
+        marginTop: 4,
+    },
+    requestReasonLabel: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#64748b",
+        marginBottom: 2,
+    },
+    requestReasonText: {
+        fontSize: 12,
+        color: "#334155",
+        lineHeight: 17,
+    },
+    noRequestsBox: {
+        paddingVertical: 14,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    noRequestsText: {
+        fontSize: 13,
+        color: "#94a3b8",
+        fontStyle: "italic",
+    },
+    requestFormCard: {
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#cbd5e1",
+        marginTop: 8,
+    },
+    requestFormTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#0f172a",
+        marginBottom: 2,
+    },
+    requestFormSubtitle: {
+        fontSize: 11,
+        color: "#64748b",
+        marginBottom: 10,
+        lineHeight: 16,
+    },
+    discountInput: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#cbd5e1",
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 13,
+        color: "#1e293b",
+        textAlignVertical: "top",
+        minHeight: 64,
+        marginBottom: 10,
+    },
+    requestSubmitButton: {
+        backgroundColor: "#0ea360",
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    requestSubmitButtonDisabled: {
+        opacity: 0.6,
+    },
+    requestSubmitButtonText: {
+        color: "#fff",
+        fontSize: 13,
+        fontWeight: "700",
+    },
+    buttonRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
 });

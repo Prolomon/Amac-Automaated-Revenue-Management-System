@@ -119,6 +119,8 @@ export type AuthContextValue = {
     message?: string;
     error?: string;
     token?: string;
+    accessToken?: string;
+    refreshToken?: string;
   }>;
   logout: () => Promise<void>;
   updateProfile: (
@@ -161,6 +163,7 @@ export type AuthContextValue = {
     secureToken: string,
   ) => Promise<{ ok: boolean; message?: string; error?: string }>;
   code: string | null;
+  refreshSession?: () => Promise<string | null>;
 };
 
 export type Pricing = {

@@ -17,6 +17,7 @@ import {
   Network,
   ClipboardList,
   Home,
+  UserCheck,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -141,6 +142,11 @@ export default function Sidebar({ onClose }) {
         label: "Properties",
         icon: <Home size={18} />,
       },
+      {
+        href: "/admin/enumerators",
+        label: "Enumerators",
+        icon: <UserCheck size={18} />,
+      },
       { href: "/admin/tiers", label: "Pricing", icon: <Tag size={18} /> },
       { href: "/admin/terminal", label: "Terminals", icon: <Monitor size={18} /> },
       { href: "/admin/department", label: "Departments", icon: <Network size={18} /> },
@@ -214,6 +220,7 @@ export default function Sidebar({ onClose }) {
             width={40}
             height={40}
             className="w-full h-full object-cover"
+            style={{ width: "auto", height: "auto" }}
           />
         </div>
         <div>

@@ -82,7 +82,7 @@ const createRequest = async (req, res) => {
       });
     }
 
-    const id = "REQ" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+    let id = "REQ" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
 
     while (await prisma.request.findUnique({ where: { id } })) {
       id = "REQ" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();

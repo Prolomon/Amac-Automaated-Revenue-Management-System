@@ -1324,6 +1324,26 @@ export default function EntityDetailsPage({ params }) {
           {primaryDocument ? (
             <div className="mt-5 space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Compulsory BVN Card */}
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
+                        Bank Verification Number (BVN)
+                      </p>
+                      <p className="mt-1 font-mono text-sm font-bold text-emerald-900">
+                        {member?.bvn || (primaryDocument as any)?.bvn || (primaryDocument as any)?.data?.bvn || "Compulsory BVN pending registration"}
+                      </p>
+                    </div>
+                    {(member?.bvn || (primaryDocument as any)?.bvn || (primaryDocument as any)?.data?.bvn) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        <Check className="h-3 w-3" />
+                        Wallet Verified
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     Document Type
@@ -1574,6 +1594,50 @@ export default function EntityDetailsPage({ params }) {
                     {primaryProperty.size || "—"}
                   </p>
                 </div>
+
+                {primaryProperty.address && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Physical Premises Address
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-800">
+                      {primaryProperty.address}
+                    </p>
+                  </div>
+                )}
+
+                {primaryProperty.status && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Status:
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold ${
+                            primaryProperty.status === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : primaryProperty.status === "DENIED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {primaryProperty.status}
+                        </span>
+                      </div>
+                      {primaryProperty.enumeratorId && (
+                        <span className="text-xs text-slate-500">
+                          Captured by Enumerator: <strong className="font-mono text-slate-700">{primaryProperty.enumeratorId}</strong>
+                        </span>
+                      )}
+                    </div>
+                    {primaryProperty.rejectionReason && (
+                      <p className="mt-2 text-xs font-medium text-red-600">
+                        Rejection reason: {primaryProperty.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Cloudinary Images Gallery */}

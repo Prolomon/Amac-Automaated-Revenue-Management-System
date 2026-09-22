@@ -72,7 +72,9 @@ const createMemberSchema = Joi.object({
   pricing: Joi.array().items(Joi.string()).optional().default([]).messages({
     "array.base": "Pricing must be an array",
   }),
-  role: Joi.string().valid("USER", "ADMIN").optional().default("USER"),
+  role: Joi.string().valid("USER", "ADMIN", "ENUMERATOR").optional().default("USER"),
+  enumeratorId: Joi.string().trim().optional().allow("", null),
+  supervisorId: Joi.string().trim().optional().allow("", null),
   property: Joi.object({
     id: Joi.string().trim().optional().allow("", null),
     pid: Joi.string().trim().optional().allow("", null),
@@ -80,12 +82,21 @@ const createMemberSchema = Joi.object({
     type: Joi.string().trim().optional().allow("", null),
     size: Joi.string().trim().optional().allow("", null),
     images: Joi.array().items(Joi.string()).optional().default([]),
+    address: Joi.string().trim().optional().allow("", null),
+    location: Joi.object().optional().allow(null),
+    center: Joi.string().trim().optional().allow("", null),
+    zone: Joi.string().trim().optional().allow("", null),
+    enumeratorId: Joi.string().trim().optional().allow("", null),
+    supervisorId: Joi.string().trim().optional().allow("", null),
+    status: Joi.string().valid("PENDING", "APPROVED", "DENIED").optional(),
   }).optional().allow(null),
   document: Joi.object({
     type: Joi.string().trim().optional().allow("", null),
     number: Joi.string().trim().optional().allow("", null),
+    bvn: Joi.string().trim().optional().allow("", null),
     data: Joi.object().optional().allow(null),
   }).optional().allow(null),
+  bvn: Joi.string().trim().optional().allow("", null),
 });
 
 const updateMemberSchema = Joi.object({

@@ -4,6 +4,7 @@ export const AUTH_AGENT = "urms_agent";
 export const AUTH_AGENT_WALLET = "urms_agent_wallet";
 export const AUTH_AGENT_WALLET_STATE = "urms_agent_wallet_state";
 export const AUTH_AGENT_TOKEN = "urms_agent_token";
+export const AUTH_AGENT_REFRESH_TOKEN = "urms_agent_refresh_token";
 
 
 export function buildHeaders(

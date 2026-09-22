@@ -8,9 +8,7 @@ import {
   changePasswordSchema,
   loginStaffSchema
 } from "../validator/staffValidator.js";
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
+import { generateTokens } from "../service/token.js";
 import {
   sendLoginSuccessEmail,
   sendAccountCreationEmail,
@@ -23,19 +21,6 @@ const generateStaffUidSuffix = customAlphabet(
   "0123456789",
   10,
 );
-
-const generateAuthToken = async (payload) => {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
-  const { SignJWT } = await joseImport();
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt()
-    .setExpirationTime(jwtExpiresIn)
-    .sign(new TextEncoder().encode(jwtSecret));
-};
 
 const looksLikeJwt = (value) =>
   typeof value === "string" && value.split(".").length === 3;
@@ -511,7 +496,7 @@ const loginStaff = async (req, res) => {
       return res.status(401).json({ ok: false, message: "Invalid password" });
     }
 
-    const token = await generateAuthToken({
+    const tokens = await generateTokens({
       uid: staff.uid,
       role: staff.role,
       type: "staff",
@@ -537,7 +522,9 @@ const loginStaff = async (req, res) => {
       message: "Login successful",
       staff: staffWithoutPassword,
       role: staff.role,
-      token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken,
     });
   } catch (err) {
     console.error(err);

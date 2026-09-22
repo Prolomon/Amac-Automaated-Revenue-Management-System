@@ -4,6 +4,7 @@ import Cookies from 'js-cookie'
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Company, getCompany, login as CompanyLogin } from "@/lib/services/company";
+import { refreshAuthToken } from "@/lib/api";
 
 const PartnerContext = createContext<any>(null);
 
@@ -65,10 +66,17 @@ export const PartnerProvider = ({ children }) => {
         setIsAuthenticated(true);
         Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
         setUid(res.company.uid);
-        setToken(res.token);
+        const accessToken = res.accessToken || res.token;
+        const refreshToken = res.refreshToken;
+        if (accessToken) {
+          setToken(accessToken);
+          Cookies.set("amac_token", accessToken, { path: "/", expires: 1 });
+        }
+        if (refreshToken) {
+          Cookies.set("amac_refresh_token", refreshToken, { path: "/", expires: 7 });
+        }
         setRole(res.role || res.company.role);
-        Cookies.set("amac_token", res.token, { path: "/", expires: 1 }); // 3 days
-        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 }); // 3 days
+        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 });
 
         router.replace("/partner");
     } catch (err) {
@@ -82,6 +90,7 @@ export const PartnerProvider = ({ children }) => {
   // Logout function
   const logout = () => {
     Cookies.remove("amac_token");
+    Cookies.remove("amac_refresh_token");
     Cookies.remove("amac_role");
     Cookies.remove("amac_session");
     setUser(null);
@@ -94,35 +103,46 @@ export const PartnerProvider = ({ children }) => {
 
   // Get company data function
   useEffect(() => {
-    try {
-      const companyData = Cookies.get("amac_session");
-      const cookieData = Cookies.get("amac_token");
-      const companyRole = Cookies.get("amac_role");
+    (async () => {
+      try {
+        const companyData = Cookies.get("amac_session");
+        let cookieData = Cookies.get("amac_token");
+        const refreshToken = Cookies.get("amac_refresh_token");
+        const companyRole = Cookies.get("amac_role");
 
-      if (companyData) {
-        const parsedCompany = JSON.parse(companyData);
-        setIsAuthenticated(true);
-        setToken(cookieData ? cookieData.split("=")[1] : null);
-        setUser(parsedCompany);
-        setUid(parsedCompany?.uid || null);
-        setRole(companyRole || parsedCompany?.role || null);
-      } else {
-        setIsAuthenticated(false);
-        setToken(null);
-        setUser(null);
+        if (companyData) {
+          const parsedCompany = JSON.parse(companyData);
+
+          if (!cookieData && refreshToken) {
+            const newTok = await refreshAuthToken();
+            if (newTok) {
+              cookieData = newTok;
+            }
+          }
+
+          setIsAuthenticated(true);
+          setToken(cookieData || null);
+          setUser(parsedCompany);
+          setUid(parsedCompany?.uid || null);
+          setRole(companyRole || parsedCompany?.role || null);
+        } else {
+          setIsAuthenticated(false);
+          setToken(null);
+          setUser(null);
           setUid(null);
           setRole(null);
         }
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to restore session"));
-      setIsAuthenticated(false);
-      setToken(null);
-      setUser(null);
-      setUid(null);
-      setRole(null);
-    } finally {
-      setLoading(false);
-    }
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("Failed to restore session"));
+        setIsAuthenticated(false);
+        setToken(null);
+        setUser(null);
+        setUid(null);
+        setRole(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
 

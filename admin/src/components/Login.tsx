@@ -45,7 +45,7 @@ export default function Login({ role }: { role: string }) {
             <div className="relative z-10 w-full max-w-md p-8 sm:p-10 bg-white rounded-3xl shadow-2xl border border-[#E1E7E2]">
                 <div className="flex flex-col items-center mb-6">
                     <div className="w-20 h-20 bg-[#E4F5EB] rounded-2xl flex items-center justify-center mb-3 border border-[#1B9E5A]/25">
-                        <Image src="/icon.png" alt="Unified Portal Logo" width={56} height={56} />
+                        <Image src="/icon.png" alt="Unified Portal Logo" width={56} height={56} style={{ width: "auto", height: "auto" }} />
                     </div>
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#1B9E5A]/30 bg-[#1B9E5A]/12 px-3 py-1 font-['JetBrains_Mono',monospace] text-[11px] font-semibold uppercase tracking-wide text-[#158049] mb-3">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#1B9E5A]" />

@@ -18,23 +18,7 @@ import {
   sendProfileUpdateEmail,
   sendWalletCreationEmail,
 } from "../core/mail.js";
-
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
-
-const generateAuthToken = async (payload) => {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
-  const { SignJWT } = await joseImport();
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt()
-    .setExpirationTime(jwtExpiresIn)
-    .sign(new TextEncoder().encode(jwtSecret));
-};
+import { generateTokens } from "../service/token.js";
 
 const generateCompanyUidSuffix = customAlphabet(
   "0123456789",
@@ -558,7 +542,7 @@ const loginCompany = async (req, res) => {
     }
 
     const { password: pwd, ...companyWithoutPassword } = company;
-    const token = await generateAuthToken({
+    const tokens = await generateTokens({
       uid: company.uid,
       role: company.role,
       type: "company",
@@ -580,7 +564,9 @@ const loginCompany = async (req, res) => {
       ok: true,
       message: "Login successful",
       company: companyWithoutPassword,
-      token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken,
       role: company.role,
     });
   } catch (err) {

@@ -1,9 +1,9 @@
-import { API_URL, AUTH_AGENT, AUTH_AGENT_TOKEN, AUTH_AGENT_WALLET } from "@/lib/api";
+import { API_URL, AUTH_AGENT, AUTH_AGENT_TOKEN, AUTH_AGENT_REFRESH_TOKEN, AUTH_AGENT_WALLET } from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 import { AuthContextValue, Member, Notification, Payment, User, Wallet } from "../lib/types";
-import { login as AgentLogin, forgetPassword, resetPassword } from "@/lib/services/agent";
+import { login as AgentLogin, forgetPassword, resetPassword, refreshAuthToken } from "@/lib/services/agent";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -45,7 +45,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (wal) {
           setWallet(JSON.parse(wal));
         }
-        const tok = await AsyncStorage.getItem(AUTH_AGENT_TOKEN);
+        let tok = await AsyncStorage.getItem(AUTH_AGENT_TOKEN);
+        const refTok = await AsyncStorage.getItem(AUTH_AGENT_REFRESH_TOKEN);
+
+        if (!tok && refTok) {
+          try {
+            const refreshRes = await refreshAuthToken(refTok);
+            if (refreshRes?.accessToken) {
+              tok = refreshRes.accessToken;
+              await AsyncStorage.setItem(AUTH_AGENT_TOKEN, refreshRes.accessToken);
+              if (refreshRes.refreshToken) {
+                await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, refreshRes.refreshToken);
+              }
+            }
+          } catch (_) {
+            // refresh token expired or failed
+          }
+        }
+
         if (tok) {
           setToken(tok);
         }
@@ -61,15 +78,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  const refreshSession = async (): Promise<string | null> => {
+    try {
+      const refTok = await AsyncStorage.getItem(AUTH_AGENT_REFRESH_TOKEN);
+      if (!refTok) return null;
+
+      const refreshRes = await refreshAuthToken(refTok);
+      const newAccess = refreshRes?.accessToken || refreshRes?.token;
+      const newRefresh = refreshRes?.refreshToken;
+
+      if (newAccess) {
+        await AsyncStorage.setItem(AUTH_AGENT_TOKEN, newAccess);
+        setToken(newAccess);
+      }
+      if (newRefresh) {
+        await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, newRefresh);
+      }
+      return newAccess || null;
+    } catch (err) {
+      console.error("Agent session refresh failed:", err);
+      return null;
+    }
+  };
+
   const login = async (uid: string, password: string) => {
     try {
+      await AsyncStorage.removeItem(AUTH_AGENT);
+      await AsyncStorage.removeItem(AUTH_AGENT_WALLET);
+      await AsyncStorage.removeItem(AUTH_AGENT_TOKEN);
+      await AsyncStorage.removeItem(AUTH_AGENT_REFRESH_TOKEN);
+      await AsyncStorage.removeItem("urms_agent_pin");
 
       const response = await AgentLogin(uid, password);
       const normalized = normalizeUser(response.agent || {});
+      const accessToken = response.accessToken || response.token || "";
+      const refreshToken = response.refreshToken || "";
 
       await AsyncStorage.setItem(AUTH_AGENT, JSON.stringify(normalized));
-      await AsyncStorage.setItem(AUTH_AGENT_TOKEN, response.token || "");
-      setToken(response.token || "");
+      await AsyncStorage.setItem(AUTH_AGENT_TOKEN, accessToken);
+      if (refreshToken) {
+        await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, refreshToken);
+      }
+      setToken(accessToken);
 
       setCurrentUser(normalized);
 
@@ -84,7 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(AUTH_AGENT);
     await AsyncStorage.removeItem(AUTH_AGENT_WALLET);
     await AsyncStorage.removeItem(AUTH_AGENT_TOKEN);
+    await AsyncStorage.removeItem(AUTH_AGENT_REFRESH_TOKEN);
     await AsyncStorage.removeItem("urms_agent_pin");
+    setToken(undefined);
     setCurrentUser(null);
   };
 
@@ -448,7 +500,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     createCode,
     changeCode,
     verifyCode,
-    code
+    code,
+    refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

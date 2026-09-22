@@ -6,6 +6,8 @@ export async function login( email: string, password: string): Promise<{
   message?: string;
   error?: string;
   token?: string;
+  accessToken?: string;
+  refreshToken?: string;
   member?: User;
   uid?: string;
 }> {
@@ -21,6 +23,30 @@ export async function login( email: string, password: string): Promise<{
 
   if (!response.ok) { 
     throw new Error(data.message || "Login failed");
+  }
+
+  return data;
+}
+
+export async function refreshAuthToken(refreshToken: string): Promise<{
+  ok: boolean;
+  message?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
+}> {
+  const response = await fetch(`${API_URL}/auth/refresh-token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to refresh token");
   }
 
   return data;

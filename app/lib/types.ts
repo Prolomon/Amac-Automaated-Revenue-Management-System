@@ -67,6 +67,7 @@ export type Notification = {
 };
 
 export type Payment = {
+  id?: string;
   reference: string;
   userId: string;
   frequency: Frequency;
@@ -79,9 +80,27 @@ export type Payment = {
   isVerified: boolean;
   sessions: string[];
   debt: number;
+  discount?: number;
   pricing?: Pricing;
   createdAt?: Date;
   updatedAt?: Date;
+};
+
+export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type Request = {
+  id: string;
+  memberId: string;
+  paymentId: string;
+  amount?: number;
+  status: RequestStatus;
+  reason: string;
+  adminComment?: string;
+  approverComment?: string;
+  createdAt: string;
+  updatedAt: string;
+  center?: string;
+  payment?: Payment;
 };
 
 export type Member = {
@@ -126,6 +145,8 @@ export type AuthContextValue = {
     message?: string;
     error?: string;
     token?: string;
+    accessToken?: string;
+    refreshToken?: string;
   }>;
   logout: () => Promise<void>;
   forgot: (
@@ -164,6 +185,7 @@ export type AuthContextValue = {
     secureToken: string,
   ) => Promise<{ ok: boolean; message?: string; error?: string }>;
   uid?: string;
+  refreshSession?: () => Promise<string | null>;
 };
 
 export type Pricing = {

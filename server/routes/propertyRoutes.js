@@ -1,23 +1,24 @@
 import express from "express";
 import {
-  createProperty,
-  getAllProperties,
-  getPropertyById,
-  getPropertiesByMember,
-  updateProperty,
-  deleteProperty,
-  uploadImagesController,
+  submitCapture,
+  getCaptures,
+  getCaptureById,
+  reviewProperty,
+  reviewMember,
 } from "../controller/propertyController.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/", getAllProperties);
-router.post("/", createProperty);
-router.get("/member/:memberId", getPropertiesByMember);
-router.post("/upload", uploadImagesController);
-router.get("/:id", getPropertyById);
-router.put("/:id", updateProperty);
-router.delete("/:id", deleteProperty);
+// Capture submission (Enumerator)
+router.post("/capture", authMiddleware, submitCapture);
+
+// Listing and details
+router.get("/captures", authMiddleware, getCaptures);
+router.get("/captures/:id", authMiddleware, getCaptureById);
+
+// Supervisor / Admin Reviews
+router.post("/review/:id", authMiddleware, reviewProperty);
+router.post("/review-member/:id", authMiddleware, reviewMember);
 
 export { router as propertyRouter };
-

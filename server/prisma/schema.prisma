@@ -44,9 +44,19 @@ model Member {
   documents     Document[]
   wallets       Wallet[]   @relation("memberUserId")
   propertyId    String?
+  bvn           String?
+  enumeratorId  String?
+  enumerator    Enumerator? @relation(fields: [enumeratorId], references: [uid], onDelete: SetNull)
+  enumerationStatus EnumerationStatus @default(APPROVED)
+  supervisorId  String?
+  rejectionReason String?
+  reward        Float       @default(50.00)
 
   @@index([uid, email, center, status, type])
   @@index([propertyId])
+  @@index([enumeratorId])
+  @@index([supervisorId])
+  @@index([enumerationStatus])
 }
 
 model Company {
@@ -104,6 +114,7 @@ model Wallet {
   company         Company? @relation("companyUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_company_userId_fkey")
   staff           Staff?   @relation("staffUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_staff_userId_fkey")
   agent           Agent?   @relation("agentUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_agent_userId_fkey")
+  enumerator      Enumerator? @relation("enumeratorUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_enumerator_userId_fkey")
   role            Role
   balance         Float    @default(0.00)
   accountNo       String
@@ -393,6 +404,18 @@ enum Role {
   MEMBER
   CHECKOUT
   IT
+  ENUMERATOR
+}
+
+enum EnumeratorLevel {
+  BASIC
+  SUPER
+}
+
+enum EnumerationStatus {
+  PENDING
+  APPROVED
+  DENIED
 }
 
 enum NotificationType {
@@ -486,21 +509,66 @@ model ActivityLog {
 }
 
 model Property {
-  id        String   @id @default(cuid())
-  pid       String?  @unique
-  name      String
-  type      String
-  size      String
-  images    String[] @default([])
-  center    String?
-  memberId  String?
-  member    Member?  @relation(fields: [memberId], references: [uid], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String            @id @default(cuid())
+  pid             String?           @unique
+  name            String            @default("Property")
+  type            String            @default("Commercial")
+  size            String            @default("Standard")
+  address         String?
+  location        Json?
+  images          String[]          @default([])
+  center          String?
+  zone            String?
+  status          EnumerationStatus @default(APPROVED)
+  rejectionReason String?
+  reward          Float             @default(50.00)
+  enumeratorId    String?
+  enumerator      Enumerator?       @relation(fields: [enumeratorId], references: [uid], onDelete: SetNull)
+  supervisorId    String?
+  approvedAt      DateTime?
+  memberId        String?
+  member          Member?           @relation(fields: [memberId], references: [uid], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([memberId])
   @@index([pid])
   @@index([center])
+  @@index([enumeratorId])
+  @@index([supervisorId])
+  @@index([status])
+}
+
+model Enumerator {
+  id           String            @id @default(cuid())
+  uid          String            @unique
+  name         String
+  email        String            @unique
+  phone        String
+  altPhone     String?
+  avatar       String?
+  dob          DateTime?
+  address      String?
+  center       String
+  zone         String?
+  guarantor1   Json?
+  guarantor2   Json?
+  level        EnumeratorLevel   @default(BASIC)
+  supervisorId String?
+  password     String
+  status       Boolean           @default(true)
+  role         Role              @default(ENUMERATOR)
+  otpCode      String?
+  otpExpiresAt DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  properties   Property[]
+  members      Member[]
+  wallets      Wallet[]          @relation("enumeratorUserId")
+
+  @@index([uid, email, phone, center, level, status])
+  @@index([supervisorId])
 }
 
 model Document {

@@ -15,6 +15,7 @@ import { generateUniquePropertyPid } from "./propertyController.js";
 import { customAlphabet } from "nanoid";
 import { sendEmail } from "../service/mail.js";
 import { deleteAccount } from "../service/wallet.js";
+import { createWalletForEntity } from "./walletController.js";
 import {
   sendLoginSuccessEmail,
   sendAccountCreationEmail,
@@ -22,23 +23,7 @@ import {
   sendResetPasswordEmail,
   sendProfileUpdateEmail,
 } from "../core/mail.js";
-
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
-
-const generateAuthToken = async (payload) => {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
-  const { SignJWT } = await joseImport();
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt()
-    .setExpirationTime(jwtExpiresIn)
-    .sign(new TextEncoder().encode(jwtSecret));
-};
+import { generateTokens } from "../service/token.js";
 
 const memberSafeSelect = {
   id: true,
@@ -226,6 +211,10 @@ const createMember = async (req, res) => {
           pricing: availablePricing.map((p) => p.id),
           category: value.category || null,
           zone: value.zone || null,
+          bvn: value.bvn || value.document?.bvn || value.document?.data?.bvn || null,
+          enumeratorId: value.enumeratorId || (req.user?.role === "ENUMERATOR" ? req.user.uid : null),
+          supervisorId: value.supervisorId || (req.user?.role === "ENUMERATOR" ? req.user.supervisorId : null),
+          enumerationStatus: (value.enumeratorId || req.user?.role === "ENUMERATOR") ? "PENDING" : "APPROVED",
         },
       });
 
@@ -401,6 +390,12 @@ const createMember = async (req, res) => {
           const propId = propIdInput || `prop_${customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 16)()}`;
           const propPid = await generateUniquePropertyPid();
           const propCenter = member.center || value.center || null;
+          const propAddress = value.property?.address || (typeof value.location?.address === "string" ? value.location.address : null);
+          const propLocation = value.property?.location || value.location || null;
+          const propZone = value.property?.zone || member.zone || value.zone || null;
+          const propEnumeratorId = value.enumeratorId || (req.user?.role === "ENUMERATOR" ? req.user.uid : null);
+          const propSupervisorId = value.supervisorId || (req.user?.role === "ENUMERATOR" ? req.user.supervisorId : null);
+          const propStatus = (propEnumeratorId || value.property?.status === "PENDING") ? "PENDING" : "APPROVED";
 
           createdProperty = await prisma.property.create({
             data: {
@@ -412,6 +407,12 @@ const createMember = async (req, res) => {
               images: pImages,
               memberId: member.uid,
               center: propCenter,
+              address: propAddress,
+              location: propLocation,
+              zone: propZone,
+              enumeratorId: propEnumeratorId,
+              supervisorId: propSupervisorId,
+              status: propStatus,
             },
           });
         }
@@ -456,6 +457,37 @@ const createMember = async (req, res) => {
       }
     }
 
+    // Automatic Wallet Creation on entity registration
+    let createdWallet = null;
+    const entityName =
+      (member.type === "BUSINESS" && member.businessName
+        ? member.businessName
+        : member.fullname) || member.fullname;
+    const entityBvn =
+      value.bvn ||
+      value.document?.bvn ||
+      (value.document?.type?.toLowerCase() === "bvn"
+        ? value.document?.number
+        : null);
+
+    if (entityBvn) {
+      try {
+        const walletResult = await createWalletForEntity({
+          name: entityName,
+          id: member.uid,
+          bvn: entityBvn,
+          role: member.role || "MEMBER",
+        });
+        if (walletResult?.ok && walletResult.wallet) {
+          createdWallet = walletResult.wallet;
+        } else {
+          console.warn("Auto wallet creation notice:", walletResult?.message);
+        }
+      } catch (walletErr) {
+        console.warn("Auto wallet creation notice:", walletErr?.message || walletErr);
+      }
+    }
+
     const { password, ...memberWithoutPassword } = member;
     return res.status(201).json({
       ok: true,
@@ -466,7 +498,10 @@ const createMember = async (req, res) => {
         document: createdDocument,
         properties: createdProperty ? [createdProperty] : [],
         documents: createdDocument ? [createdDocument] : [],
+        wallet: createdWallet,
+        wallets: createdWallet ? [createdWallet] : [],
       },
+      wallet: createdWallet,
       welcomeNotification,
       initialPayment,
     });
@@ -819,15 +854,20 @@ const login = async (req, res) => {
       console.error("Login alert email failure:", error?.message || error);
     });
 
+    const tokens = await generateTokens({
+      uid: member.uid,
+      email: member.email,
+      role: member.role,
+      type: "member",
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Login successful",
       member: memberWithoutPassword,
-      token: await generateAuthToken({
-        uid: member.uid,
-        email: member.email,
-        role: member.role,
-      }),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken,
     });
   } catch (err) {
     console.error(err);

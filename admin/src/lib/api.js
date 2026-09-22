@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"; 
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"; 
 
 export function getTokenFromCookie() {
   if (typeof window === "undefined") return null;
@@ -6,6 +6,56 @@ export function getTokenFromCookie() {
     new RegExp("(?:^|; )" + "amac_token" + "=([^;]*)"),
   );
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function getRefreshTokenFromCookie() {
+  if (typeof window === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp("(?:^|; )" + "amac_refresh_token" + "=([^;]*)"),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export async function refreshAuthToken() {
+  const refreshToken = getRefreshTokenFromCookie();
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/refresh-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      // Refresh token is invalid or expired
+      if (typeof document !== "undefined") {
+        document.cookie = "amac_token=; path=/; max-age=0; SameSite=Lax";
+        document.cookie = "amac_refresh_token=; path=/; max-age=0; SameSite=Lax";
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    const newAccessToken = data.accessToken || data.token;
+    const newRefreshToken = data.refreshToken;
+
+    if (typeof document !== "undefined") {
+      if (newAccessToken) {
+        document.cookie = `amac_token=${encodeURIComponent(newAccessToken)}; path=/; max-age=${60 * 60 * 24}; SameSite=Lax`;
+      }
+      if (newRefreshToken) {
+        document.cookie = `amac_refresh_token=${encodeURIComponent(newRefreshToken)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      }
+    }
+
+    return newAccessToken;
+  } catch (err) {
+    console.error("Token refresh failed:", err);
+    return null;
+  }
 }
 
 export function buildHeaders(hasJson = true) {
@@ -213,11 +263,12 @@ export async function updatePaymentConfig(payload) {
   return data;
 }
 
-// Log out the current user: clear auth cookie and local flag
 export function logout() {
   if (typeof document !== "undefined") {
     // expire auth cookie
     document.cookie = "arums_uid=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "amac_token=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "amac_refresh_token=; path=/; max-age=0; SameSite=Lax";
   }
   if (typeof localStorage !== "undefined") {
     localStorage.removeItem("loggedIn");

@@ -13,7 +13,7 @@ export function MainFooter() {
                     <div className="col-span-2">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="rounded-md bg-white p-1.5">
-                                <Image src="/icon.png" alt="Abuja Municipal Area Council Logo" width={40} height={40} />
+                                <Image src="/icon.png" alt="Abuja Municipal Area Council Logo" width={40} height={40} style={{ width: "auto", height: "auto" }} />
                             </div>
                             <div>
                                 <p className="text-sm font-bold text-white">Abuja Municipal Area Council</p>
@@ -25,7 +25,7 @@ export function MainFooter() {
                         </p>
                         <div className="mt-4 flex flex-wrap gap-3">
                             <Link href="https://tr3-g.com.ng" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700 bg-emerald-900 px-3 py-1.5 text-xs font-medium text-emerald-100 transition-colors hover:bg-emerald-800">
-                                <Image src="/tr3-g.png" alt="Tr3-G" width={72} height={72} className="object-contain" />
+                                <Image src="/tr3-g.png" alt="Tr3-G" width={72} height={72} className="object-contain" style={{ width: "auto", height: "auto" }} />
                                 Powered by Tr3-G Innovative Limited
                             </Link>
                         </div>

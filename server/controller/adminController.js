@@ -5,10 +5,8 @@ import { createAdminSchema, changePasswordSchema, loginAdminSchema, updateAdminS
 import { customAlphabet } from "nanoid";
 import { verifyProtocol } from "../service/mail.js";
 
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
 import { sendEmail } from "../service/mail.js";
+import { generateTokens } from "../service/token.js";
 
 import {
   sendLoginSuccessEmail,
@@ -26,19 +24,6 @@ const generateAdminUidSuffix = customAlphabet(
   "0123456789",
   10,
 );
-
-const generateAuthToken = async (payload) => {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
-  const { SignJWT } = await joseImport();
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt()
-    .setExpirationTime(jwtExpiresIn)
-    .sign(new TextEncoder().encode(jwtSecret));
-};
 
 const looksLikeJwt = (value) =>
   typeof value === "string" && value.split(".").length === 3;
@@ -447,7 +432,7 @@ const loginAdmin = async (req, res) => {
 
     // Return admin data
     const { password: pwd, ...adminWithoutPassword } = admin;
-    const token = await generateAuthToken({
+    const tokens = await generateTokens({
       uid: admin.uid,
       role: admin.role,
       type: admin.role === "ADMIN" ? "admin" : "it",
@@ -466,7 +451,9 @@ const loginAdmin = async (req, res) => {
       ok: true,
       message: "Login successful",
       admin: adminWithoutPassword,
-      token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken,
       role: admin.role,
     });
   } catch (err) {

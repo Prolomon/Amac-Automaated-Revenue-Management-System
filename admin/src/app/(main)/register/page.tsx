@@ -107,9 +107,11 @@ export default function RegisterEntityPage() {
     zipcode: "",
     pricing: [] as string[],
     agreedToTerms: false,
+    bvn: "",
     document: {
       type: "cac",
       number: "",
+      bvn: "",
       data: null as any,
     },
     property: {
@@ -418,6 +420,12 @@ export default function RegisterEntityPage() {
           ? "Please provide the official CAC Registration Number (RC/BN)"
           : "Please enter your valid document identification number";
       }
+      const cleanBvn = (formData.bvn || "").trim();
+      if (!cleanBvn) {
+        errs.bvn = "Bank Verification Number (BVN) is compulsory for automated wallet creation";
+      } else if (!/^\d{11}$/.test(cleanBvn)) {
+        errs.bvn = "BVN must be exactly 11 digits";
+      }
     }
 
     if (stepNumber === 4) {
@@ -521,10 +529,12 @@ export default function RegisterEntityPage() {
           nearestBusStop: formData.nearestBusStop.trim(),
           zipcode: formData.zipcode.trim() || "0",
         },
+        bvn: formData.bvn.trim(),
         document: {
           type: formData.document.type,
           number: formData.document.number.trim(),
-          data: null,
+          bvn: formData.bvn.trim(),
+          data: { bvn: formData.bvn.trim() },
         },
         property: {
           id: (isExistingProperty && selectedExistingPropertyId) ? selectedExistingPropertyId : undefined,
@@ -533,6 +543,16 @@ export default function RegisterEntityPage() {
           type: formData.property.type.trim(),
           size: formData.property.size.trim(),
           images: formData.property.images,
+          address: formData.address.trim(),
+          location: {
+            state: formData.state,
+            city: formData.city,
+            address: formData.address.trim(),
+            nearestBusStop: formData.nearestBusStop.trim(),
+            zipcode: formData.zipcode.trim() || "0",
+          },
+          center: formData.center,
+          zone: formData.zone || "A",
         },
       };
 
@@ -584,10 +604,12 @@ export default function RegisterEntityPage() {
       zipcode: "",
       pricing: [],
       agreedToTerms: false,
+      bvn: "",
       document: {
         type: "cac",
         number: "",
         data: null,
+        bvn: "",
       },
       property: {
         name: "",
@@ -710,7 +732,7 @@ export default function RegisterEntityPage() {
   // =========================================================================
   return (
     <div className="min-h-screen bg-slate-50/50 py-10 px-4 md:px-6">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full">
         {/* Header Banner */}
         <div className="rounded-3xl bg-linear-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 md:p-8 text-white shadow-lg">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-xs px-3.5 py-1 text-xs font-medium text-emerald-100 ring-1 ring-white/20">
@@ -1169,6 +1191,63 @@ export default function RegisterEntityPage() {
                       <p className="mt-1 text-xs text-red-600">{errors["document.number"]}</p>
                     )}
                   </div>
+                </div>
+
+                {/* Compulsory BVN for Wallet Creation */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <CreditCard className="h-5 w-5 text-blue-700 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                        Compulsory Revenue Wallet Creation
+                      </h4>
+                      <p className="mt-0.5 text-xs text-blue-800 leading-relaxed">
+                        An official AMAC automated revenue wallet is automatically created and connected to this entity upon registration. Your 11-digit <strong>Bank Verification Number (BVN)</strong> is compulsory for this process.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-2">
+                    Bank Verification Number (BVN) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      maxLength={11}
+                      placeholder="Enter 11-digit Bank Verification Number"
+                      value={formData.bvn}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 11);
+                        handleInputChange("bvn", val);
+                        if (errors.bvn) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.bvn;
+                            return next;
+                          });
+                        }
+                      }}
+                      className={`w-full rounded-xl border bg-slate-50 py-2.5 px-4 text-sm text-slate-800 font-mono outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 ${
+                        errors.bvn ? "border-red-400" : "border-slate-300"
+                      }`}
+                    />
+                    {formData.bvn && formData.bvn.length === 11 && (
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        11 digits ✓
+                      </span>
+                    )}
+                  </div>
+                  {errors.bvn ? (
+                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle size={13} /> {errors.bvn}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Must be exactly 11 numeric digits. Required for automated account & wallet provisioning.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

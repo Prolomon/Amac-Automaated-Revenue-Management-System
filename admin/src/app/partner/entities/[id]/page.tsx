@@ -13,6 +13,16 @@ import {
   Mail,
   Phone,
   MapPin,
+  Home,
+  Layers,
+  FileText,
+  Check,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Eye,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   getMember,
@@ -66,8 +76,13 @@ export default function EntityDetailsPage({ params }) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
   const lastFetchAtRef = useRef(0);
+
+  const primaryDocument = (member as any)?.documents?.[0] || (member as any)?.document || null;
+  const primaryProperty = (member as any)?.properties?.[0] || (member as any)?.property || null;
+  const allProperties = (member as any)?.properties || (primaryProperty ? [primaryProperty] : []);
 
   const normalizePricingIds = (value: unknown): string[] => {
     if (typeof value === "string") {
@@ -760,6 +775,244 @@ export default function EntityDetailsPage({ params }) {
         </div>
       </div>
 
+      {/* IDENTIFICATION DOCUMENT & PROPERTY DETAILS */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Document Card */}
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Compliance & Identity
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Identification Document
+                </h3>
+              </div>
+            </div>
+            {primaryDocument ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {String(primaryDocument.status || "VERIFIED").toUpperCase()}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Not Provided
+              </span>
+            )}
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Compulsory BVN Card */}
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
+                      Bank Verification Number (BVN)
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-bold text-emerald-900">
+                      {member?.bvn || (primaryDocument as any)?.bvn || (primaryDocument as any)?.data?.bvn || "Compulsory BVN pending registration"}
+                    </p>
+                  </div>
+                  {(member?.bvn || (primaryDocument as any)?.bvn || (primaryDocument as any)?.data?.bvn) && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                      <Check className="h-3 w-3" />
+                      Wallet Verified
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {primaryDocument && (
+                <>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Document Type
+                    </p>
+                    <p className="mt-1 text-sm font-semibold uppercase text-slate-800">
+                      {primaryDocument.type || "CAC"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Document Number / ID
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-semibold text-slate-800">
+                      {primaryDocument.number || "—"}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Property Card */}
+        <div className="rounded-2xl bg-white p-5 md:p-6 ring-1 ring-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Home className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Asset & Premises
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Registered Property
+                </h3>
+              </div>
+            </div>
+            {primaryProperty ? (
+              <div className="flex items-center gap-2">
+                {primaryProperty.pid && (
+                  <span className="inline-flex items-center gap-1 font-mono rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                    {primaryProperty.pid}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                  <Layers className="h-3.5 w-3.5" />
+                  {primaryProperty.type || "Property"}
+                </span>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
+                None Registered
+              </span>
+            )}
+          </div>
+
+          {primaryProperty ? (
+            <div className="mt-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property ID (PID)
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-bold text-emerald-700">
+                    {primaryProperty.pid || primaryProperty.id || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Name
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.name || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Type
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.type || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Property Size
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {primaryProperty.size || "—"}
+                  </p>
+                </div>
+
+                {primaryProperty.address && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Physical Premises Address
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-800">
+                      {primaryProperty.address}
+                    </p>
+                  </div>
+                )}
+
+                {primaryProperty.status && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Status:
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold ${
+                            primaryProperty.status === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : primaryProperty.status === "DENIED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {primaryProperty.status}
+                        </span>
+                      </div>
+                      {primaryProperty.enumeratorId && (
+                        <span className="text-xs text-slate-500">
+                          Captured by Enumerator: <strong className="font-mono text-slate-700">{primaryProperty.enumeratorId}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cloudinary Images Gallery */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    Property Photos ({primaryProperty.images?.length || 0})
+                  </p>
+                  {primaryProperty.images?.length > 0 && (
+                    <span className="text-[11px] text-slate-400">Click photo to preview</span>
+                  )}
+                </div>
+
+                {primaryProperty.images && primaryProperty.images.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+                    {primaryProperty.images.map((imgUrl: string, idx: number) => (
+                      <div
+                        key={idx}
+                        onClick={() => setPreviewImage(imgUrl)}
+                        className="group relative h-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 cursor-pointer transition hover:border-emerald-500 hover:shadow-md"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Property photo ${idx + 1}`}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                          <Eye className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center text-xs text-slate-400">
+                    No property images uploaded.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+              <Home className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-2 font-medium">No property record associated</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* pricing and upgrade information */}
       <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-6">
@@ -1089,6 +1342,32 @@ export default function EntityDetailsPage({ params }) {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Property inspection preview"
+              className="max-h-[82vh] w-auto rounded-xl object-contain"
+            />
           </div>
         </div>
       )}

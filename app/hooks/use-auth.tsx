@@ -1,9 +1,9 @@
 import { API_URL } from "@/config";
-import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE, AUTH_MEMBER_UID, AUTH_MEMBER_PIN } from "@/lib/api"
+import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_REFRESH_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE, AUTH_MEMBER_UID, AUTH_MEMBER_PIN } from "@/lib/api"
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Member } from "@/lib/types";
-import { login as MemberLogin, getMember, forgetPassword, resetPassword } from "@/lib/services/member";
+import { login as MemberLogin, getMember, forgetPassword, resetPassword, refreshAuthToken } from "@/lib/services/member";
 
 type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "QUARTERLY";
 
@@ -98,6 +98,7 @@ type AuthContextValue = {
     secureToken: string,
   ) => Promise<{ ok: boolean; message?: string }>;
   refreshUser: () => Promise<void>;
+  refreshSession?: () => Promise<string | null>;
 };
 
 export type BusinessType = {
@@ -175,7 +176,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (wal) {
           setWallet(JSON.parse(wal));
         }
-        const tok = await AsyncStorage.getItem(AUTH_MEMBER_TOKEN);
+        let tok = await AsyncStorage.getItem(AUTH_MEMBER_TOKEN);
+        const refTok = await AsyncStorage.getItem(AUTH_MEMBER_REFRESH_TOKEN);
+
+        if (!tok && refTok) {
+          try {
+            const refreshRes = await refreshAuthToken(refTok);
+            if (refreshRes?.accessToken) {
+              tok = refreshRes.accessToken;
+              await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, refreshRes.accessToken);
+              if (refreshRes.refreshToken) {
+                await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, refreshRes.refreshToken);
+              }
+            }
+          } catch (_) {
+            // refresh token expired or failed
+          }
+        }
+
         if (tok) {
           setToken(tok);
         }
@@ -187,21 +205,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  const refreshSession = async (): Promise<string | null> => {
+    try {
+      const refTok = await AsyncStorage.getItem(AUTH_MEMBER_REFRESH_TOKEN);
+      if (!refTok) return null;
+
+      const refreshRes = await refreshAuthToken(refTok);
+      const newAccess = refreshRes?.accessToken || refreshRes?.token;
+      const newRefresh = refreshRes?.refreshToken;
+
+      if (newAccess) {
+        await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, newAccess);
+        setToken(newAccess);
+      }
+      if (newRefresh) {
+        await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, newRefresh);
+      }
+      return newAccess || null;
+    } catch (err) {
+      console.error("Session refresh failed:", err);
+      return null;
+    }
+  };
+
   const login = async (uid: string, password: string) => {
     try {
       await AsyncStorage.removeItem(AUTH_MEMBER);
-    await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
-    await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
-    await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
+      await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
+      await AsyncStorage.removeItem(AUTH_MEMBER_REFRESH_TOKEN);
+      await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
+      await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
 
       const response = await MemberLogin(uid, password);
 
       const normalized = normalizeUser(response.member || {});
+      const accessToken = response.accessToken || response.token || "";
+      const refreshToken = response.refreshToken || "";
 
       await AsyncStorage.setItem(AUTH_MEMBER, JSON.stringify(normalized));
-      await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, response.token || "");
+      await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, accessToken);
+      if (refreshToken) {
+        await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, refreshToken);
+      }
       await AsyncStorage.setItem(AUTH_MEMBER_UID, response?.uid || normalized.uid || "");
-      setToken(response.token || "");
+      setToken(accessToken);
       setUid(response?.uid || normalized.uid || "");
 
       setCurrentUser(normalized);
@@ -216,6 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await AsyncStorage.removeItem(AUTH_MEMBER);
     await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
+    await AsyncStorage.removeItem(AUTH_MEMBER_REFRESH_TOKEN);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
     await AsyncStorage.removeItem(AUTH_MEMBER_UID);
@@ -560,6 +608,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     wallet,
     verifyCode,
     refreshUser,
+    refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

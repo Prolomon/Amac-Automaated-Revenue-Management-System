@@ -15,6 +15,11 @@ import {
   FileText,
   RefreshCw,
   Hash,
+  Home,
+  MapPin,
+  Building2,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -373,6 +378,119 @@ export default function PaymentPage() {
               </div>
             </div>
           </div>
+
+          {/* Property Premises & Partner/Agent Details Card */}
+          {(() => {
+            const prop = (member as any)?.property || (member as any)?.properties?.[0];
+            const hasProperty = Boolean(prop);
+            const hasAgent = Boolean(agent || member?.agent);
+            const hasBvn = Boolean(member?.bvn || (member as any)?.document?.bvn || (member as any)?.document?.data?.bvn);
+
+            if (!hasProperty && !hasAgent && !hasBvn) return null;
+
+            return (
+              <div className="mb-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">
+                <div className="border-b border-[#E1E7E2] bg-[#F5F7F5] px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-5 w-5 text-[#158049]" />
+                    <h2 className="font-['Space_Grotesk',sans-serif] text-lg font-semibold text-[#0E1F17]">
+                      Premises & Identification Record
+                    </h2>
+                  </div>
+                  {prop?.pid && (
+                    <span className="font-['JetBrains_Mono',monospace] text-xs font-semibold rounded-full bg-[#E4F5EB] text-[#158049] border border-[#1B9E5A]/25 px-3 py-1">
+                      PID: {prop.pid}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {prop && (
+                    <>
+                      <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                        <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">
+                          Premises Name
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[#0E1F17]">
+                          {prop.name || "Default Premises"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                        <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">
+                          Premises Type & Size
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[#0E1F17]">
+                          {prop.type || "Commercial"} ({prop.size || "Standard"})
+                        </p>
+                      </div>
+
+                      {prop.address && (
+                        <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4 sm:col-span-2 lg:col-span-1">
+                          <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">
+                            Premises Address
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-[#0E1F17] truncate">
+                            {prop.address}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {hasBvn && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-emerald-800">
+                          BVN Verification
+                        </p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <Check className="h-3 w-3" /> VERIFIED
+                        </span>
+                      </div>
+                      <p className="mt-1 font-['JetBrains_Mono',monospace] text-sm font-bold text-emerald-950">
+                        {member?.bvn || (member as any)?.document?.bvn || (member as any)?.document?.data?.bvn}
+                      </p>
+                    </div>
+                  )}
+
+                  {hasAgent && (
+                    <div className="rounded-2xl border border-[#E1E7E2] bg-[#F5F7F5] p-4">
+                      <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62]">
+                        Collecting Partner / Agent
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[#0E1F17]">
+                        {agent?.fullname || agent?.name || member?.agent || "Authorized Revenue Agent"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Photo Previews if any */}
+                {prop?.images && prop.images.length > 0 && (
+                  <div className="border-t border-[#E1E7E2] px-6 py-4 bg-white">
+                    <p className="font-['JetBrains_Mono',monospace] text-xs font-medium uppercase tracking-wide text-[#5B6B62] mb-3">
+                      Premises Photos ({prop.images.length})
+                    </p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {prop.images.slice(0, 4).map((imgUrl: string, idx: number) => (
+                        <div
+                          key={idx}
+                          className="h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-[#E1E7E2] bg-slate-100"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Premises preview ${idx + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Payments List */}
           <div className="mb-8 overflow-hidden rounded-[20px] border border-white/10 bg-white shadow-lg">

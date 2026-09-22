@@ -142,6 +142,8 @@ export async function loginStaff(
   staff?: Staff;
   message?: string;
   token: string;
+  accessToken?: string;
+  refreshToken?: string;
   role: string;
 }> {
   const response = await fetch(`${API_URL}/staff/login`, {

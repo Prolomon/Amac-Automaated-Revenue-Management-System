@@ -21,22 +21,7 @@ const generateAgentUidSuffix = customAlphabet(
   10,
 );
 
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "3d";
-
-const generateAuthToken = async (payload) => {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
-  const { SignJWT } = await joseImport();
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt()
-    .setExpirationTime(jwtExpiresIn)
-    .sign(new TextEncoder().encode(jwtSecret));
-};
+import { generateTokens } from "../service/token.js";
 
 const looksLikeJwt = (value) =>
   typeof value === "string" && value.split(".").length === 3;
@@ -534,15 +519,20 @@ const loginAgent = async (req, res) => {
       );
     });
 
+    const tokens = await generateTokens({
+      uid: agent.uid,
+      email: agent.email,
+      role: agent.role,
+      type: "agent",
+    });
+
     return res.status(200).json({
       ok: true,
       message: "Login successful",
       agent: agentWithoutPassword,
-      token: await generateAuthToken({
-        uid: agent.uid,
-        email: agent.email,
-        role: agent.role,
-      }),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken,
     });
   } catch (err) {
     console.error(err);

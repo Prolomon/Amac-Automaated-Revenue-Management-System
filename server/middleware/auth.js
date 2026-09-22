@@ -1,30 +1,5 @@
 import { prisma } from "../config/db.js";
-import { TextEncoder } from "util";
-
-const joseImport = () => import("jose");
-const jwtSecret = process.env.JWT_SECRET;
-
-const decodeTokenIfJwt = async (token) => {
-  if (!jwtSecret || token.split(".").length !== 3) {
-    return null;
-  }
-
-  try {
-    const { jwtVerify } = await joseImport();
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(jwtSecret),
-    );
-
-    if (!payload?.uid || typeof payload.uid !== "string") {
-      return null;
-    }
-
-    return payload;
-  } catch (_) {
-    return null;
-  }
-};
+import { verifyAccessToken } from "../service/token.js";
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -33,12 +8,35 @@ const authMiddleware = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res
         .status(401)
-        .json({ message: "Unauthorized: Bearer token is required." });
+        .json({ ok: false, message: "Unauthorized: Bearer token is required.", code: "TOKEN_REQUIRED" });
     }
 
     const token = authHeader.slice(7).trim(); // Remove 'Bearer ' prefix
-    const jwtPayload = await decodeTokenIfJwt(token);
-    const userUid = jwtPayload?.uid || token;
+
+    let userUid;
+    let jwtPayload = null;
+
+    if (token.split(".").length === 3) {
+      const verification = await verifyAccessToken(token);
+      if (!verification.valid) {
+        if (verification.expired) {
+          return res.status(401).json({
+            ok: false,
+            message: "Token expired",
+            code: "TOKEN_EXPIRED",
+          });
+        }
+        return res.status(401).json({
+          ok: false,
+          message: verification.error || "Unauthorized: Invalid token.",
+          code: "INVALID_TOKEN",
+        });
+      }
+      jwtPayload = verification.payload;
+      userUid = verification.payload.uid;
+    } else {
+      userUid = token;
+    }
 
     // Try to find member by uid extracted from token
     let user = await prisma.member.findUnique({
@@ -154,6 +152,34 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user) {
+      user = await prisma.enumerator.findUnique({
+        where: { uid: userUid },
+        select: {
+          id: true,
+          uid: true,
+          name: true,
+          email: true,
+          phone: true,
+          altPhone: true,
+          avatar: true,
+          status: true,
+          center: true,
+          zone: true,
+          level: true,
+          supervisorId: true,
+          role: true,
+          guarantor1: true,
+          guarantor2: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      if (user) {
+        userType = "enumerator";
+      }
+    }
+
+    if (!user) {
       console.log(user)
       return res.status(401).json({ message: "Unauthorized: Invalid token." });
     }
@@ -168,6 +194,8 @@ const authMiddleware = async (req, res, next) => {
       req.member = user;
     } else if (userType === "agent") {
       req.agent = user;
+    } else if (userType === "enumerator") {
+      req.enumerator = user;
     } else {
       req.admin = user;
     }

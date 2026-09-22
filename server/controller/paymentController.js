@@ -778,12 +778,45 @@ const getPaymentForUser = async (req, res) => {
         });
       }
 
+      let properties = [];
+      let documents = [];
+      try {
+        properties = await prisma.property.findMany({
+          where: {
+            OR: [
+              { memberId: member.uid },
+              ...(member.propertyId ? [{ id: member.propertyId }, { pid: member.propertyId }] : []),
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      } catch (pErr) {
+        console.warn("Property lookup warning in getPaymentForUser:", pErr.message);
+      }
+
+      try {
+        documents = await prisma.document.findMany({
+          where: { memberId: member.uid },
+          orderBy: { createdAt: "desc" },
+        });
+      } catch (dErr) {
+        console.warn("Document lookup warning in getPaymentForUser:", dErr.message);
+      }
+
+      const enrichedMember = {
+        ...member,
+        properties,
+        property: properties[0] || null,
+        documents,
+        document: documents[0] || null,
+      };
+
       return res.status(200).json({
         ok: true,
         data: {
           payments: [{ payment, wallet }],
           agent,
-          member,
+          member: enrichedMember,
         },
       });
     }
