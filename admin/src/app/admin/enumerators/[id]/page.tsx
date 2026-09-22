@@ -113,7 +113,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
   const cleanWaNumber = (enumerator.altPhone || enumerator.phone).replace(/[^0-9]/g, "");
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="mx-auto max-w-7xl p-4 space-y-4">
       {/* Top Bar */}
       <div className="flex items-center gap-3">
         <Link

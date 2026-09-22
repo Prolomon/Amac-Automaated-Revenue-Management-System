@@ -157,7 +157,7 @@ export default function AddEnumeratorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12">
+    <div className="mx-auto max-w-7xl p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
@@ -217,7 +217,7 @@ export default function AddEnumeratorPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Ibrahim Abubakar"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
 
@@ -231,7 +231,7 @@ export default function AddEnumeratorPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="officer@amac.gov.ng"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
 
@@ -245,7 +245,7 @@ export default function AddEnumeratorPage() {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="08012345678"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
 
@@ -259,7 +259,7 @@ export default function AddEnumeratorPage() {
                 value={form.altPhone}
                 onChange={(e) => setForm({ ...form, altPhone: e.target.value })}
                 placeholder="08098765432 (Must be WhatsApp)"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
 
@@ -271,7 +271,7 @@ export default function AddEnumeratorPage() {
                 type="date"
                 value={form.dob}
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
 
@@ -284,7 +284,7 @@ export default function AddEnumeratorPage() {
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
                 placeholder="House number, Street, Area"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
           </div>
@@ -305,7 +305,7 @@ export default function AddEnumeratorPage() {
               <select
                 value={form.level}
                 onChange={(e) => setForm({ ...form, level: e.target.value as any })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition appearance-none"
               >
                 <option value="BASIC">Field Enumerator (Captures & Registrations)</option>
                 <option value="SUPER">Supervisor (Reviews & Approvals)</option>
@@ -320,7 +320,7 @@ export default function AddEnumeratorPage() {
                 <select
                   value={form.supervisorId}
                   onChange={(e) => setForm({ ...form, supervisorId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition appearance-none"
                 >
                   <option value="">Select Supervisor...</option>
                   {supervisors.map((s) => (
@@ -340,7 +340,7 @@ export default function AddEnumeratorPage() {
                 required
                 value={form.center}
                 onChange={(e) => setForm({ ...form, center: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition appearance-none"
               >
                 {centers.length > 0 ? (
                   centers.map((c) => (
@@ -359,7 +359,7 @@ export default function AddEnumeratorPage() {
               <select
                 value={form.zone}
                 onChange={(e) => setForm({ ...form, zone: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 transition appearance-none"
               >
                 {ZONES.map((z) => (
                   <option key={z} value={z}>
@@ -393,7 +393,7 @@ export default function AddEnumeratorPage() {
                     guarantor1: { ...form.guarantor1, name: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="tel"
@@ -406,7 +406,7 @@ export default function AddEnumeratorPage() {
                     guarantor1: { ...form.guarantor1, phone: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="email"
@@ -418,7 +418,7 @@ export default function AddEnumeratorPage() {
                     guarantor1: { ...form.guarantor1, email: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
               <input
                 type="text"
@@ -430,7 +430,7 @@ export default function AddEnumeratorPage() {
                     guarantor1: { ...form.guarantor1, address: e.target.value },
                   })
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white transition text-slate-800"
               />
             </div>
           </div>
