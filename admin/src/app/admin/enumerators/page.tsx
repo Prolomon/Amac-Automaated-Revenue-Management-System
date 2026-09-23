@@ -217,9 +217,7 @@ export default function EnumeratorsPage() {
               <tr>
                 <th className="px-5 py-3.5">Enumerator / Officer</th>
                 <th className="px-5 py-3.5">Role Level</th>
-                <th className="px-5 py-3.5">Center & Zone</th>
                 <th className="px-5 py-3.5">Contact Details</th>
-                <th className="px-5 py-3.5">Submissions</th>
                 <th className="px-5 py-3.5">Wallet Balance</th>
                 <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5 text-right">Actions</th>
@@ -279,11 +277,6 @@ export default function EnumeratorsPage() {
                     </td>
 
                     <td className="px-5 py-4">
-                      <p className="text-xs font-semibold text-slate-800">{item.center}</p>
-                      <p className="text-[11px] text-slate-400">Zone {item.zone || "A"}</p>
-                    </td>
-
-                    <td className="px-5 py-4">
                       <p className="flex items-center gap-1.5 text-xs text-slate-700">
                         <Phone className="h-3 w-3 text-slate-400" /> {item.phone}
                       </p>
@@ -295,17 +288,6 @@ export default function EnumeratorsPage() {
                       <p className="flex items-center gap-1.5 text-[11px] text-slate-400 truncate max-w-[180px]">
                         <Mail className="h-3 w-3 text-slate-400" /> {item.email}
                       </p>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3 text-xs">
-                        <span title="Properties Captured">
-                          📸 <strong>{item._count?.properties || 0}</strong>
-                        </span>
-                        <span title="Entities Registered">
-                          🏢 <strong>{item._count?.members || 0}</strong>
-                        </span>
-                      </div>
                     </td>
 
                     <td className="px-5 py-4">

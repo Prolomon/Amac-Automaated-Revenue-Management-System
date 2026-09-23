@@ -6,6 +6,10 @@ export interface Property {
   name: string;
   type: string;
   size: string;
+  address?: string | null;
+  location?: any;
+  zone?: string | null;
+  status?: string;
   images?: string[];
   center?: string | null;
   memberId?: string | null;

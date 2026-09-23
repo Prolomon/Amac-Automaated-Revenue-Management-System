@@ -25,8 +25,8 @@ export default function Receipt() {
   const [receiptData, setReceiptData] = useState<PaymentTransaction | null>(null);
   const [loading, setLoading] = useState(true);
   const { success, failed } = useToast();
-  const viewShotRef = useRef<ViewShot | null>(null);
-  const detailsViewRef = useRef<ViewShot | null>(null);
+  const viewShotRef = useRef<any>(null);
+  const detailsViewRef = useRef<any>(null);
 
   const loadReceipt = useCallback(async () => {
     if (!id) {

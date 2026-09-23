@@ -50,6 +50,7 @@ const memberSafeSelect = {
   agentData: true,
   payments: true,
   zone: true,
+  propertyId: true,
 };
 
 // Compute next due date based on billing frequency
@@ -620,13 +621,17 @@ const getMember = async (req, res) => {
     let properties = [];
     let documents = [];
 
+    
+
     try {
+      const propertyOrConditions = [
+        { memberId: member.uid },
+        ...(member.id ? [{ memberId: member.id }] : []),
+        ...(member.propertyId ? [{ id: member.propertyId }, { pid: member.propertyId }] : []),
+      ];
       properties = await prisma.property.findMany({
         where: {
-          OR: [
-            { memberId: member.uid },
-            ...(member.propertyId ? [{ id: member.propertyId }, { pid: member.propertyId }] : []),
-          ],
+          OR: propertyOrConditions,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -740,6 +745,7 @@ const deleteMember = async (req, res) => {
         uid: true,
         fullname: true,
         email: true,
+        wallets: true,
       },
     });
     if (!memberToDelete)
@@ -819,6 +825,8 @@ const login = async (req, res) => {
         category: true,
         pricing: true,
         company: true,
+        propertyId: true,
+        zone: true,
       },
     });
 
@@ -854,6 +862,19 @@ const login = async (req, res) => {
       console.error("Login alert email failure:", error?.message || error);
     });
 
+    let properties = [];
+    try {
+      const propertyOrConditions = [
+        { memberId: member.uid },
+        ...(member.id ? [{ memberId: member.id }] : []),
+        ...(member.propertyId ? [{ id: member.propertyId }, { pid: member.propertyId }] : []),
+      ];
+      properties = await prisma.property.findMany({
+        where: { OR: propertyOrConditions },
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (_) {}
+
     const tokens = await generateTokens({
       uid: member.uid,
       email: member.email,
@@ -864,7 +885,11 @@ const login = async (req, res) => {
     return res.status(200).json({
       ok: true,
       message: "Login successful",
-      member: memberWithoutPassword,
+      member: {
+        ...memberWithoutPassword,
+        properties,
+        property: properties[0] || null,
+      },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       token: tokens.accessToken,

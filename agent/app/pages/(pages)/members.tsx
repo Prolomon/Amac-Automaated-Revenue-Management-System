@@ -1,4 +1,4 @@
-import { User, Search, MapPin, Mail, ChevronRight } from "lucide-react-native";
+import { User, Search, MapPin, Mail, ChevronRight, UserPlus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -71,10 +71,22 @@ export default function MembersScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerCard}>
-        <Text style={styles.pageTitle}>Registered Members</Text>
-        <Text style={styles.pageSubtitle}>
-          Manage and review {data.length} registered member{data.length !== 1 ? "s" : ""} under your coverage.
-        </Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={styles.pageTitle}>Registered Members</Text>
+            <Text style={styles.pageSubtitle}>
+              Manage and review {data.length} registered member{data.length !== 1 ? "s" : ""} under your coverage.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => router.push("/pages/member/add" as RelativePathString)}
+            activeOpacity={0.8}
+          >
+            <UserPlus size={15} color="#FFFFFF" />
+            <Text style={styles.addBtnText}>Add Entity</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -162,6 +174,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderColor: "#e2e8f0",
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0ea360",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    shadowColor: "#0ea360",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  addBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
   pageTitle: {
     fontSize: 26,

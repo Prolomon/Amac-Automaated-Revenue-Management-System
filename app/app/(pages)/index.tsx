@@ -1,54 +1,84 @@
 import { formatCurrency } from "@/config";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { Transaction, TransactionStatus } from "@/lib/types";
 import * as Clipboard from "expo-clipboard";
+import { LinearGradient } from "expo-linear-gradient";
 import { RelativePathString, useRouter } from "expo-router";
 import {
+  ArrowDownLeft,
   ArrowLeftRight,
+  ArrowUpRight,
   Bell,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
   Copy,
+  CreditCard,
   Eye,
   EyeOff,
-  HandCoins,
   History,
-  Lock,
-  User
+  Image as ImageIcon,
+  MapPin,
+  ShieldCheck,
+  UserCheck,
+  Wallet,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Modal,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const router = useRouter();
   const { currentUser, token } = useAuth();
+  const { success } = useToast();
 
-  const displayName = currentUser?.fullname?.split(" ")[0] + " " + currentUser?.fullname?.split(" ")[1];
   const [accountCopied, setAccountCopied] = useState(false);
+  const [pidCopied, setPidCopied] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const { wallet, toggleHide, hide, refresh, getTransactions } = useWallet();
-  const walletBalance = Number(wallet?.balance || 0);
-  const walletAccountNo = wallet?.accountNo || 0;
-  const walletBank = wallet?.bank?.name || "-";
 
+  const walletBalance = Number(wallet?.balance || 0);
+  const walletAccountNo = wallet?.accountNo || "";
+  const walletBank = wallet?.bank?.name || "AMAC Partner Bank";
+  const accountName = wallet?.accountName || currentUser?.fullname || "AMAC Taxpayer";
+
+  const primaryProperty = currentUser?.property || (currentUser?.properties && currentUser.properties.length > 0 ? currentUser.properties[0] : null);
+
+  const displayName = currentUser?.fullname || "Taxpayer";
+  const userInitials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   const handleCopyAccountNumber = async () => {
-    if (!wallet?.accountNo) return;
-    await Clipboard.setStringAsync(wallet.accountNo);
+    if (!walletAccountNo) return;
+    await Clipboard.setStringAsync(walletAccountNo);
     setAccountCopied(true);
-    setTimeout(() => setAccountCopied(false), 1600);
+    success("Account number copied");
+    setTimeout(() => setAccountCopied(false), 2000);
+  };
+
+  const handleCopyPid = async () => {
+    if (!primaryProperty?.pid) return;
+    await Clipboard.setStringAsync(primaryProperty.pid);
+    setPidCopied(true);
+    success("Property ID (PID) copied");
+    setTimeout(() => setPidCopied(false), 2000);
   };
 
   const loadTransactions = useCallback(async () => {
@@ -58,18 +88,15 @@ export default function Dashboard() {
         setTransactions([]);
         return;
       }
-
       setHistoryLoading(true);
-
       const data = await getTransactions(currentUser.uid || "", token);
-
       setTransactions(data?.transactions || []);
     } catch {
       setTransactions([]);
     } finally {
       setHistoryLoading(false);
     }
-  }, [currentUser?.id, currentUser?.uid, getTransactions, wallet]);
+  }, [currentUser?.id, currentUser?.uid, getTransactions, wallet, token]);
 
   useEffect(() => {
     loadTransactions();
@@ -85,179 +112,335 @@ export default function Dashboard() {
     }
   };
 
-  const getStatusColor = (status?: TransactionStatus) => {
-    if (status === "SUCCESS") return "#0ea360";
-    if (status === "PENDING") return "#f59e0b";
-    if (status === "FAILED") return "#ef4444";
-    return "#6b7280";
+  const getStatusBadge = (status?: TransactionStatus) => {
+    const s = String(status || "").toUpperCase();
+    if (s === "SUCCESS") {
+      return {
+        bg: "#ecfdf5",
+        text: "#059669",
+        border: "#a7f3d0",
+        label: "Successful",
+      };
+    }
+    if (s === "PENDING") {
+      return {
+        bg: "#fffbeb",
+        text: "#d97706",
+        border: "#fde68a",
+        label: "Processing",
+      };
+    }
+    return {
+      bg: "#fef2f2",
+      text: "#dc2626",
+      border: "#fecaca",
+      label: "Failed",
+    };
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
-        style={{ paddingVertical: 18 }}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#0ea360"
+            colors={["#0ea360"]}
+          />
         }
       >
-        <View style={styles.headerCard}>
-          <View style={styles.headerCardContent}>
-            <View>
-              <Text style={styles.welcomeText}>Welcome Back</Text>
-              <Text style={{ fontSize: 24, color: "#000", fontWeight: "bold" }}>{displayName}</Text>
+        {/* Top Executive Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.govBadge}>
+              <ShieldCheck size={12} color="#065f46" />
+              <Text style={styles.govBadgeText}>AMAC REVENUE PORTAL</Text>
             </View>
+            <Text style={styles.welcomeGreeting} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {currentUser?.businessName ? (
+              <Text style={styles.businessSubtitle} numberOfLines={1}>
+                {currentUser.businessName}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.headerRight}>
             <TouchableOpacity
-              style={styles.avatar}
+              style={styles.notificationBtn}
               activeOpacity={0.8}
               onPress={() => router.push("notification" as RelativePathString)}
+              accessibilityLabel="Notifications"
             >
-              <Bell size={24} color="#000" />
+              <Bell size={20} color="#0f172a" />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              activeOpacity={0.8}
+              onPress={() => router.push("/(pages)/profile" as RelativePathString)}
+            >
+              <Text style={styles.avatarInitials}>{userInitials}</Text>
+              <View style={styles.avatarVerifiedBadge}>
+                <CheckCircle2 size={12} color="#ffffff" />
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Executive Fintech Wallet Card */}
         {wallet ? (
-          <View style={styles.walletCard}>
-            <View style={styles.walletTopRow}>
-              <Text style={styles.walletTitle}>Wallet Balance</Text>
-              <TouchableOpacity
-                style={styles.walletIconButton}
-                activeOpacity={0.8}
-                onPress={() => toggleHide(!hide)}
-              >
-                {hide ? (
-                  <EyeOff size={20} color="#0ea360" />
-                ) : (
-                  <Eye size={20} color="#0ea360" />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.walletAmount}>
-              {hide ? "₦ ••••••" : formatCurrency(walletBalance)}
-            </Text>
-
-            <View style={styles.walletBottomRow}>
-              <View>
-                <Text style={styles.walletAccountLabel}>Account Number</Text>
-                <Text style={styles.walletAccountValue}>{walletAccountNo}</Text>
-                <View style={styles.walletBorder}></View>
-                <Text style={styles.walletAccountValue}>{walletBank}</Text>
+          <View style={styles.walletContainer}>
+            <LinearGradient
+              colors={["#064e3b", "#022c22"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.walletCard}
+            >
+              {/* Card Top Pill */}
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.cardTypeChip}>
+                  <Wallet size={12} color="#6ee7b7" />
+                  <Text style={styles.cardTypeChipText}>ASSESSMENT WALLET</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.visibilityBtn}
+                  activeOpacity={0.7}
+                  onPress={() => toggleHide(!hide)}
+                >
+                  {hide ? (
+                    <EyeOff size={18} color="#a7f3d0" />
+                  ) : (
+                    <Eye size={18} color="#a7f3d0" />
+                  )}
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.walletIconButton}
-                activeOpacity={0.8}
-                onPress={handleCopyAccountNumber}
-              >
-                <Copy size={18} color="#0ea360" />
-              </TouchableOpacity>
-            </View>
+              {/* Balance Display */}
+              <View style={styles.balanceSection}>
+                <Text style={styles.balanceLabel}>Available Balance</Text>
+                <Text style={styles.balanceValue}>
+                  {hide ? "₦ ••••••••" : formatCurrency(walletBalance)}
+                </Text>
+              </View>
 
-            {accountCopied ? (
-              <Text style={styles.walletCopiedText}>Account number copied</Text>
-            ) : null}
+              {/* Virtual Account Section */}
+              <View style={styles.accountCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bankNameText}>{walletBank}</Text>
+                  <Text style={styles.accountNumberText}>
+                    {walletAccountNo ? walletAccountNo.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : "Generating..."}
+                  </Text>
+                  <Text style={styles.accountHolderText} numberOfLines={1}>
+                    {accountName}
+                  </Text>
+                </View>
 
+                <TouchableOpacity
+                  style={styles.copyAccountBtn}
+                  activeOpacity={0.8}
+                  onPress={handleCopyAccountNumber}
+                >
+                  <Copy size={16} color={accountCopied ? "#059669" : "#ffffff"} />
+                  <Text style={[styles.copyAccountText, accountCopied && { color: "#059669" }]}>
+                    {accountCopied ? "Copied" : "Copy"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* In-Card Quick Actions */}
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={styles.cardActionPrimary}
+                  activeOpacity={0.85}
+                  onPress={() => router.push("/payment" as RelativePathString)}
+                >
+                  <CreditCard size={15} color="#064e3b" />
+                  <Text style={styles.cardActionPrimaryText}>Pay Assessment</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cardActionSecondary}
+                  activeOpacity={0.85}
+                  onPress={() => router.push("/transfer" as RelativePathString)}
+                >
+                  <ArrowLeftRight size={15} color="#ffffff" />
+                  <Text style={styles.cardActionSecondaryText}>Transfer</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
         ) : (
-          <View style={styles.completeProfileCard}>
-            <Text style={styles.completeProfileTitle}>Setup Your Wallet</Text>
-            <Text style={styles.completeProfileDesc}>
-              You do not have an active wallet. Complete your profile details to activate your account.
+          <View style={styles.setupWalletCard}>
+            <View style={styles.setupWalletIconWrap}>
+              <Wallet size={28} color="#0ea360" />
+            </View>
+            <Text style={styles.setupWalletTitle}>Activate Virtual Account</Text>
+            <Text style={styles.setupWalletDesc}>
+              Complete your tax registration profile to generate an automated AMAC payment account number.
             </Text>
             <TouchableOpacity
-              style={styles.completeProfileBtn}
-              activeOpacity={0.8}
+              style={styles.setupWalletBtn}
+              activeOpacity={0.85}
               onPress={() => router.push("/complete" as RelativePathString)}
             >
-              <Text style={styles.completeProfileBtnText}>Complete Profile</Text>
+              <Text style={styles.setupWalletBtnText}>Complete Verification</Text>
+              <ChevronRight size={16} color="#ffffff" />
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={{ padding: 18 }}>
+        {/* Quick Action Hub */} 
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Quick Services</Text>
+        </View>
 
-          {/* quick action section */}
-          <Text style={{ fontSize: 16, fontWeight: "bold", color: "#000", marginBottom: 12 }}>Quick Action</Text>
-          <View style={styles.quickActionRow}>
-            <TouchableOpacity
-              style={styles.quickActionItem}
-              activeOpacity={0.8}
-              onPress={() => router.push("/payment" as RelativePathString)}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <HandCoins size={20} color="#0ea360" />
-              </View>
-              <Text style={styles.quickActionText}>Payments</Text>
-            </TouchableOpacity>
+        <View style={styles.quickActionGrid}>
+          <TouchableOpacity
+            style={styles.quickActionItem}
+            activeOpacity={0.8}
+            onPress={() => router.push("/payment" as RelativePathString)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <CreditCard size={22} color="#0ea360" strokeWidth={2.2} />
+            </View>
+            <Text style={styles.quickActionTitle}>Pay Assessment</Text>
+            <Text style={styles.quickActionSubtitle}>Instant Remittance</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.quickActionItem}
-              activeOpacity={0.8}
-              onPress={() => router.push("agent" as RelativePathString)}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <User size={20} color="#0ea360" />
-              </View>
-              <Text style={styles.quickActionText}>Agent</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionItem}
+            activeOpacity={0.8}
+            onPress={() => router.push("agent" as RelativePathString)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <UserCheck size={22} color="#0ea360" strokeWidth={2.2} />
+            </View>
+            <Text style={styles.quickActionTitle}>Assigned Agent</Text>
+            <Text style={styles.quickActionSubtitle}>AMAC Revenue Officer</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.quickActionItem}
-              activeOpacity={0.8}
-              onPress={() => router.push("history" as RelativePathString)}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <History size={20} color="#0ea360" />
-              </View>
-              <Text style={styles.quickActionText}>History</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionItem}
+            activeOpacity={0.8}
+            onPress={() => router.push("/transfer" as RelativePathString)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <ArrowLeftRight size={22} color="#0ea360" strokeWidth={2.2} />
+            </View>
+            <Text style={styles.quickActionTitle}>Transfer</Text>
+            <Text style={styles.quickActionSubtitle}>Wallet Payout</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.quickActionItem}
-              activeOpacity={0.8}
-              onPress={() => router.push("/transfer" as RelativePathString)}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <ArrowLeftRight size={20} color="#0ea360" />
-              </View>
-              <Text style={styles.quickActionText}>Transfer</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.quickActionItem}
+            activeOpacity={0.8}
+            onPress={() => router.push("history" as RelativePathString)}
+          >
+            <View style={styles.quickActionIconWrap}>
+              <History size={22} color="#0ea360" strokeWidth={2.2} />
+            </View>
+            <Text style={styles.quickActionTitle}>Receipts</Text>
+            <Text style={styles.quickActionSubtitle}>Tax Audit Trail</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/*  transaction history section */}
-          <Text style={{ fontSize: 16, fontWeight: "bold", color: "#000", marginVertical: 12 }}>Transaction History</Text>
-          <View style={styles.historyWrap}>
-            {historyLoading ? (
-              <Text style={styles.historyStateText}>Loading transactions...</Text>
-            ) : transactions.length === 0 ? (
-              <Text style={styles.historyStateText}>No transactions yet.</Text>
-            ) : (
-              transactions.slice(0, 6).map((tx) => (
+        {/* Recent Transactions List */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push("history" as RelativePathString)}
+          >
+            <Text style={styles.sectionLink}>View All</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.transactionContainer}>
+          {historyLoading ? (
+            <View style={styles.loadingBox}>
+              <Text style={styles.loadingText}>Updating audit ledger...</Text>
+            </View>
+          ) : transactions.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>No Transactions Recorded</Text>
+              <Text style={styles.emptySubtitle}>
+                Payments and settlements will reflect here automatically.
+              </Text>
+            </View>
+          ) : (
+            transactions.slice(0, 5).map((tx, idx) => {
+              const isCredit =
+                String(tx.metadata?.transactionType || "").toLowerCase().includes("credit") ||
+                String(tx.event || "").toLowerCase().includes("credit");
+              const badge = getStatusBadge(tx.status);
+
+              return (
                 <TouchableOpacity
-                  key={tx.id}
-                  style={styles.historyItem}
+                  key={tx.id || idx}
+                  style={[
+                    styles.transactionItem,
+                    idx === Math.min(transactions.length, 5) - 1 && { borderBottomWidth: 0 },
+                  ]}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/transaction/${tx.reference}` as RelativePathString)}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyTitle}>{tx.metadata?.transactionType || tx.event || "Transaction"}</Text>
-                    <Text style={styles.historySub}>{tx.metadata?.narration || tx.metadata?.senderName || "-"}</Text>
-                    <Text style={styles.historyDate}>
-                      {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : "-"}
+                  <View
+                    style={[
+                      styles.txIconCircle,
+                      { backgroundColor: isCredit ? "#ecfdf5" : "#f1f5f9" },
+                    ]}
+                  >
+                    {isCredit ? (
+                      <ArrowDownLeft size={18} color="#059669" />
+                    ) : (
+                      <ArrowUpRight size={18} color="#475569" />
+                    )}
+                  </View>
+
+                  <View style={{ flex: 1, marginHorizontal: 12 }}>
+                    <Text style={styles.txTitle} numberOfLines={1}>
+                      {tx.metadata?.transactionType || tx.event || "Assessment Payment"}
+                    </Text>
+                    <Text style={styles.txNarration} numberOfLines={1}>
+                      {tx.metadata?.narration || tx.metadata?.senderName || tx.reference || "AMAC Tax Settlement"}
+                    </Text>
+                    <Text style={styles.txDate}>
+                      {tx.createdAt
+                        ? new Date(tx.createdAt).toLocaleDateString("en-NG", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "Recent"}
                     </Text>
                   </View>
+
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.historyAmount}>{formatCurrency(Number(tx.amount || 0))}</Text>
-                    <Text style={[styles.historyStatus, { color: getStatusColor(tx.status) }]}>
-                      {String(tx.status)}
+                    <Text style={[styles.txAmount, isCredit && { color: "#059669" }]}>
+                      {isCredit ? "+" : "-"}
+                      {formatCurrency(Number(tx.amount || 0))}
                     </Text>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: badge.bg, borderColor: badge.border },
+                      ]}
+                    >
+                      <Text style={[styles.statusPillText, { color: badge.text }]}>
+                        {badge.label}
+                      </Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
-              ))
-            )}
-          </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -265,269 +448,584 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "ghostwhite" },
-  content: { paddingBottom: 40 },
-  headerCard: {
-    marginHorizontal: 18,
+  safe: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
   },
-  headerCardContent: {
+  content: {
+    paddingBottom: 40,
+  },
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    zIndex: 2,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
   },
-  headerTop: {
+  headerLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  govBadge: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-  },
-  welcomeText: { fontSize: 18, color: "#0ea360", fontWeight: "bold" },
-  quickActionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 6,
-    backgroundColor: "#ffffff",
-    paddingVertical: 16,
-    borderRadius: 16,
-  },
-  quickActionItem: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: "24%",
-  },
-  quickActionIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#e6f9f0",
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: "#d4f5e6",
+    borderColor: "#a7f3d0",
+    gap: 4,
   },
-  quickActionText: {
-    marginTop: 8,
+  govBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.8,
+  },
+  welcomeGreeting: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  businessSubtitle: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#222",
-    textAlign: "center",
+    color: "#64748b",
+    marginTop: 2,
+    fontWeight: "500",
   },
-  historyWrap: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  notificationBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#e6f9f0",
-    padding: 12,
+    borderColor: "#e2e8f0",
+    position: "relative",
   },
-  historyItem: {
+  notificationDot: {
+    position: "absolute",
+    top: 9,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#0ea360",
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+  },
+  profileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#064e3b",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    borderWidth: 2,
+    borderColor: "#059669",
+  },
+  avatarInitials: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  avatarVerifiedBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    backgroundColor: "#059669",
+    borderRadius: 8,
+  },
+  walletContainer: {
+    paddingHorizontal: 20,
+    marginTop: 6,
+  },
+  walletCard: {
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#047857",
+    shadowColor: "#064e3b",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardTypeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(6, 95, 70, 0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(110, 231, 183, 0.3)",
+    gap: 6,
+  },
+  cardTypeChipText: {
+    color: "#6ee7b7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  visibilityBtn: {
+    padding: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+  },
+  balanceSection: {
+    marginTop: 14,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    color: "#a7f3d0",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  balanceValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginTop: 4,
+    letterSpacing: -0.5,
+  },
+  accountCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    backgroundColor: "rgba(0, 0, 0, 0.22)",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
-  historyTitle: {
+  bankNameText: {
+    color: "#6ee7b7",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  accountNumberText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginVertical: 2,
+  },
+  accountHolderText: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  copyAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  copyAccountText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  cardActionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 18,
+  },
+  cardActionPrimary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardActionPrimaryText: {
+    color: "#064e3b",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  cardActionSecondary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  cardActionSecondaryText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  setupWalletCard: {
+    marginHorizontal: 20,
+    marginTop: 6,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  setupWalletIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#ecfdf5",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  setupWalletTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  setupWalletDesc: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  setupWalletBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0ea360",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 14,
+    width: "100%",
+    gap: 6,
+  },
+  setupWalletBtnText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  sectionLink: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0ea360",
+  },
+  propertyCard: {
+    marginHorizontal: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  propertyTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  propertyIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#ecfdf5",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+  },
+  propertyName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  pidBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 5,
+  },
+  pidChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+  },
+  pidChipText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.4,
+  },
+  propTypeChip: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  propTypeChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+    textTransform: "capitalize",
+  },
+  zoneChip: {
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  zoneChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  propertyAddressRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    gap: 6,
+  },
+  propertyAddressText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 18,
+  },
+  propertyImagesStrip: {
+    marginTop: 10,
+  },
+  photoCountBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  photoCountText: {
+    fontSize: 11,
+    color: "#065f46",
+    fontWeight: "700",
+  },
+  propertyThumb: {
+    width: 60,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: "#f1f5f9",
+  },
+  propertyFooterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
+  propertyFooterHint: {
+    fontSize: 12,
+    color: "#0ea360",
+    fontWeight: "700",
+  },
+  noPropertyCard: {
+    marginHorizontal: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  noPropertyTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: "#0f172a",
   },
-  historySub: {
+  noPropertyDesc: {
     fontSize: 12,
     color: "#64748b",
     marginTop: 2,
   },
-  historyDate: {
-    fontSize: 11,
-    color: "#94a3b8",
-    marginTop: 3,
-  },
-  historyAmount: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  historyStatus: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  historyStateText: {
-    fontSize: 13,
-    color: "#64748b",
-    textAlign: "center",
-    paddingVertical: 16,
-  },
-  accountText: { marginTop: 4, color: "#222", fontSize: 18, fontWeight: "600" },
-  walletBorder: {
-    marginVertical: 8,
-    height: 1,
-    backgroundColor: "#e6f9f0",
-    alignSelf: "stretch",
-  },
-  walletCard: {
-    marginHorizontal: 18,
-    marginTop: 18,
-    borderRadius: 16,
-    backgroundColor: "#0ea360",
-    padding: 18,
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#e6f9f0",
-  },
-  walletTopRow: {
+  quickActionGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexWrap: "wrap",
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  walletBottomRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  walletTitle: {
-    fontSize: 13,
-    letterSpacing: 1,
-    color: "#fff",
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  walletAmount: {
-    marginTop: 4,
-    fontSize: 30,
-    fontWeight: "800",
-    color: "#fff",
-  },
-  walletAccountLabel: {
-    fontSize: 14,
-    color: "#fff",
-    // marginBottom: 2,
-  },
-  walletAccountValue: {
-    fontSize: 18,
-    letterSpacing: 1,
-    color: "#fff",
-    fontWeight: "700",
-  },
-  walletIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#e6f9f0",
-    alignItems: "center",
-    justifyContent: "center",
+  quickActionItem: {
+    width: "48%",
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#c6f2dc",
-  },
-  walletCopiedText: {
-    marginTop: 10,
-    color: "#0ea360",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#e6f9f0",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#0ea360",
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.08,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
     shadowRadius: 6,
     elevation: 2,
   },
-  uidCard: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginHorizontal: 18,
-    marginTop: 18,
-    flexDirection: "column",
-    shadowColor: "#0ea360",
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
-    alignSelf: "stretch",
-  },
-  uidLabel: {
-    fontSize: 12,
-    color: "#0ea360",
-    fontWeight: "bold",
-    marginBottom: 2,
-    letterSpacing: 1.2,
-  },
-  uidRow: {
-    flexDirection: "row",
+  quickActionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#ecfdf5",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    marginBottom: 12,
   },
-  uidValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#222",
-    letterSpacing: 1.1,
-  },
-  copyBtn: {
-    backgroundColor: "#e6f9f0",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 10,
-  },
-  copyBtnText: {
-    color: "#0ea360",
-    fontWeight: "bold",
+  quickActionTitle: {
     fontSize: 14,
-    letterSpacing: 1,
+    fontWeight: "800",
+    color: "#0f172a",
   },
-  completeProfileCard: {
-    marginHorizontal: 18,
-    marginTop: 18,
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    padding: 20,
+  quickActionSubtitle: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  transactionContainer: {
+    marginHorizontal: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
+  },
+  loadingBox: {
+    paddingVertical: 24,
     alignItems: "center",
   },
-  completeProfileTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 8,
-  },
-  completeProfileDesc: {
-    fontSize: 14,
+  loadingText: {
+    fontSize: 13,
     color: "#64748b",
-    textAlign: "center",
-    marginBottom: 16,
-    lineHeight: 20,
   },
-  completeProfileBtn: {
-    backgroundColor: "#0ea360",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
-    width: "100%",
+  emptyBox: {
+    paddingVertical: 24,
     alignItems: "center",
   },
-  completeProfileBtnText: {
-    color: "#fff",
+  emptyTitle: {
     fontSize: 15,
-    fontWeight: "bold",
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  transactionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  txIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  txTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  txNarration: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  txDate: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

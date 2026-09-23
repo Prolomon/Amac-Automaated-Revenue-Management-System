@@ -1,30 +1,40 @@
-import { useAuth } from '@/hooks/use-auth';
-import { getRelativeTime } from '@/utils/date';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Bell } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from "@/hooks/use-auth";
+import { getRelativeTime } from "@/utils/date";
+import { useRouter } from "expo-router";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bell,
+  CheckCircle2,
+  Clock,
+  Info,
+  ShieldAlert,
+} from "lucide-react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-type Notification = { id?: string; title: string; description: string; date: string; type: 'UPDATE' | 'SUCCESS' | 'FAILED' | 'PENDING' | 'REQUEST' | 'REMINDER' | 'WELCOME' };
-
-const getColorByType = (type: string): string => {
-  switch (type) {
-    case 'WELCOME':
-    case 'REQUEST':
-      return '#6b7280';
-    case 'SUCCESS':
-      return '#16a34a';
-    case 'REMINDER':
-      return '#2f86d6';
-    case 'UPDATE':
-      return '#7c3aed';
-    case 'PENDING':
-      return '#fbbf24';
-    case 'FAILED':
-      return '#dc2626';
-    default:
-      return '#6b7280';
-  }
+type Notification = {
+  id?: string;
+  title: string;
+  description: string;
+  date: string;
+  type:
+    | "UPDATE"
+    | "SUCCESS"
+    | "FAILED"
+    | "PENDING"
+    | "REQUEST"
+    | "REMINDER"
+    | "WELCOME";
 };
 
 export default function Notifications() {
@@ -32,78 +42,255 @@ export default function Notifications() {
   const { notifications: fetchNotifications } = useAuth();
   const [notes, setNotes] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const data = await fetchNotifications();
+      setNotes(data || []);
+    } catch {
+      setNotes([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await fetchNotifications();
-        setNotes(data || []);
-      } catch (e) {
-        setNotes([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [fetchNotifications]);
-  return (
-    <ScrollView style={styles.safe} contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.back} activeOpacity={0.7} onPress={() => router.back()}>
-            <ArrowLeft color="#000" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#000' }]}>Notifications</Text>
-          <View style={{ width: 32 }} />
-        </View>
-      </View>
+    loadData();
+  }, []);
 
-      <View style={styles.listWrap}>
-        {notes.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Bell size={48} color="#d1d5db" />
-            <Text style={styles.emptyText}>No Notifications</Text>
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "SUCCESS":
+        return {
+          icon: <CheckCircle2 size={18} color="#059669" />,
+          bg: "#ecfdf5",
+          border: "#a7f3d0",
+        };
+      case "FAILED":
+        return {
+          icon: <ShieldAlert size={18} color="#dc2626" />,
+          bg: "#fef2f2",
+          border: "#fecaca",
+        };
+      case "PENDING":
+        return {
+          icon: <Clock size={18} color="#d97706" />,
+          bg: "#fffbeb",
+          border: "#fde68a",
+        };
+      case "REMINDER":
+        return {
+          icon: <AlertTriangle size={18} color="#2563eb" />,
+          bg: "#eff6ff",
+          border: "#bfdbfe",
+        };
+      default:
+        return {
+          icon: <Info size={18} color="#0ea360" />,
+          bg: "#ecfdf5",
+          border: "#a7f3d0",
+        };
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0ea360"
+            colors={["#0ea360"]}
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft color="#0f172a" size={20} />
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.headerTitle}>Council Broadcasts</Text>
+            <Text style={styles.headerSub}>Tax notices, assessment updates & alerts</Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="small" color="#0ea360" />
+            <Text style={styles.loadingText}>Loading notifications...</Text>
+          </View>
+        ) : notes.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Bell size={44} color="#94a3b8" />
+            <Text style={styles.emptyTitle}>No Notifications</Text>
+            <Text style={styles.emptySub}>
+              You are all caught up. Council announcements and assessment alerts will appear here.
+            </Text>
           </View>
         ) : (
-          notes.map((n) => (
-            <TouchableOpacity key={n.id || Math.random()} activeOpacity={0.9} style={styles.noteWrap}>
-              <View style={[styles.leftBar, { backgroundColor: getColorByType(n.type) }]} />
-              <View style={styles.noteCard}>
-                <View style={styles.noteTop}>
-                  <View style={[styles.iconCircle, { backgroundColor: `${getColorByType(n.type)}20` }]}>
-                    <Bell size={18} color={getColorByType(n.type)} />
+          <View style={styles.listWrap}>
+            {notes.map((n, idx) => {
+              const meta = getNotificationIcon(n.type);
+              return (
+                <View key={n.id || idx} style={styles.noteCard}>
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      { backgroundColor: meta.bg, borderColor: meta.border },
+                    ]}
+                  >
+                    {meta.icon}
                   </View>
-                  <Text style={styles.noteTitle}>{n.title}</Text>
+
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.noteTitle} numberOfLines={1}>
+                        {n.title}
+                      </Text>
+                      <Text style={styles.noteTime}>{getRelativeTime(n.date)}</Text>
+                    </View>
+                    <Text style={styles.noteBody}>{n.description}</Text>
+                  </View>
                 </View>
-                <Text style={styles.noteBody}>{n.description}</Text>
-                <Text style={styles.noteTime}>{getRelativeTime(n.date)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+              );
+            })}
+          </View>
         )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f6f8f9' },
-  container: { paddingBottom: 40 },
-  header: { paddingVertical: 14, paddingHorizontal: 14 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16 },
-  back: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 18 },
-  headerTitle: { color: '#fff', fontSize: 18 },
-
-  listWrap: { paddingHorizontal: 12, paddingTop: 12 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  emptyText: { color: '#9ca3af', fontSize: 16, marginTop: 12 },
-  noteWrap: { flexDirection: 'row', marginBottom: 12, },
-  leftBar: { width: 6, borderRadius: 4, marginRight: 8 },
-  noteCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#eef2f3' },
-  noteTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  iconCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  icon: { width: 18, height: 18 },
-  noteTitle: { fontSize: 16 },
-  noteBody: { color: '#4b5659', marginTop: 4 },
-  noteTime: { color: '#97a0a2', marginTop: 8, fontSize: 12 },
+  safe: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  container: {
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  headerSub: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  loadingBox: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: "#64748b",
+  },
+  emptyBox: {
+    marginHorizontal: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginTop: 12,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  listWrap: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  noteCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  noteTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0f172a",
+    flex: 1,
+    paddingRight: 8,
+  },
+  noteTime: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "500",
+  },
+  noteBody: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 4,
+    lineHeight: 18,
+  },
 });

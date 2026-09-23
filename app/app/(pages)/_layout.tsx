@@ -1,23 +1,41 @@
 import { Tabs } from "expo-router";
 import {
+  CreditCard,
   History,
   Home,
-  ReceiptText,
   User,
 } from "lucide-react-native";
 import "react-native-reanimated";
+import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function PagesTabsLayout() {
   const insets = useSafeAreaInsets();
+  const bottomPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 12) : 10;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#0ea360",
+        tabBarInactiveTintColor: "#94a3b8",
         tabBarStyle: {
-          paddingTop: insets.top - 20,
-          height: 65 + insets.bottom,
+          backgroundColor: "#ffffff",
+          borderTopColor: "#e2e8f0",
+          borderTopWidth: 1,
+          height: 60 + bottomPadding,
+          paddingTop: 8,
+          paddingBottom: bottomPadding,
+          elevation: 10,
+          shadowColor: "#0f172a",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "700",
+          marginTop: 2,
         },
       }}
     >
@@ -25,17 +43,17 @@ export default function PagesTabsLayout() {
         name="index"
         options={{
           title: "Dashboard",
-          tabBarIcon: ({ color, size }) => (
-            <Home color={color as string} size={size as number} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Home color={color} size={focused ? 22 : 20} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
       <Tabs.Screen
         name="billing"
         options={{
-          title: "Billing",
-          tabBarIcon: ({ color, size }) => (
-            <ReceiptText color={color as string} size={size as number} />
+          title: "Assessments",
+          tabBarIcon: ({ color, size, focused }) => (
+            <CreditCard color={color} size={focused ? 22 : 20} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -43,17 +61,17 @@ export default function PagesTabsLayout() {
         name="history"
         options={{
           title: "History",
-          tabBarIcon: ({ color, size }) => (
-            <History color={color as string} size={size as number} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <History color={color} size={focused ? 22 : 20} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "My Profile",
-          tabBarIcon: ({ color, size }) => (
-            <User color={color as string} size={size as number} />
+          title: "Taxpayer Profile",
+          tabBarIcon: ({ color, size, focused }) => (
+            <User color={color} size={focused ? 22 : 20} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />

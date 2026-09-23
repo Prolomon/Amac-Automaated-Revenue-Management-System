@@ -1,5 +1,20 @@
 import { API_URL } from "@/config";
-import { AUTH_MEMBER, AUTH_MEMBER_TOKEN, AUTH_MEMBER_REFRESH_TOKEN, AUTH_MEMBER_WALLET, AUTH_MEMBER_WALLET_STATE, AUTH_MEMBER_UID, AUTH_MEMBER_PIN } from "@/lib/api"
+import {
+  AUTH_MEMBER,
+  AUTH_MEMBER_PIN,
+  AUTH_MEMBER_REFRESH_TOKEN,
+  AUTH_MEMBER_TOKEN,
+  AUTH_MEMBER_UID,
+  AUTH_MEMBER_WALLET,
+  AUTH_MEMBER_WALLET_STATE,
+  authFetch,
+  clearTokens,
+  isTokenExpired,
+  onAuthFailure,
+  onTokenRefreshed,
+  refreshAccessToken,
+  saveTokens,
+} from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Member } from "@/lib/types";
@@ -126,13 +141,15 @@ function normalizeUser(user: any): Member {
     company: user.company,
     billingFrequency: user.billingFrequency,
     password: user.password,
-    location: {
-      state: user.location.state,
-      city: user.location.city,
-      address: user.location.address,
-      zipcode: user.location.zipcode,
-      nearestBusStop: user.uid,
-    },
+    location: user.location
+      ? {
+          state: user.location.state || "",
+          city: user.location.city || "",
+          address: user.location.address || "",
+          zipcode: user.location.zipcode || "",
+          nearestBusStop: user.location.nearestBusStop || user.uid || "",
+        }
+      : undefined,
     status: user.status,
     avatar: user.avatar,
     pricing: user.pricing,
@@ -140,6 +157,11 @@ function normalizeUser(user: any): Member {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     agent: user.agent,
+    propertyId: user.propertyId,
+    zone: user.zone,
+    bvn: user.bvn,
+    property: user.property || (user.properties && user.properties[0]) || null,
+    properties: user.properties || (user.property ? [user.property] : []),
   };
 }
 
@@ -165,6 +187,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    const unsubToken = onTokenRefreshed((newToken) => {
+      setToken(newToken);
+    });
+    const unsubAuthFailure = onAuthFailure(() => {
+      logout();
+    });
+    return () => {
+      unsubToken();
+      unsubAuthFailure();
+    };
+  }, []);
+
+  useEffect(() => {
     (async () => {
       try {
         const cur = await AsyncStorage.getItem(AUTH_MEMBER);
@@ -179,15 +214,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let tok = await AsyncStorage.getItem(AUTH_MEMBER_TOKEN);
         const refTok = await AsyncStorage.getItem(AUTH_MEMBER_REFRESH_TOKEN);
 
-        if (!tok && refTok) {
+        // Auto-refresh access token if missing or expired
+        if ((!tok || isTokenExpired(tok)) && refTok) {
           try {
-            const refreshRes = await refreshAuthToken(refTok);
-            if (refreshRes?.accessToken) {
-              tok = refreshRes.accessToken;
-              await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, refreshRes.accessToken);
-              if (refreshRes.refreshToken) {
-                await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, refreshRes.refreshToken);
-              }
+            const newAccess = await refreshAccessToken();
+            if (newAccess) {
+              tok = newAccess;
             }
           } catch (_) {
             // refresh token expired or failed
@@ -207,21 +239,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async (): Promise<string | null> => {
     try {
-      const refTok = await AsyncStorage.getItem(AUTH_MEMBER_REFRESH_TOKEN);
-      if (!refTok) return null;
-
-      const refreshRes = await refreshAuthToken(refTok);
-      const newAccess = refreshRes?.accessToken || refreshRes?.token;
-      const newRefresh = refreshRes?.refreshToken;
-
+      const newAccess = await refreshAccessToken();
       if (newAccess) {
-        await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, newAccess);
         setToken(newAccess);
       }
-      if (newRefresh) {
-        await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, newRefresh);
-      }
-      return newAccess || null;
+      return newAccess;
     } catch (err) {
       console.error("Session refresh failed:", err);
       return null;
@@ -230,9 +252,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (uid: string, password: string) => {
     try {
+      await clearTokens();
       await AsyncStorage.removeItem(AUTH_MEMBER);
-      await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
-      await AsyncStorage.removeItem(AUTH_MEMBER_REFRESH_TOKEN);
       await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
       await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
 
@@ -243,10 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const refreshToken = response.refreshToken || "";
 
       await AsyncStorage.setItem(AUTH_MEMBER, JSON.stringify(normalized));
-      await AsyncStorage.setItem(AUTH_MEMBER_TOKEN, accessToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem(AUTH_MEMBER_REFRESH_TOKEN, refreshToken);
-      }
+      await saveTokens(accessToken, refreshToken);
       await AsyncStorage.setItem(AUTH_MEMBER_UID, response?.uid || normalized.uid || "");
       setToken(accessToken);
       setUid(response?.uid || normalized.uid || "");
@@ -261,9 +279,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    await clearTokens();
     await AsyncStorage.removeItem(AUTH_MEMBER);
-    await AsyncStorage.removeItem(AUTH_MEMBER_TOKEN);
-    await AsyncStorage.removeItem(AUTH_MEMBER_REFRESH_TOKEN);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET);
     await AsyncStorage.removeItem(AUTH_MEMBER_WALLET_STATE);
     await AsyncStorage.removeItem(AUTH_MEMBER_UID);
@@ -279,15 +296,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(
-        `${API_URL}/api/member/${currentUser.uid}/billing-frequency`,
+      const response = await authFetch(
+        `/member/${currentUser.uid}/billing-frequency`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
           body: JSON.stringify({ frequency: frequency.toUpperCase(), due }),
         },
       );
@@ -312,15 +324,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return [];
       if (!currentUser.uid) return [];
 
-      const response = await fetch(
-        `${API_URL}/api/notification/${currentUser.uid}`,
+      const response = await authFetch(
+        `/notification/${currentUser.uid}`,
         {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
         },
       );
 
@@ -340,15 +347,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return {};
       if (!currentUser.uid) return {};
 
-      const response = await fetch(
-        `${API_URL}/api/payment/reference/${reference}`,
+      const response = await authFetch(
+        `/payment/reference/${reference}`,
         {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
         },
       );
 
@@ -368,15 +370,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return [];
       if (!currentUser.uid) return [];
 
-      const response = await fetch(
-        `${API_URL}/api/payment/user/${currentUser.uid}`,
+      const response = await authFetch(
+        `/payment/user/${currentUser.uid}`,
         {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
         },
       );
 
@@ -402,18 +399,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(`${API_URL}/api/payment`, {
+      const response = await authFetch(`/payment`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${currentUser.uid || ""}`,
-          "x-user-id": currentUser.uid,
-        },
         body: JSON.stringify({
           reference: reference,
           userId: currentUser.uid,
           businessName: currentUser.businessName || "",
-          // businessType: currentUser.businessType || "MEDIUM",
           frequency: currentUser.billingFrequency || "MONTHLY",
           amount: amount,
           payment: payment,
@@ -443,11 +434,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const agentList = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/agent/list`, {
+      const response = await authFetch(`/agent/list`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
       });
 
       if (!response.ok) {
@@ -463,11 +451,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getBusiness = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/pricing`, {
+      const response = await authFetch(`/pricing`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
       });
 
       if (!response.ok) {
@@ -486,15 +471,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(
-        `${API_URL}/api/member/${currentUser.uid}/balance`,
+      const response = await authFetch(
+        `/member/${currentUser.uid}/balance`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
           body: JSON.stringify({ balance: newBalance }),
         },
       );
@@ -519,15 +499,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(
-        `${API_URL}/api/member/${currentUser.uid}/due-balance`,
+      const response = await authFetch(
+        `/member/${currentUser.uid}/due-balance`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentUser.uid || ""}`,
-            "x-user-id": currentUser.uid,
-          },
           body: JSON.stringify({ dueBalance: dueBalance }),
         },
       );
@@ -538,7 +513,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const updatedUser = await response.json();
-      console.log('Updated User:', updatedUser);
       const normalized = normalizeUser(updatedUser?.member || {});
       await AsyncStorage.setItem(AUTH_CURRENT_KEY, JSON.stringify(normalized));
       setCurrentUser(normalized);

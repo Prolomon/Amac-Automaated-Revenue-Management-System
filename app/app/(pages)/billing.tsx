@@ -1,36 +1,39 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useWallet } from "@/hooks/use-wallet";
-import { getPayments, makePayment } from "@/lib/services/payment";
+import { getPayments } from "@/lib/services/payment";
 import { getPricingByCenter } from "@/lib/services/pricing";
 import { Payment, Pricing } from "@/lib/types";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import {
+  AlertCircle,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Copy,
+  CreditCard,
+  FileText,
+  Receipt,
+  ShieldAlert,
+} from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const VAT_RATE = 0.075;
 const CHARGE_RATE = 0.015;
 const PENALTY_RATE_PER_DAY = 0.00005;
 
-/**
- * Single source of truth for the fee breakdown.
- * Previously this math was duplicated (once in the "Pay now" card button,
- * once inline in the modal render) and read slightly different fields
- * each time, which let the two silently drift apart.
- */
 function computeBreakdown(payment: Payment | null) {
   if (!payment) {
     return { principal: 0, vat: 0, charges: 0, subtotal: 0, daysOverdue: 0, penalty: 0, total: 0 };
@@ -64,12 +67,14 @@ function computeBreakdown(payment: Payment | null) {
 export default function MakePayment() {
   const router = useRouter();
   const { currentUser, token } = useAuth();
-  const { failed, } = useToast();
+  const { failed, success } = useToast();
 
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [pricing, setPricing] = useState<Pricing[]>([]);
+  const [filter, setFilter] = useState<"ALL" | "PENDING" | "PAID">("ALL");
+  const [copiedRef, setCopiedRef] = useState<string | null>(null);
 
   const fetchPricing = useCallback(async () => {
     try {
@@ -78,24 +83,21 @@ export default function MakePayment() {
         setPricing(data.data);
       } else {
         setPricing([]);
-        failed(data.message || "Failed to fetch pricing");
       }
-    } catch (error: any) {
+    } catch {
       setPricing([]);
-      failed(error.message || "An error occurred while fetching pricing");
     }
-  }, [currentUser?.center, token, failed]);
+  }, [currentUser?.center, token]);
 
   useEffect(() => {
     fetchPricing();
   }, [fetchPricing]);
 
-  const formatAmount = (value: number, withSymbol = true) => {
-    const formatted = value.toLocaleString("en-NG", {
+  const formatAmount = (value: number) => {
+    return value.toLocaleString("en-NG", {
       style: "currency",
       currency: "NGN",
     });
-    return withSymbol ? formatted : formatted.replace("₦", "").trim();
   };
 
   const formatDate = (value?: string | Date | null) => {
@@ -104,10 +106,10 @@ export default function MakePayment() {
     return Number.isNaN(date.getTime())
       ? "N/A"
       : date.toLocaleDateString("en-NG", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
   };
 
   const fetchPayments = useCallback(async () => {
@@ -124,7 +126,6 @@ export default function MakePayment() {
         setAllPayments(data.payments);
       } else {
         setAllPayments([]);
-        failed(data.message || "Failed to fetch payments");
       }
     } catch (error: any) {
       setAllPayments([]);
@@ -144,227 +145,639 @@ export default function MakePayment() {
     setRefreshing(false);
   };
 
-  const sortedPayments = [...allPayments].sort((left, right) => {
-    const leftDate = new Date(left.due || left.date).getTime();
-    const rightDate = new Date(right.due || right.date).getTime();
-    return rightDate - leftDate;
-  });
+  const handleCopyRef = async (ref: string) => {
+    await Clipboard.setStringAsync(ref);
+    setCopiedRef(ref);
+    success("Demand Notice Reference copied");
+    setTimeout(() => setCopiedRef(null), 2000);
+  };
+
+  const sortedPayments = useMemo(() => {
+    return [...allPayments].sort((left, right) => {
+      const leftDate = new Date(left.due || left.date).getTime();
+      const rightDate = new Date(right.due || right.date).getTime();
+      return rightDate - leftDate;
+    });
+  }, [allPayments]);
+
+  const filteredPayments = useMemo(() => {
+    if (filter === "ALL") return sortedPayments;
+    if (filter === "PAID") {
+      return sortedPayments.filter(
+        (p) => String(p.status).toLowerCase() === "success" || String(p.status).toLowerCase() === "paid"
+      );
+    }
+    return sortedPayments.filter(
+      (p) => String(p.status).toLowerCase() !== "success" && String(p.status).toLowerCase() !== "paid"
+    );
+  }, [sortedPayments, filter]);
+
+  // Summary Metrics
+  const totalOutstanding = useMemo(() => {
+    return sortedPayments
+      .filter((p) => String(p.status).toLowerCase() !== "success" && String(p.status).toLowerCase() !== "paid")
+      .reduce((acc, curr) => acc + computeBreakdown(curr).total, 0);
+  }, [sortedPayments]);
+
+  const pendingCount = useMemo(() => {
+    return sortedPayments.filter(
+      (p) => String(p.status).toLowerCase() !== "success" && String(p.status).toLowerCase() !== "paid"
+    ).length;
+  }, [sortedPayments]);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-    >
-      <ScrollView
-        style={styles.safe}
-        contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.back}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              onPress={() => router.back()}
-            >
-              <ArrowLeft color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Make Payment</Text>
-            <View style={{ width: 32 }} />
-          </View>
-        </View>
-
-        {loadingPayments ? (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="small" color="#0ea360" />
-          </View>
-        ) : sortedPayments.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No payments found</Text>
-            <Text style={styles.emptyText}>
-              Your payment history will appear here.
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.container}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#0ea360"
+              colors={["#0ea360"]}
+            />
+          }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.govTag}>
+              <Receipt size={13} color="#065f46" />
+              <Text style={styles.govTagText}>REVENUE DEMAND NOTICES</Text>
+            </View>
+            <Text style={styles.headerTitle}>Official Assessments</Text>
+            <Text style={styles.headerSubtitle}>
+              Statutory council taxes, tenements, and municipal levies
             </Text>
           </View>
-        ) : (
-          <View style={{ marginHorizontal: 14 }}>
-            {sortedPayments.map((payment, index) => {
-              const pricingInfo = pricing.find((item) => item.id === payment.payment);
-              const statusLabel =
-                payment.status.charAt(0).toUpperCase() + payment.status.slice(1).toLowerCase();
-              const isSuccess = payment.status.toLowerCase() === "success";
 
-              return (
-                <View
-                  key={payment.reference || `${payment.userId}-${index}`}
-                  style={styles.paymentCard}
-                >
-                  <View style={styles.cardTopRow}>
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text style={styles.planLabel} numberOfLines={1}>
-                        {pricingInfo?.title || "Payment"}
+          {/* Metrics summary cards */}
+          <View style={styles.metricsRow}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Total Due</Text>
+              <Text style={styles.metricValue}>{formatAmount(totalOutstanding)}</Text>
+              <Text style={styles.metricHint}>Includes VAT & Statutory fees</Text>
+            </View>
+
+            <View style={styles.metricCardSecondary}>
+              <Text style={styles.metricLabelSec}>Active Notices</Text>
+              <Text style={styles.metricValueSec}>{pendingCount}</Text>
+              <Text style={styles.metricHintSec}>
+                {pendingCount === 0 ? "All bills settled" : "Action required"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Filter Pills */}
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterPill, filter === "ALL" && styles.filterPillActive]}
+              activeOpacity={0.8}
+              onPress={() => setFilter("ALL")}
+            >
+              <Text style={[styles.filterPillText, filter === "ALL" && styles.filterPillTextActive]}>
+                All ({sortedPayments.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterPill, filter === "PENDING" && styles.filterPillActive]}
+              activeOpacity={0.8}
+              onPress={() => setFilter("PENDING")}
+            >
+              <Text style={[styles.filterPillText, filter === "PENDING" && styles.filterPillTextActive]}>
+                Due / Unpaid ({pendingCount})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterPill, filter === "PAID" && styles.filterPillActive]}
+              activeOpacity={0.8}
+              onPress={() => setFilter("PAID")}
+            >
+              <Text style={[styles.filterPillText, filter === "PAID" && styles.filterPillTextActive]}>
+                Paid ({sortedPayments.length - pendingCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Payments list */}
+          {loadingPayments ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="small" color="#0ea360" />
+              <Text style={styles.loadingText}>Fetching tax notices...</Text>
+            </View>
+          ) : filteredPayments.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <FileText size={40} color="#94a3b8" />
+              <Text style={styles.emptyTitle}>No Assessments Found</Text>
+              <Text style={styles.emptyText}>
+                {filter === "PAID"
+                  ? "You have no settled demand notices."
+                  : filter === "PENDING"
+                  ? "Great! You have no outstanding demand notices."
+                  : "Demand notices issued by AMAC will appear here."}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.listContainer}>
+              {filteredPayments.map((payment, index) => {
+                const pricingInfo = pricing.find((item) => item.id === payment.payment);
+                const isPaid =
+                  payment.status?.toLowerCase() === "success" || payment.status?.toLowerCase() === "paid";
+                const breakdown = computeBreakdown(payment);
+                const isOverdue = breakdown.daysOverdue > 0 && !isPaid;
+
+                return (
+                  <View
+                    key={payment.reference || `${payment.userId}-${index}`}
+                    style={styles.paymentCard}
+                  >
+                    {/* Top Row: Title & Status Badge */}
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.assessmentTitle} numberOfLines={1}>
+                          {pricingInfo?.title || payment.pricing?.title || "Council Assessment"}
+                        </Text>
+                        <View style={styles.metaRow}>
+                          {pricingInfo?.category ? (
+                            <View style={styles.categoryBadge}>
+                              <Text style={styles.categoryBadgeText}>
+                                {pricingInfo.category}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          <TouchableOpacity
+                            style={styles.refBadge}
+                            activeOpacity={0.7}
+                            onPress={() => handleCopyRef(payment.reference || `REF-${index}`)}
+                          >
+                            <Text style={styles.refBadgeText}>
+                              {payment.reference || `REF-${index}`}
+                            </Text>
+                            <Copy
+                              size={10}
+                              color={copiedRef === payment.reference ? "#0ea360" : "#64748b"}
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          isPaid
+                            ? styles.statusPaid
+                            : isOverdue
+                            ? styles.statusOverdue
+                            : styles.statusDue,
+                        ]}
+                      >
+                        {isPaid ? (
+                          <CheckCircle2 size={12} color="#059669" />
+                        ) : isOverdue ? (
+                          <ShieldAlert size={12} color="#dc2626" />
+                        ) : (
+                          <Clock size={12} color="#d97706" />
+                        )}
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            isPaid
+                              ? { color: "#059669" }
+                              : isOverdue
+                              ? { color: "#dc2626" }
+                              : { color: "#d97706" },
+                          ]}
+                        >
+                          {isPaid ? "Paid" : isOverdue ? "Overdue" : "Pending"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Due Date Row */}
+                    <View style={styles.dueRow}>
+                      <Calendar size={13} color="#64748b" />
+                      <Text style={styles.dueText}>
+                        Due Date: <Text style={{ fontWeight: "700", color: "#0f172a" }}>{formatDate(payment.due)}</Text>
                       </Text>
-                      {pricingInfo?.category ? (
-                        <Text style={styles.paymentMeta} numberOfLines={1}>
-                          {pricingInfo.category}
+                      {isOverdue ? (
+                        <Text style={styles.overdueDaysText}>
+                          ({breakdown.daysOverdue} days past due)
                         </Text>
                       ) : null}
-                      <Text style={styles.paymentMeta}>
-                        Due {formatDate(payment.due)}
-                      </Text>
                     </View>
 
-                    <View style={[styles.statusBadge, isSuccess ? styles.statusSuccess : styles.statusPending]}>
-                      <Text style={[styles.statusText, isSuccess ? styles.statusTextSuccess : styles.statusTextPending]}>
-                        {statusLabel}
-                      </Text>
+                    {/* Breakdown Box */}
+                    <View style={styles.breakdownBox}>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Principal Assessment</Text>
+                        <Text style={styles.breakdownValue}>{formatAmount(breakdown.principal)}</Text>
+                      </View>
+
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
+                        <Text style={styles.breakdownValue}>{formatAmount(breakdown.vat)}</Text>
+                      </View>
+
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Admin & Processing</Text>
+                        <Text style={styles.breakdownValue}>{formatAmount(breakdown.charges)}</Text>
+                      </View>
+
+                      {breakdown.penalty > 0 ? (
+                        <View style={styles.breakdownRow}>
+                          <Text style={[styles.breakdownLabel, { color: "#dc2626" }]}>
+                            Statutory Overdue Penalty
+                          </Text>
+                          <Text style={[styles.breakdownValue, { color: "#dc2626" }]}>
+                            +{formatAmount(breakdown.penalty)}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Total Payable</Text>
+                        <Text style={styles.totalValue}>{formatAmount(breakdown.total)}</Text>
+                      </View>
                     </View>
+
+                    {/* Action Button */}
+                    {!isPaid ? (
+                      <TouchableOpacity
+                        style={styles.payBtn}
+                        activeOpacity={0.85}
+                        onPress={() => router.push(`/checkout?reference=${payment.reference}`)}
+                      >
+                        <CreditCard size={16} color="#ffffff" />
+                        <Text style={styles.payBtnText}>Pay Assessment ({formatAmount(breakdown.total)})</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.settledBanner}>
+                        <CheckCircle2 size={16} color="#059669" />
+                        <Text style={styles.settledBannerText}>Settled & Verified</Text>
+                      </View>
+                    )}
                   </View>
-
-                  <View style={styles.amountGrid}>
-                    <View style={styles.amountBadge}>
-                      <Text style={styles.amountLabel}>
-                        Amount
-                      </Text>
-                      <Text style={styles.amountValue}>
-                        {formatAmount(Number(computeBreakdown(payment).total) || 0)}
-                      </Text>
-                    </View>
-                    <View style={styles.debtBadge}>
-                      <Text style={styles.debtLabel}>Outstanding</Text>
-                      <Text style={styles.debtValue}>
-                        {formatAmount(Number(payment.debt) || 0, false)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.payNowButton}
-                    activeOpacity={0.85}
-                    onPress={() => router.push(`/checkout?reference=${payment.reference}`)}
-                  >
-                    <Text style={styles.payNowText}>Pay now</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "ghostwhite" },
-  container: { paddingBottom: 40 },
-  header: { paddingVertical: 22, paddingHorizontal: 14 },
-  headerRow: {
+  safe: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  container: {
+    paddingBottom: 40,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  govTag: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 20,
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    gap: 4,
   },
-  back: {
-    width: 32,
-    height: 32,
+  govTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  metricsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 16,
+  },
+  metricCard: {
+    flex: 1.4,
+    backgroundColor: "#064e3b",
+    borderRadius: 18,
+    padding: 16,
+  },
+  metricLabel: {
+    color: "#a7f3d0",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  metricValue: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 4,
+    letterSpacing: -0.3,
+  },
+  metricHint: {
+    color: "#6ee7b7",
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  metricCardSecondary: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  metricLabelSec: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  metricValueSec: {
+    color: "#0f172a",
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 4,
+    letterSpacing: -0.3,
+  },
+  metricHintSec: {
+    color: "#0ea360",
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterPill: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  filterPillActive: {
+    backgroundColor: "#0ea360",
+    borderColor: "#0ea360",
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748b",
+  },
+  filterPillTextActive: {
+    color: "#ffffff",
+  },
+  loadingBox: {
+    paddingVertical: 40,
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
   },
-  headerTitle: { fontSize: 18, color: "#000" },
-  loadingCard: {
-    marginHorizontal: 14,
-    borderRadius: 10,
-    padding: 16,
-    backgroundColor: "#eaf9f0",
-    borderWidth: 1,
-    borderColor: "#d9f0e3",
+  loadingText: {
+    fontSize: 13,
+    color: "#64748b",
   },
   emptyCard: {
-    marginHorizontal: 14,
-    borderRadius: 10,
-    padding: 16,
-    backgroundColor: "#fff",
+    marginHorizontal: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#eef2f3",
+    borderColor: "#e2e8f0",
   },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
-  emptyText: { marginTop: 6, fontSize: 13, color: "#64748b" },
-  paymentCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    flexDirection: "column",
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginTop: 12,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  listContainer: {
+    paddingHorizontal: 20,
     gap: 14,
   },
-  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  planLabel: { fontSize: 16, fontWeight: "800", color: "#0f172a", lineHeight: 20 },
-  paymentMeta: { marginTop: 4, fontSize: 13, color: "#64748b", lineHeight: 18 },
+  paymentCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  assessmentTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.2,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+    flexWrap: "wrap",
+  },
+  categoryBadge: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  refBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 4,
+  },
+  refBadgeText: {
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: "600",
+  },
   statusBadge: {
-    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
-    borderRadius: 999,
-    alignSelf: "flex-start",
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 4,
     borderWidth: 1,
   },
-  statusSuccess: {
+  statusPaid: {
     backgroundColor: "#ecfdf5",
     borderColor: "#a7f3d0",
   },
-  statusPending: {
-    backgroundColor: "#eff6ff",
-    borderColor: "#bfdbfe",
+  statusOverdue: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
   },
-  statusText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
-  statusTextSuccess: { color: "#166534" },
-  statusTextPending: { color: "#1d4ed8" },
-  amountGrid: {
+  statusDue: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fde68a",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  dueRow: {
     flexDirection: "row",
-    gap: 10,
-  },
-  amountBadge: {
-    flex: 1,
-    backgroundColor: "#dcfce7",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    minWidth: 70,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#0ea360",
+    marginTop: 12,
+    gap: 6,
   },
-  amountLabel: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
-  amountValue: { fontSize: 16, color: "#0ea360", fontWeight: "700", marginTop: 2 },
-  debtBadge: {
-    flex: 1,
-    backgroundColor: "#fee2e2",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    minWidth: 70,
+  dueText: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  overdueDaysText: {
+    fontSize: 12,
+    color: "#dc2626",
+    fontWeight: "700",
+  },
+  breakdownBox: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#dc2626",
+    paddingVertical: 3,
   },
-  debtLabel: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
-  debtValue: { fontSize: 16, color: "#dc2626", fontWeight: "700", marginTop: 2 },
-  payNowButton: {
-    width: "100%",
-    backgroundColor: "#0ea360",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+  breakdownLabel: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e2e8f0",
+    marginVertical: 6,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 2,
+  },
+  totalLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0ea360",
+  },
+  payBtn: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#0ea360",
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginTop: 14,
+    gap: 8,
+    shadowColor: "#0ea360",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  payNowText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  categoryBadge: { backgroundColor: "#f1f5f9", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  payBtnText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  settledBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ecfdf5",
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+  },
+  settledBannerText: {
+    color: "#059669",
+    fontSize: 13,
+    fontWeight: "700",
+  },
 });

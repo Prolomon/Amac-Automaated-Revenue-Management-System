@@ -1,7 +1,7 @@
-import { API_URL, buildHeaders } from "../api";
+import { API_URL, authFetchJson, refreshAccessToken } from "../api";
 import { User } from "../types";
 
-export async function login( email: string, password: string): Promise<{
+export async function login(email: string, password: string): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
@@ -10,21 +10,11 @@ export async function login( email: string, password: string): Promise<{
   refreshToken?: string;
   agent?: User;
 }> {
-  const response = await fetch(`${API_URL}/agent/login`, {
+  return authFetchJson(`${API_URL}/agent/login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    skipAuth: true,
     body: JSON.stringify({ email, password }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
 export async function refreshAuthToken(refreshToken: string): Promise<{
@@ -34,6 +24,15 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
   refreshToken?: string;
   token?: string;
 }> {
+  const newAccessToken = await refreshAccessToken();
+  if (newAccessToken) {
+    return {
+      ok: true,
+      accessToken: newAccessToken,
+      token: newAccessToken,
+    };
+  }
+
   const response = await fetch(`${API_URL}/auth/refresh-token`, {
     method: "POST",
     headers: {
@@ -43,95 +42,60 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
   });
 
   const data = await response.json();
-
   if (!response.ok) {
     throw new Error(data.message || "Failed to refresh token");
   }
-
   return data;
 }
 
-export async function forgetPassword( oldPassword: string, newPassword: string, confirmPassword: string, id: string, token: string ): Promise<{
+export async function forgetPassword(
+  oldPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+  id: string,
+  _token?: string
+): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
   token?: string;
   agent?: User;
 }> {
-  const response = await fetch(`${API_URL}/agent/${id}/forgot-password`, {
+  return authFetchJson(`${API_URL}/agent/${id}/forgot-password`, {
     method: "PUT",
-    headers: buildHeaders(true, token),
-    body: JSON.stringify({ oldPassword, newPassword, confirmPassword}),
+    body: JSON.stringify({ oldPassword, newPassword, confirmPassword }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
-export async function resetPassword( id: string, token: string ): Promise<{
+export async function resetPassword(
+  id: string,
+  _token?: string
+): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
   token?: string;
   agent?: User;
 }> {
-  const response = await fetch(`${API_URL}/agent/${id}/reset-password`, {
+  return authFetchJson(`${API_URL}/agent/${id}/reset-password`, {
     method: "PUT",
-    headers: buildHeaders(true, token),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
 export async function getAgent(uid: string) {
   if (!uid) {
     throw new Error("No user ID found");
   }
-  const response = await fetch(`${API_URL}/agent/one/${uid}`, {
-    headers: buildHeaders(false),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch agents");
-  }
-  return data;
+  return authFetchJson(`${API_URL}/agent/one/${uid}`);
 }
 
 export async function updateAgent(id: string, payload: any) {
-  const response = await fetch(`${API_URL}/agent/${id}`, {
+  return authFetchJson(`${API_URL}/agent/${id}`, {
     method: "PUT",
-    headers: buildHeaders(true),
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to update agent");
-  }
-  return data;
 }
 
-export async function getPricing(id: string, token: string) {
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/pricing/${id}/all`, {
-    method: "GET",
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch pricing");
-  }
-  return data;
+export async function getPricing(id: string, _token?: string) {
+  return authFetchJson(`${API_URL}/pricing/${id}/all`);
 }

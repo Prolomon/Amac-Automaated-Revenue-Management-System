@@ -483,14 +483,17 @@ export default function EntityDetailsPage({ params }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this entity? This action cannot be undone.")) return;
     try {
+      setDeleting(true);
       await deleteMember(id);
-      addToast("success", "Member deleted");
+      addToast("success", "Entity deleted successfully");
+      setDeleteModalOpen(false);
       router.push("/admin/entities");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      addToast("error", "Delete failed");
+      addToast("error", e?.message || "Delete failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -882,7 +885,8 @@ export default function EntityDetailsPage({ params }) {
             )}
             {!readOnly ? (
               <button
-                onClick={handleDelete}
+                type="button"
+                onClick={() => setDeleteModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
               >
                 <Trash2 size={18} />
@@ -893,34 +897,69 @@ export default function EntityDetailsPage({ params }) {
         </div>
       </div>
 
-      {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-emerald-sm px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <AlertCircle className="text-red-600" size={24} />
+      {deleteModalOpen && member && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => !deleting && setDeleteModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-8 ring-rose-50/50">
+              <Trash2 size={26} />
             </div>
-            <h3 className="mb-2 text-center text-lg font-semibold text-slate-900">
-              Delete Entity?
+
+            <h3 className="text-center text-xl font-bold text-slate-900">
+              Delete Entity
             </h3>
-            <p className="mb-6 text-center text-sm text-slate-600">
-              Are you sure you want to delete{" "}
-              <strong>{member.businessName || member.fullname}</strong>? This
-              action cannot be undone.
+
+            <p className="mt-2 text-center text-sm text-slate-500 leading-relaxed">
+              Are you sure you want to permanently delete this entity? All associated records, assessments, and configurations will be removed. This action cannot be undone.
             </p>
-            <div className="flex gap-3">
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3.5 border border-slate-200">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Target Entity</p>
+              <p className="text-sm font-bold text-slate-800 mt-0.5">
+                {member.businessName || member.fullname}
+              </p>
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <span>UID: {member.uid || id}</span>
+                {member.phone ? (
+                  <>
+                    <span>•</span>
+                    <span>{member.phone}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
               <button
+                type="button"
                 onClick={() => setDeleteModalOpen(false)}
                 disabled={deleting}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50 shadow-sm shadow-rose-200"
               >
-                {deleting ? "Deleting..." : "Delete"}
+                {deleting ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

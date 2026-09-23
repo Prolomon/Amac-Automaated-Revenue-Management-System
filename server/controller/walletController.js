@@ -242,7 +242,7 @@ const getWalletById = async (req, res) => {
     }
 
     const wallet = await prisma.wallet.findFirst({
-      where: { userId, role },
+      where: { userId },
     });
 
     if (!wallet) {

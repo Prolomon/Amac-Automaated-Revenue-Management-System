@@ -242,7 +242,7 @@ export default function MakePayment() {
     };
 
     const breakdown = useMemo(() => computeBreakdown(payment), [payment]);
-    const { principal, vat, charges, subtotal, daysOverdue, penalty, total: totalAmount } = breakdown;
+    const { principal, vat, charges, subtotal, daysOverdue, penalty, total: totalAmount, discount } = breakdown;
 
     useEffect(() => {
         if (payment) {
@@ -362,6 +362,11 @@ export default function MakePayment() {
                             </View>
 
                             <View style={styles.detailRow}>
+                                <Text style={styles.detailLabel}>Discount</Text>
+                                <Text style={styles.detailValue}>{formatAmount(discount || 0)}</Text>
+                            </View>
+
+                            <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>VAT (7.5%)</Text>
                                 <Text style={styles.detailValue}>{formatAmount(vat)}</Text>
                             </View>
@@ -406,6 +411,57 @@ export default function MakePayment() {
                                 <Text style={styles.totalValue}>{formatAmount(totalAmount)}</Text>
                             </View>
                         </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Amount to pay</Text>
+                            <TextInput
+                                style={styles.amountInputLarge}
+                                placeholder="0"
+                                placeholderTextColor="#94a3b8"
+                                keyboardType="numeric"
+                                value={paymentAmount}
+                                onChangeText={(text) => setPaymentAmount(text.replace(/[^0-9]/g, ""))}
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Secure token</Text>
+                            <TextInput
+                                style={styles.amountInput}
+                                placeholder="Enter secure token"
+                                placeholderTextColor="#94a3b8"
+                                secureTextEntry
+                                value={secureTokenInput}
+                                onChangeText={(text) => setSecureTokenInput(text)}
+                            />
+                        </View>
+
+                        <View style={styles.feeNote}>
+                            <Text style={styles.feeNoteText}>
+                                A 1.5% charge ({formatAmount(charges)}) is already included in the total above.
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.modalPayButton, loading && styles.modalPayButtonDisabled]}
+                            activeOpacity={0.95}
+                            disabled={loading}
+                            onPress={handlePayNow}
+                        >
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Text style={styles.modalPayText}>Pay now</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalCancelButton}
+                            disabled={loading}
+                            onPress={closePaymentModal}
+                        >
+                            <Text style={styles.modalCancelText}>Cancel</Text>
+                        </TouchableOpacity>
 
                         {/* Discount Requests Section */}
                         <View style={styles.discountSection}>
@@ -524,57 +580,6 @@ export default function MakePayment() {
                                     </View>
                                 )}
                         </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Amount to pay</Text>
-                            <TextInput
-                                style={styles.amountInputLarge}
-                                placeholder="0"
-                                placeholderTextColor="#94a3b8"
-                                keyboardType="numeric"
-                                value={paymentAmount}
-                                onChangeText={(text) => setPaymentAmount(text.replace(/[^0-9]/g, ""))}
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Secure token</Text>
-                            <TextInput
-                                style={styles.amountInput}
-                                placeholder="Enter secure token"
-                                placeholderTextColor="#94a3b8"
-                                secureTextEntry
-                                value={secureTokenInput}
-                                onChangeText={(text) => setSecureTokenInput(text)}
-                            />
-                        </View>
-
-                        <View style={styles.feeNote}>
-                            <Text style={styles.feeNoteText}>
-                                A 1.5% charge ({formatAmount(charges)}) is already included in the total above.
-                            </Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.modalPayButton, loading && styles.modalPayButtonDisabled]}
-                            activeOpacity={0.95}
-                            disabled={loading}
-                            onPress={handlePayNow}
-                        >
-                            {loading ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <Text style={styles.modalPayText}>Pay now</Text>
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.modalCancelButton}
-                            disabled={loading}
-                            onPress={closePaymentModal}
-                        >
-                            <Text style={styles.modalCancelText}>Cancel</Text>
-                        </TouchableOpacity>
                     </ScrollView>
                 </View>
             </KeyboardAvoidingView>
@@ -785,7 +790,7 @@ const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: "#e2e8f0",
-        marginBottom: 12,
+        marginVertical: 12,
     },
     discountHeaderRow: {
         flexDirection: "row",

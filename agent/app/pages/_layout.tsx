@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="complete" options={{ headerShown: false }} />
         <Stack.Screen name="payment" options={{ headerShown: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false }} />
+        <Stack.Screen name="member/add" options={{ headerShown: false }} />
         <Stack.Screen name="member/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
       </Stack>

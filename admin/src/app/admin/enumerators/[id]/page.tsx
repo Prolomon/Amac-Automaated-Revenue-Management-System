@@ -21,6 +21,7 @@ import {
   X,
   ExternalLink,
   RefreshCw,
+  Building2,
 } from "lucide-react";
 import {
   getEnumeratorById,
@@ -239,7 +240,10 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
           {/* Captures Progress */}
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-slate-700">📸 Daily Captures Target</span>
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <Camera className="h-4 w-4 text-emerald-600" />
+                Daily Captures Target
+              </span>
               <span className="text-emerald-700 font-bold">
                 {taskProgress?.captures?.submitted ?? 0} / 50
               </span>
@@ -258,7 +262,10 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
           {/* Registrations Progress */}
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-slate-700">🏢 Daily Registrations Target</span>
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <Building2 className="h-4 w-4 text-blue-600" />
+                Daily Registrations Target
+              </span>
               <span className="text-blue-700 font-bold">
                 {taskProgress?.registrations?.submitted ?? 0} / 50
               </span>
@@ -531,9 +538,15 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
                   </Link>
                   <p className="font-mono text-xs text-slate-400">{tm.uid} • {tm.phone}</p>
                 </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span>📸 {tm._count?.properties || 0} captures</span>
-                  <span>🏢 {tm._count?.members || 0} entities</span>
+                <div className="flex items-center gap-4 text-xs text-slate-600">
+                  <span className="flex items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5 text-emerald-600" />
+                    {tm._count?.properties || 0} captures
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-blue-600" />
+                    {tm._count?.members || 0} entities
+                  </span>
                   <Link
                     href={`/admin/enumerators/${tm.uid}`}
                     className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"

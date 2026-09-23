@@ -1,4 +1,17 @@
-import { API_URL, AUTH_AGENT, AUTH_AGENT_TOKEN, AUTH_AGENT_REFRESH_TOKEN, AUTH_AGENT_WALLET } from "@/lib/api";
+import {
+  API_URL,
+  AUTH_AGENT,
+  AUTH_AGENT_REFRESH_TOKEN,
+  AUTH_AGENT_TOKEN,
+  AUTH_AGENT_WALLET,
+  authFetch,
+  clearTokens,
+  isTokenExpired,
+  onAuthFailure,
+  onTokenRefreshed,
+  refreshAccessToken,
+  saveTokens,
+} from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -35,6 +48,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [code, setCode] = useState<string>("")
 
   useEffect(() => {
+    const unsubToken = onTokenRefreshed((newToken) => {
+      setToken(newToken);
+    });
+    const unsubAuthFailure = onAuthFailure(() => {
+      logout();
+    });
+    return () => {
+      unsubToken();
+      unsubAuthFailure();
+    };
+  }, []);
+
+  useEffect(() => {
     (async () => {
       try {
         const cur = await AsyncStorage.getItem(AUTH_AGENT);
@@ -48,15 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let tok = await AsyncStorage.getItem(AUTH_AGENT_TOKEN);
         const refTok = await AsyncStorage.getItem(AUTH_AGENT_REFRESH_TOKEN);
 
-        if (!tok && refTok) {
+        // Proactively refresh access token if missing or expired
+        if ((!tok || isTokenExpired(tok)) && refTok) {
           try {
-            const refreshRes = await refreshAuthToken(refTok);
-            if (refreshRes?.accessToken) {
-              tok = refreshRes.accessToken;
-              await AsyncStorage.setItem(AUTH_AGENT_TOKEN, refreshRes.accessToken);
-              if (refreshRes.refreshToken) {
-                await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, refreshRes.refreshToken);
-              }
+            const newAccess = await refreshAccessToken();
+            if (newAccess) {
+              tok = newAccess;
             }
           } catch (_) {
             // refresh token expired or failed
@@ -80,21 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async (): Promise<string | null> => {
     try {
-      const refTok = await AsyncStorage.getItem(AUTH_AGENT_REFRESH_TOKEN);
-      if (!refTok) return null;
-
-      const refreshRes = await refreshAuthToken(refTok);
-      const newAccess = refreshRes?.accessToken || refreshRes?.token;
-      const newRefresh = refreshRes?.refreshToken;
-
+      const newAccess = await refreshAccessToken();
       if (newAccess) {
-        await AsyncStorage.setItem(AUTH_AGENT_TOKEN, newAccess);
         setToken(newAccess);
       }
-      if (newRefresh) {
-        await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, newRefresh);
-      }
-      return newAccess || null;
+      return newAccess;
     } catch (err) {
       console.error("Agent session refresh failed:", err);
       return null;
@@ -103,10 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (uid: string, password: string) => {
     try {
+      await clearTokens();
       await AsyncStorage.removeItem(AUTH_AGENT);
       await AsyncStorage.removeItem(AUTH_AGENT_WALLET);
-      await AsyncStorage.removeItem(AUTH_AGENT_TOKEN);
-      await AsyncStorage.removeItem(AUTH_AGENT_REFRESH_TOKEN);
       await AsyncStorage.removeItem("urms_agent_pin");
 
       const response = await AgentLogin(uid, password);
@@ -115,10 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const refreshToken = response.refreshToken || "";
 
       await AsyncStorage.setItem(AUTH_AGENT, JSON.stringify(normalized));
-      await AsyncStorage.setItem(AUTH_AGENT_TOKEN, accessToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem(AUTH_AGENT_REFRESH_TOKEN, refreshToken);
-      }
+      await saveTokens(accessToken, refreshToken);
       setToken(accessToken);
 
       setCurrentUser(normalized);
@@ -131,27 +140,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    await clearTokens();
     await AsyncStorage.removeItem(AUTH_AGENT);
     await AsyncStorage.removeItem(AUTH_AGENT_WALLET);
-    await AsyncStorage.removeItem(AUTH_AGENT_TOKEN);
-    await AsyncStorage.removeItem(AUTH_AGENT_REFRESH_TOKEN);
     await AsyncStorage.removeItem("urms_agent_pin");
     setToken(undefined);
     setCurrentUser(null);
   };
 
-  const updateProfile = async (updates: Partial<User>, token?: string) => {
+  const updateProfile = async (updates: Partial<User>, _token?: string) => {
     try {
       if (!currentUser) return { ok: false, message: "Not authenticated" };
       if (!currentUser.uid) return { ok: false, message: "User ID not found" };
 
-      const response = await fetch(`${API_URL}/agent/${currentUser.uid}`, {
+      const response = await authFetch(`/agent/${currentUser.uid}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token || currentUser.uid || ""}`,
-          "x-user-id": currentUser.uid,
-        },
         body: JSON.stringify(updates),
       });
 

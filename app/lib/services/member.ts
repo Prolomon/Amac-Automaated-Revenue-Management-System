@@ -1,7 +1,7 @@
-import { API_URL, buildHeaders } from "../api";
+import { API_URL, authFetch, authFetchJson, refreshAccessToken } from "../api";
 import { User } from "../types";
 
-export async function login( email: string, password: string): Promise<{
+export async function login(email: string, password: string): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
@@ -11,21 +11,11 @@ export async function login( email: string, password: string): Promise<{
   member?: User;
   uid?: string;
 }> {
-  const response = await fetch(`${API_URL}/member/login`, {
+  return authFetchJson(`${API_URL}/member/login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    skipAuth: true,
     body: JSON.stringify({ email, password }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) { 
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
 export async function refreshAuthToken(refreshToken: string): Promise<{
@@ -35,6 +25,16 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
   refreshToken?: string;
   token?: string;
 }> {
+  const newAccessToken = await refreshAccessToken();
+  if (newAccessToken) {
+    return {
+      ok: true,
+      accessToken: newAccessToken,
+      token: newAccessToken,
+    };
+  }
+
+  // Fallback direct call if refreshAccessToken returned null
   const response = await fetch(`${API_URL}/auth/refresh-token`, {
     method: "POST",
     headers: {
@@ -44,126 +44,69 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
   });
 
   const data = await response.json();
-
   if (!response.ok) {
     throw new Error(data.message || "Failed to refresh token");
   }
-
   return data;
 }
 
-export async function forgetPassword( oldPassword: string, newPassword: string, confirmPassword: string, id: string, token: string ): Promise<{
+export async function forgetPassword(
+  oldPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+  id: string,
+  _token?: string
+): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
   token?: string;
   member?: User;
 }> {
-  const response = await fetch(`${API_URL}/member/${id}/forgot-password`, {
+  return authFetchJson(`${API_URL}/member/${id}/forgot-password`, {
     method: "PUT",
-    headers: buildHeaders(true, token),
-    body: JSON.stringify({ oldPassword, newPassword, confirmPassword}),
+    body: JSON.stringify({ oldPassword, newPassword, confirmPassword }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
-export async function resetPassword( id: string, token: string ): Promise<{
+export async function resetPassword(
+  id: string,
+  _token?: string
+): Promise<{
   ok: boolean;
   message?: string;
   error?: string;
   token?: string;
   member?: User;
 }> {
-  const response = await fetch(`${API_URL}/member/${id}/reset-password`, {
+  return authFetchJson(`${API_URL}/member/${id}/reset-password`, {
     method: "PUT",
-    headers: buildHeaders(true, token),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
 export async function getMembers(page: number, limit: number) {
-  const response = await fetch(
-    `${API_URL}/member?page=${page}&limit=${limit}`,
-    { headers: buildHeaders() },
-  );
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch members");
-  }
-  return data;
+  return authFetchJson(`${API_URL}/member?page=${page}&limit=${limit}`);
 }
 
-export async function getMember(id: string, token: string) {
-  const response = await fetch(`${API_URL}/member/${id}`, {
-    headers: buildHeaders(true, token),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch member");
-  }
-  return data;
+export async function getMember(id: string, _token?: string) {
+  return authFetchJson(`${API_URL}/member/${id}`);
 }
 
 export async function getPayment(id: string) {
-  const response = await fetch(`${API_URL}/payment/reference/${id}`, {
-    headers: buildHeaders(false),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch payments");
-  }
-  return data;
+  return authFetchJson(`${API_URL}/payment/reference/${id}`);
 }
 
 export async function getPayments(userId: string) {
-  const response = await fetch(`${API_URL}/payment/user/${userId}`, {
-    headers: buildHeaders(false),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch payments");
-  }
-  return data;
+  return authFetchJson(`${API_URL}/payment/user/${userId}`);
 }
 
 export async function updateMember(id: string, payload: any) {
-  const response = await fetch(`${API_URL}/member/${id}`, {
+  return authFetchJson(`${API_URL}/member/${id}`, {
     method: "PUT",
-    headers: buildHeaders(true),
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to update member");
-  }
-  return data;
 }
 
-export async function getPricing(id: string, token: string) {
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/pricing/${id}/all`, {
-    method: "GET",
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to fetch pricing");
-  }
-  return data;
+export async function getPricing(id: string, _token?: string) {
+  return authFetchJson(`${API_URL}/pricing/${id}/all`);
 }

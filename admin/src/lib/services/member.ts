@@ -61,6 +61,9 @@ export type Property = {
   type: string;
   size: string;
   images: string[];
+  address?: string | null;
+  location?: any;
+  zone?: string | null;
   center?: string | null;
   memberId?: string;
   createdAt?: string;

@@ -33,14 +33,24 @@ const authMiddleware = async (req, res, next) => {
         });
       }
       jwtPayload = verification.payload;
-      userUid = verification.payload.uid;
+      userUid = verification.payload.uid || verification.payload.userId || verification.payload.id;
     } else {
       userUid = token;
     }
 
-    // Try to find member by uid extracted from token
-    let user = await prisma.member.findUnique({
-      where: { uid: userUid },
+    if (!userUid) {
+      return res.status(401).json({
+        ok: false,
+        message: "Unauthorized: Token missing user identifier.",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    // Try to find member by uid or id
+    let user = await prisma.member.findFirst({
+      where: {
+        OR: [{ uid: userUid }, { id: userUid }],
+      },
       select: {
         id: true,
         uid: true,
@@ -64,8 +74,10 @@ const authMiddleware = async (req, res, next) => {
 
     // If not found as member, try to find as agent
     if (!user) {
-      user = await prisma.agent.findUnique({
-        where: { uid: userUid },
+      user = await prisma.agent.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
         select: {
           id: true,
           uid: true,
@@ -79,13 +91,15 @@ const authMiddleware = async (req, res, next) => {
           updatedAt: true,
         },
       });
-      userType = "agent";
+      if (user) userType = "agent";
     }
 
     // If not found as agent, try to find as admin
     if (!user) {
-      user = await prisma.admin.findUnique({
-        where: { uid: userUid },
+      user = await prisma.admin.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
         select: {
           id: true,
           uid: true,
@@ -104,12 +118,14 @@ const authMiddleware = async (req, res, next) => {
           status: true,
         },
       });
-      userType = "admin";
+      if (user) userType = "admin";
     }
 
     if (!user) {
-      user = await prisma.staff.findUnique({
-        where: { uid: userUid },
+      user = await prisma.staff.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
         select: {
           id: true,
           uid: true,
@@ -127,12 +143,14 @@ const authMiddleware = async (req, res, next) => {
           updatedAt: true,
         },
       });
-      userType = "staff";
+      if (user) userType = "staff";
     }
 
     if (!user) {
-      user = await prisma.company.findUnique({
-        where: { uid: userUid },
+      user = await prisma.company.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
         select: {
           id: true,
           uid: true,
@@ -148,12 +166,14 @@ const authMiddleware = async (req, res, next) => {
           updatedAt: true,
         },
       });
-      userType = "company";
+      if (user) userType = "company";
     }
 
     if (!user) {
-      user = await prisma.enumerator.findUnique({
-        where: { uid: userUid },
+      user = await prisma.enumerator.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
         select: {
           id: true,
           uid: true,
@@ -180,14 +200,18 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user) {
-      console.log(user)
-      return res.status(401).json({ message: "Unauthorized: Invalid token." });
+      return res.status(401).json({
+        ok: false,
+        message: "Unauthorized: User account not found.",
+        code: "USER_NOT_FOUND",
+      });
     }
 
-    req.userId = user.uid;
+    req.userId = user.uid || user.id;
     req.auth = jwtPayload || null;
     req.userType = userType;
     req.user = user;
+    req.role = user.role || (userType === "enumerator" ? user.level : userType.toUpperCase());
 
     // For backward compatibility
     if (userType === "member") {
@@ -204,7 +228,7 @@ const authMiddleware = async (req, res, next) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Server error during authentication." });
+      .json({ ok: false, message: "Server error during authentication." });
   }
 };
 

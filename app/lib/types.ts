@@ -103,6 +103,23 @@ export type Request = {
   payment?: Payment;
 };
 
+export type Property = {
+  id: string;
+  pid?: string | null;
+  name: string;
+  type: string;
+  size: string;
+  address?: string | null;
+  location?: any;
+  zone?: string | null;
+  status?: string;
+  images?: string[];
+  center?: string | null;
+  memberId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Member = {
   id?: string;
   uid?: string;
@@ -132,6 +149,11 @@ export type Member = {
   updatedAt?: string;
   agent?: string;
   agentData?: Agent;
+  propertyId?: string | null;
+  zone?: string | null;
+  bvn?: string | null;
+  property?: Property | null;
+  properties?: Property[];
 };
 
 export type AuthContextValue = {

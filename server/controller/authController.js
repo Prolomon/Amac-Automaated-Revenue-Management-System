@@ -38,42 +38,50 @@ export const refreshTokenHandler = async (req, res) => {
     const { uid } = verification.payload;
 
     // Locate user in database
-    let user = await prisma.member.findUnique({
-      where: { uid },
+    let user = await prisma.member.findFirst({
+      where: { OR: [{ uid }, { id: uid }] },
       select: { uid: true, email: true, role: true, status: true },
     });
     let userType = "member";
 
     if (!user) {
-      user = await prisma.agent.findUnique({
-        where: { uid },
+      user = await prisma.agent.findFirst({
+        where: { OR: [{ uid }, { id: uid }] },
         select: { uid: true, email: true, role: true, status: true },
       });
-      userType = "agent";
+      if (user) userType = "agent";
     }
 
     if (!user) {
-      user = await prisma.admin.findUnique({
-        where: { uid },
+      user = await prisma.admin.findFirst({
+        where: { OR: [{ uid }, { id: uid }] },
         select: { uid: true, email: true, role: true, status: true },
       });
-      userType = user?.role === "ADMIN" ? "admin" : "it";
+      if (user) userType = user?.role === "ADMIN" ? "admin" : "it";
     }
 
     if (!user) {
-      user = await prisma.staff.findUnique({
-        where: { uid },
+      user = await prisma.staff.findFirst({
+        where: { OR: [{ uid }, { id: uid }] },
         select: { uid: true, email: true, role: true, status: true },
       });
-      userType = "staff";
+      if (user) userType = "staff";
     }
 
     if (!user) {
-      user = await prisma.company.findUnique({
-        where: { uid },
+      user = await prisma.company.findFirst({
+        where: { OR: [{ uid }, { id: uid }] },
         select: { uid: true, email: true, role: true, status: true },
       });
-      userType = "company";
+      if (user) userType = "company";
+    }
+
+    if (!user) {
+      user = await prisma.enumerator.findFirst({
+        where: { OR: [{ uid }, { id: uid }] },
+        select: { uid: true, email: true, role: true, status: true },
+      });
+      if (user) userType = "enumerator";
     }
 
     if (!user) {

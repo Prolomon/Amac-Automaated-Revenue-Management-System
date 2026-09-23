@@ -1,19 +1,19 @@
-export const API_URL=process.env.EXPO_PUBLIC_API_URL + "/api"
+// Re-export constants and helpers
+export * from "./api-config";
 
-export const AUTH_AGENT = "urms_agent";
-export const AUTH_AGENT_WALLET = "urms_agent_wallet";
-export const AUTH_AGENT_WALLET_STATE = "urms_agent_wallet_state";
-export const AUTH_AGENT_TOKEN = "urms_agent_token";
-export const AUTH_AGENT_REFRESH_TOKEN = "urms_agent_refresh_token";
+// Re-export token management and auto-refresh utilities
+export {
+  getAccessToken,
+  getRefreshToken,
+  saveTokens,
+  clearTokens,
+  isTokenExpired,
+  refreshAccessToken,
+  getValidAccessToken,
+  onTokenRefreshed,
+  onAuthFailure,
+} from "./auth-token";
 
-
-export function buildHeaders(
-  hasJson: boolean = true,
-  token?: string,
-): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (hasJson) headers["Content-Type"] = "application/json";
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
-
+// Re-export authenticated fetch client
+export { authFetch, authFetchJson } from "./api-client";
+export type { AuthFetchOptions } from "./api-client";

@@ -3,9 +3,19 @@ import { useAuth } from "@/hooks/use-auth";
 import { getTransactions } from "@/lib/services/transaction";
 import { Transaction } from "@/lib/types";
 import { RelativePathString, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Calendar,
+  ChevronRight,
+  History as HistoryIcon,
+  Receipt,
+  Search,
+  X,
+} from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,19 +24,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function History() {
   const { currentUser, token } = useAuth();
   const [transactionList, setTransactionList] = useState<Transaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [query, setQuery] = useState("");
   const router = useRouter();
 
   const loadTransactions = useCallback(async () => {
-    setRefreshing(true);
     try {
+      setLoading(true);
       const data = await getTransactions(
         currentUser?.uid as string,
         token as string,
@@ -40,9 +52,10 @@ export default function History() {
           : [data.transactions]
         : [];
       setTransactionList(transactions as Transaction[]);
-    } catch (error) {
+    } catch {
       setTransactionList([]);
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   }, [token, currentUser, fromDate, toDate, query]);
@@ -51,195 +64,390 @@ export default function History() {
     loadTransactions();
   }, [loadTransactions]);
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadTransactions();
+  };
+
+  const getStatusBadge = (rawStatus?: string) => {
+    const s = String(rawStatus || "").toUpperCase();
+    if (s === "SUCCESS") {
+      return {
+        bg: "#ecfdf5",
+        text: "#059669",
+        border: "#a7f3d0",
+        label: "Settled",
+      };
+    }
+    if (s === "PENDING") {
+      return {
+        bg: "#fffbeb",
+        text: "#d97706",
+        border: "#fde68a",
+        label: "Processing",
+      };
+    }
+    return {
+      bg: "#fef2f2",
+      text: "#dc2626",
+      border: "#fecaca",
+      label: "Failed",
+    };
+  };
+
   return (
-    <ScrollView
-      style={styles.safe}
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={loadTransactions} />
-      }
-    >
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.back}
-            activeOpacity={0.7}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft color="#000" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: "#000" }]}>
-            Payment History
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0ea360"
+            colors={["#0ea360"]}
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.govTag}>
+            <HistoryIcon size={13} color="#065f46" />
+            <Text style={styles.govTagText}>REVENUE AUDIT TRAIL</Text>
+          </View>
+          <Text style={styles.headerTitle}>Transaction History</Text>
+          <Text style={styles.headerSubtitle}>
+            Verified receipts, bank deposits, and assessment remittances
           </Text>
-          <View style={{ width: 32 }} />
         </View>
-      </View>
 
-      <View style={styles.searchWrap}>
-        <TextInput
-          placeholder="Search by reference..."
-          placeholderTextColor="#bfc7ca"
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-        />
-        <View style={styles.rangeRow}>
-          <TextInput
-            placeholder="From (YYYY-MM-DD)"
-            placeholderTextColor="#bfc7ca"
-            style={styles.rangeInput}
-            value={fromDate}
-            onChangeText={setFromDate}
-          />
-          <TextInput
-            placeholder="To (YYYY-MM-DD)"
-            placeholderTextColor="#bfc7ca"
-            style={styles.rangeInput}
-            value={toDate}
-            onChangeText={setToDate}
-          />
-        </View>
-      </View>
-
-      <View style={styles.historyWrap}>
-        {refreshing ? (
-          <Text style={styles.historyStateText}>Refreshing transactions...</Text>
-        ) : transactionList.length === 0 ? (
-          <Text style={styles.historyStateText}>No transactions found.</Text>
-        ) : (
-          transactionList.slice(0, 12).map((tx) => {
-            const title = tx.metadata?.transactionType || tx.event || "Transaction";
-            const subtitle = tx.metadata?.narration || tx.metadata?.senderName || "";
-            const date = tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : "-";
-            const rawStatus = tx.status || "";
-            const status =
-              rawStatus === "SUCCESS"
-                ? "SUCCESS"
-                : rawStatus === "PENDING"
-                ? "PENDING"
-                : rawStatus === "FAILED"
-                ? "FAILED"
-                : rawStatus;
-            const amount = tx.amount ? formatCurrency(Number(tx.amount)) : "-";
-            const color =
-              status === "SUCCESS"
-                ? "#14a76a"
-                : status === "PENDING"
-                ? "#2266ff"
-                : "#e94b4b";
-
-            return (
-              <TouchableOpacity
-                key={tx.id}
-                style={styles.historyCard}
-                activeOpacity={0.9}
-                onPress={() => router.push(`/transaction/${tx.reference}` as RelativePathString)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyTitle}>{title}</Text>
-                  <Text style={styles.historySub}>{subtitle}</Text>
-                  <Text style={styles.historyDate}>{date}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.historyAmount}>{amount}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: color }]}> 
-                    <Text style={styles.statusText}>{status}</Text>
-                  </View>
-                </View>
+        {/* Search & Filter Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchInputWrap}>
+            <Search size={18} color="#94a3b8" />
+            <TextInput
+              placeholder="Search reference, narration, or type..."
+              placeholderTextColor="#94a3b8"
+              style={styles.searchInput}
+              value={query}
+              onChangeText={setQuery}
+              returnKeyType="search"
+            />
+            {query.length > 0 ? (
+              <TouchableOpacity onPress={() => setQuery("")}>
+                <X size={16} color="#94a3b8" />
               </TouchableOpacity>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
+            ) : null}
+          </View>
+
+          {/* Date range filter */}
+          <View style={styles.dateFilterRow}>
+            <View style={styles.dateInputBox}>
+              <Calendar size={14} color="#64748b" />
+              <TextInput
+                placeholder="From: YYYY-MM-DD"
+                placeholderTextColor="#94a3b8"
+                style={styles.dateInput}
+                value={fromDate}
+                onChangeText={setFromDate}
+              />
+              {fromDate ? (
+                <TouchableOpacity onPress={() => setFromDate("")}>
+                  <X size={14} color="#94a3b8" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <View style={styles.dateInputBox}>
+              <Calendar size={14} color="#64748b" />
+              <TextInput
+                placeholder="To: YYYY-MM-DD"
+                placeholderTextColor="#94a3b8"
+                style={styles.dateInput}
+                value={toDate}
+                onChangeText={setToDate}
+              />
+              {toDate ? (
+                <TouchableOpacity onPress={() => setToDate("")}>
+                  <X size={14} color="#94a3b8" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Transactions List */}
+        <View style={styles.listContainer}>
+          {loading && !refreshing ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="small" color="#0ea360" />
+              <Text style={styles.loadingText}>Fetching records...</Text>
+            </View>
+          ) : transactionList.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Receipt size={40} color="#94a3b8" />
+              <Text style={styles.emptyTitle}>No Transactions Found</Text>
+              <Text style={styles.emptySubtitle}>
+                {query || fromDate || toDate
+                  ? "Try adjusting your search query or date range filters."
+                  : "Settlements and payments will appear here."}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.transactionCardGroup}>
+              {transactionList.map((tx, idx) => {
+                const title = tx.metadata?.transactionType || tx.event || "Assessment Payment";
+                const narration = tx.metadata?.narration || tx.metadata?.senderName || tx.reference || "-";
+                const date = tx.createdAt
+                  ? new Date(tx.createdAt).toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "-";
+                const isCredit =
+                  String(tx.metadata?.transactionType || "").toLowerCase().includes("credit") ||
+                  String(tx.event || "").toLowerCase().includes("credit");
+                const amount = tx.amount ? formatCurrency(Number(tx.amount)) : "₦0.00";
+                const badge = getStatusBadge(tx.status);
+
+                return (
+                  <TouchableOpacity
+                    key={tx.id || idx}
+                    style={[
+                      styles.transactionItem,
+                      idx === transactionList.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => router.push(`/transaction/${tx.reference}` as RelativePathString)}
+                  >
+                    <View
+                      style={[
+                        styles.iconCircle,
+                        { backgroundColor: isCredit ? "#ecfdf5" : "#f1f5f9" },
+                      ]}
+                    >
+                      {isCredit ? (
+                        <ArrowDownLeft size={18} color="#059669" />
+                      ) : (
+                        <ArrowUpRight size={18} color="#475569" />
+                      )}
+                    </View>
+
+                    <View style={{ flex: 1, marginHorizontal: 12 }}>
+                      <Text style={styles.txTitle} numberOfLines={1}>
+                        {title}
+                      </Text>
+                      <Text style={styles.txNarration} numberOfLines={1}>
+                        {narration}
+                      </Text>
+                      <Text style={styles.txDate}>{date}</Text>
+                    </View>
+
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={[styles.txAmount, isCredit && { color: "#059669" }]}>
+                        {isCredit ? "+" : "-"}
+                        {amount}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: badge.bg, borderColor: badge.border },
+                        ]}
+                      >
+                        <Text style={[styles.statusBadgeText, { color: badge.text }]}>
+                          {badge.label}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <ChevronRight size={16} color="#cbd5e1" style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f6f8f9" },
-  container: { paddingBottom: 40 },
-  header: { paddingVertical: 14, paddingHorizontal: 14 },
-  headerRow: {
+  safe: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  container: {
+    paddingBottom: 40,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  govTag: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 16,
+    backgroundColor: "#ecfdf5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    gap: 4,
   },
-  back: {
-    width: 32,
-    height: 32,
+  govTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  searchSection: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  searchInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: "#0f172a",
+  },
+  dateFilterRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  dateInputBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 6,
+  },
+  dateInput: {
+    flex: 1,
+    fontSize: 12,
+    color: "#0f172a",
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+  },
+  loadingBox: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: "#64748b",
+  },
+  emptyBox: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  transactionCardGroup: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  transactionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  backText: { fontSize: 18 },
-  headerTitle: { color: "#fff", fontSize: 18 },
-
-  searchWrap: { paddingHorizontal: 14 },
-  searchInput: {
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#eceff0",
-  },
-  rangeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-  rangeInput: {
-    flex: 1,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: "#eceff0",
-  },
-
-  historyWrap: {
-    padding: 16,
-  },
-  historyStateText: {
-    textAlign: "center",
-    color: "#888",
+  txTitle: {
     fontSize: 14,
-    marginVertical: 20,
+    fontWeight: "700",
+    color: "#0f172a",
   },
-  historyCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#222",
-  },
-  historySub: {
-    fontSize: 14,
-    color: "#666",
+  txNarration: {
+    fontSize: 12,
+    color: "#64748b",
     marginTop: 2,
   },
-  historyDate: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
+  txDate: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
   },
-  historyAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#222",
+  txAmount: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0f172a",
   },
   statusBadge: {
-    marginTop: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#fff",
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

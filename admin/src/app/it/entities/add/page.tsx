@@ -24,6 +24,7 @@ import {
   X,
   Image as ImageIcon,
   FileCheck,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -134,8 +135,21 @@ export default function ITAddEntityPage() {
 
   const [existingProperties, setExistingProperties] = useState<Property[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
-  const [isExistingProperty, setIsExistingProperty] = useState(false);
+  const [isExistingProperty, setIsExistingProperty] = useState(true);
   const [selectedExistingPropertyId, setSelectedExistingPropertyId] = useState("");
+  const [propertySearch, setPropertySearch] = useState("");
+
+  const filteredProperties = useMemo(() => {
+    if (!propertySearch.trim()) return existingProperties;
+    const q = propertySearch.toLowerCase().trim();
+    return existingProperties.filter((p) => {
+      const name = (p.name || "").toLowerCase();
+      const pid = (p.pid || "").toLowerCase();
+      const type = (p.type || "").toLowerCase();
+      const addr = (typeof p.address === "string" ? p.address : (p as any).location?.address || "").toLowerCase();
+      return name.includes(q) || pid.includes(q) || type.includes(q) || addr.includes(q);
+    });
+  }, [existingProperties, propertySearch]);
 
   useEffect(() => {
     async function loadProperties() {
@@ -480,14 +494,8 @@ export default function ITAddEntityPage() {
     }
 
     if (stepNumber === 4) {
-      if (isExistingProperty && !selectedExistingPropertyId) {
-        errs.existingProperty = "Please select an existing property from the list";
-      }
-      if (!formData.property.name || formData.property.name.trim().length < 2) {
-        errs["property.name"] = "Please enter property or business premises name";
-      }
-      if (!formData.property.size || formData.property.size.trim().length < 1) {
-        errs["property.size"] = "Please specify property size or physical dimension";
+      if (!selectedExistingPropertyId) {
+        errs.existingProperty = "Please select a registered property from the council registry list";
       }
     }
 
@@ -1249,209 +1257,184 @@ export default function ITAddEntityPage() {
             </div>
           )}
 
-          {/* STEP 4: Property Details with Cloudinary Upload */}
+          {/* STEP 4: Select Property from Council Registry */}
           {currentStep === 4 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Step 4: Property & Premises Details
+                  Step 4: Select Property / Premises
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Specify physical premises attributes and upload photographs saved to Cloudinary.
+                  Select the registered property or plaza occupied by this entity from the council property directory.
                 </p>
               </div>
 
-              {/* Select for Existing Property */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                      Existing Property? *
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={isExistingProperty ? "yes" : "no"}
-                        onChange={(e) => {
-                          const isYes = e.target.value === "yes";
-                          setIsExistingProperty(isYes);
-                          if (!isYes) {
-                            setSelectedExistingPropertyId("");
-                          }
-                        }}
-                        className="appearance-none w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      >
-                        <option value="no">No (Register New Property)</option>
-                        <option value="yes">Yes (Select Existing Property)</option>
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Choose whether this entity occupies an already registered property or plaza.
-                    </p>
-                  </div>
-
-                  {isExistingProperty && (
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                        Select From Existing Properties *
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={selectedExistingPropertyId}
-                          onChange={(e) => handleSelectExistingProperty(e.target.value)}
-                          className={`appearance-none w-full rounded-xl border bg-white py-2.5 pl-4 pr-10 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 ${
-                            errors.existingProperty ? "border-red-400" : "border-slate-300"
-                          }`}
-                        >
-                          <option value="">
-                            {loadingProperties
-                              ? "Loading registered properties..."
-                              : existingProperties.length === 0
-                                ? "No registered properties found"
-                                : "-- Select already existing property --"}
-                          </option>
-                          {existingProperties.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.pid ? `[${p.pid}] ` : ""}{p.name} — {p.type} ({p.size || "Standard"})
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                      </div>
-                      {errors.existingProperty && (
-                        <p className="mt-1 text-xs text-red-600">{errors.existingProperty}</p>
-                      )}
-                      <p className="mt-1 text-xs text-slate-500">
-                        Selecting an existing property auto-populates its specifications and photos below.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-2">
-                    Property / Premises Name *
-                  </label>
+              {/* Mini Search Bar */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
                   <input
                     type="text"
-                    placeholder="e.g., Suite 4A Unity Plaza"
-                    value={formData.property.name}
-                    onChange={(e) => handlePropertyChange("name", e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-50 py-2.5 px-4 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 ${
-                      errors["property.name"] ? "border-red-400" : "border-slate-300"
-                    }`}
+                    placeholder="Search by property name, PID, address, or type..."
+                    value={propertySearch}
+                    onChange={(e) => setPropertySearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-20 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   />
-                  {errors["property.name"] && (
-                    <p className="mt-1 text-xs text-red-600">{errors["property.name"]}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-2">
-                    Property Type *
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.property.type}
-                      onChange={(e) => handlePropertyChange("type", e.target.value)}
-                      className="appearance-none w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-4 pr-10 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  {propertySearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setPropertySearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-200 transition"
                     >
-                      {PROPERTY_TYPES.map((pt) => (
-                        <option key={pt} value={pt}>
-                          {pt}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-2">
-                    Property Size / Dimension *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 250 sqm, 1 Shop"
-                    value={formData.property.size}
-                    onChange={(e) => handlePropertyChange("size", e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-50 py-2.5 px-4 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 ${
-                      errors["property.size"] ? "border-red-400" : "border-slate-300"
-                    }`}
-                  />
-                  {errors["property.size"] && (
-                    <p className="mt-1 text-xs text-red-600">{errors["property.size"]}</p>
+                      Clear
+                    </button>
+                  ) : (
+                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-medium">
+                      {filteredProperties.length} found
+                    </span>
                   )}
                 </div>
+                {errors.existingProperty && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle size={13} /> {errors.existingProperty}
+                  </p>
+                )}
               </div>
 
-              {/* Cloudinary Image Upload Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-slate-800">
-                    Premises Photographs (Cloudinary)
-                  </label>
-                  <span className="text-xs text-slate-500">
-                    {formData.property.images.length} photo(s) uploaded
+              {/* Scrollable Properties List */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-200/80 mb-2.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Council Registered Properties ({filteredProperties.length})
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Scroll to view & select
                   </span>
                 </div>
 
-                <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 text-center hover:bg-slate-50 transition">
-                  <UploadCloud className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
-                  <p className="text-sm font-semibold text-slate-800">
-                    Upload Property Evidence
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Images are automatically uploaded and hosted on Cloudinary.
-                  </p>
+                {loadingProperties ? (
+                  <div className="py-12 text-center">
+                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent mb-2" />
+                    <p className="text-xs font-medium text-slate-500">Loading registered properties...</p>
+                  </div>
+                ) : filteredProperties.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Building2 className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+                    <p className="text-sm font-semibold text-slate-700">No properties found</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      {propertySearch
+                        ? `No properties match "${propertySearch}". Try a different keyword.`
+                        : "No registered properties currently available in the directory."}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="max-h-80 overflow-y-auto pr-1 space-y-2.5"
+                    style={{
+                      scrollbarWidth: "thin",
+                      scrollbarColor: "#cbd5e1 transparent",
+                    }}
+                  >
+                    {filteredProperties.map((p) => {
+                      const isSelected = selectedExistingPropertyId === p.id;
+                      const propAddress = typeof p.address === "string" ? p.address : (p as any).location?.address || "AMAC Municipal";
+                      const thumbnail = p.images && p.images.length > 0 ? p.images[0] : null;
 
-                  <label className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition cursor-pointer">
-                    {uploadingImages ? (
-                      <>
-                        <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        Uploading to Cloudinary...
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon size={14} />
-                        Browse & Upload Photos
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      disabled={uploadingImages}
-                      onChange={handlePropertyImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                {formData.property.images.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
-                    {formData.property.images.map((imgUrl, idx) => (
-                      <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-square">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={imgUrl}
-                          alt={`Property Preview ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePropertyImage(idx)}
-                          className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 transition"
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectExistingProperty(p.id!)}
+                          className={`cursor-pointer rounded-xl border p-3.5 transition-all flex items-start gap-3.5 ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-500/20 shadow-sm"
+                              : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/70"
+                          }`}
                         >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
+                          {/* Thumbnail or Fallback Icon */}
+                          <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                            {thumbnail ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={thumbnail}
+                                alt={p.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Building2 className="h-6 w-6 text-slate-400" />
+                            )}
+                          </div>
+
+                          {/* Property Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`text-sm font-semibold truncate ${isSelected ? "text-emerald-950 font-bold" : "text-slate-900"}`}>
+                                {p.name}
+                              </h4>
+                              {p.pid && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-100 text-emerald-800">
+                                  {p.pid}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                              <span className="font-medium text-slate-700">{p.type}</span>
+                              <span>•</span>
+                              <span>{p.size || "Standard Size"}</span>
+                              {(p as any).center && (
+                                <>
+                                  <span>•</span>
+                                  <span>{(p as any).center}</span>
+                                </>
+                              )}
+                            </div>
+
+                            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 truncate">
+                              <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{propAddress}</span>
+                            </div>
+                          </div>
+
+                          {/* Radio / Selection Indicator */}
+                          <div className="shrink-0 pt-1">
+                            <div
+                              className={`w-5 h-5 rounded-full border flex items-center justify-center transition ${
+                                isSelected
+                                  ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                                  : "border-slate-300 bg-white"
+                              }`}
+                            >
+                              {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+
+              {/* Selected Property Confirmation Banner */}
+              {selectedExistingPropertyId && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4 stroke-[3]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-950">
+                        Selected Property: {formData.property.name}
+                      </p>
+                      <p className="text-[11px] text-emerald-700">
+                        Type: {formData.property.type} | Size: {formData.property.size || "Standard"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-lg">
+                    Confirmed
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
