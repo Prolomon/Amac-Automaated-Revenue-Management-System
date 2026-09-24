@@ -205,10 +205,6 @@ export default function MakePayment() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.govTag}>
-              <Receipt size={13} color="#065f46" />
-              <Text style={styles.govTagText}>REVENUE DEMAND NOTICES</Text>
-            </View>
             <Text style={styles.headerTitle}>Official Assessments</Text>
             <Text style={styles.headerSubtitle}>
               Statutory council taxes, tenements, and municipal levies
@@ -449,25 +445,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 16,
   },
-  govTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ecfdf5",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
-    gap: 4,
-  },
-  govTagText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#065f46",
-    letterSpacing: 0.8,
-  },
   headerTitle: {
     fontSize: 22,
     fontWeight: "800",
@@ -554,7 +531,7 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
   },
   filterPillActive: {
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
     borderColor: "#0ea360",
   },
   filterPillText: {
@@ -608,11 +585,6 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
@@ -741,22 +713,17 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0ea360",
+    color: "#064e3b",
   },
   payBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
     paddingVertical: 13,
     borderRadius: 12,
     marginTop: 14,
     gap: 8,
-    shadowColor: "#0ea360",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   payBtnText: {
     color: "#ffffff",

@@ -125,7 +125,8 @@ export const createEnumerator = async (req, res) => {
  */
 export const loginEnumerator = async (req, res) => {
   try {
-    const { identifier, password, expectedLevel } = req.body;
+    const { identifier, password } = req.body;
+    console.log("loginEnumerator request body:", req.body);
 
     if (!identifier || !password) {
       return res.status(400).json({
@@ -174,14 +175,6 @@ export const loginEnumerator = async (req, res) => {
       });
     }
 
-    // Role check if logging in specifically as Supervisor
-    if (expectedLevel && expectedLevel.toUpperCase() === "SUPER" && enumerator.level !== "SUPER") {
-      return res.status(403).json({
-        ok: false,
-        message: "Access denied. You do not have Supervisor permissions.",
-      });
-    }
-
     const tokenPayload = {
       uid: enumerator.uid,
       id: enumerator.id,
@@ -214,10 +207,16 @@ export const loginEnumerator = async (req, res) => {
       ok: true,
       message: "Login successful",
       accessToken,
+      token: accessToken,
       refreshToken,
       user: {
         ...enumeratorSafe,
         supervisor,
+      },
+      data: {
+        ...enumeratorSafe,
+        supervisor,
+        wallet,
       },
       wallet,
     });
@@ -235,7 +234,9 @@ export const loginEnumerator = async (req, res) => {
  */
 export const forgotPassword = async (req, res) => {
   try {
-    const { identifier } = req.body;
+    const { email, phone, altPhone } = req.body;
+
+    const identifier = email || phone || altPhone || req.body.phone || req.body.altPhone;
 
     if (!identifier) {
       return res.status(400).json({
@@ -276,10 +277,10 @@ export const forgotPassword = async (req, res) => {
     // Try sending email if possible
     try {
       if (enumerator.email && enumerator.email.includes("@")) {
-        await sendEmail({
-          to: enumerator.email,
-          subject: "Your AMAC Enumerator Security OTP",
-          html: `
+        await sendEmail(
+          enumerator.email,
+          "Your AMAC Enumerator Security OTP",
+          `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
               <h2 style="color: #0B3B26;">AMAC Enumeration Portal</h2>
               <p>Hello <strong>${enumerator.name}</strong>,</p>
@@ -289,8 +290,8 @@ export const forgotPassword = async (req, res) => {
               </div>
               <p style="margin-top: 15px; font-size: 13px; color: #666;">This code is valid for 15 minutes. If you did not request this, please contact support.</p>
             </div>
-          `,
-        });
+          `
+        );
       }
     } catch (eErr) {
       console.warn("Could not dispatch OTP email:", eErr.message);
@@ -315,9 +316,11 @@ export const forgotPassword = async (req, res) => {
  */
 export const resetPassword = async (req, res) => {
   try {
-    const { identifier, otpCode, newPassword } = req.body;
+    const { email, phone, altPhone, otp, newPassword } = req.body;
+    const identifier = email || phone || altPhone || req.body.phone || req.body.altPhone;
+    console.log("resetPassword request body:", req.body);
 
-    if (!identifier || !otpCode || !newPassword) {
+    if (!identifier || !otp || !newPassword) {
       return res.status(400).json({
         ok: false,
         message: "Identifier, OTP code, and new password are required",
@@ -332,7 +335,7 @@ export const resetPassword = async (req, res) => {
     }
 
     const cleanIdentifier = String(identifier).trim();
-    const cleanOtp = String(otpCode).trim();
+    const cleanOtp = String(otp).trim();
 
     const enumerator = await prisma.enumerator.findFirst({
       where: {

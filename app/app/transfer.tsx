@@ -251,7 +251,7 @@ export default function TransferScreen() {
                 disabled={resolving}
               >
                 {resolving ? (
-                  <ActivityIndicator color="#0ea360" />
+                  <ActivityIndicator color="#064e3b" />
                 ) : (
                   <Text style={styles.secondaryText}>Get Account Details</Text>
                 )}
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 20, fontWeight: "700", color: "#111827" },
   balanceCard: {
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
     borderRadius: 14,
     padding: 16,
     marginBottom: 14,
@@ -455,17 +455,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#0ea360",
+    borderColor: "#064e3b",
     backgroundColor: "#ecfdf5",
   },
-  secondaryText: { color: "#0ea360", fontWeight: "700" },
+  secondaryText: { color: "#064e3b", fontWeight: "700" },
   primaryBtn: {
     marginTop: 16,
     height: 48,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
   },
   primaryText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   modalOverlay: {
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     marginTop: 12,
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
     height: 44,
     borderRadius: 10,
     alignItems: "center",

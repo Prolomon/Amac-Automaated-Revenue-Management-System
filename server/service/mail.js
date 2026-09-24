@@ -68,29 +68,67 @@ if (resendApiKey) {
 }
 
 export const sendEmail = async (to, subject, text, attachments = []) => {
+  // Support both sendEmail(to, subject, text, attachments) and sendEmail({ to, subject, html, text, attachments })
+  let destTo = to;
+  let destSubject = subject;
+  let destHtml = text;
+  let destText = text;
+  let destAttachments = attachments;
+
+  if (to && typeof to === "object" && !Array.isArray(to)) {
+    destTo = to.to;
+    destSubject = to.subject || subject;
+    destHtml = to.html || to.text || text;
+    destText = to.text || to.html || text;
+    destAttachments = to.attachments || attachments || [];
+  }
+
+  // Normalize recipient to a clean array of email strings
+  let recipientList = [];
+  if (Array.isArray(destTo)) {
+    recipientList = destTo
+      .map((t) => (typeof t === "string" ? t.trim() : String(t?.email || t?.to || "").trim()))
+      .filter(Boolean);
+  } else if (typeof destTo === "string") {
+    recipientList = destTo
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } else if (destTo && typeof destTo === "object") {
+    const extracted = destTo.email || destTo.to;
+    if (extracted) recipientList = [String(extracted).trim()];
+  }
+
+  if (recipientList.length === 0) {
+    console.error("sendEmail error: No valid recipient found in `to` parameter:", to);
+    return { ok: false, error: "No valid recipient email address provided" };
+  }
+
+  const rawRecipient = recipientList.length === 1 ? recipientList[0] : recipientList;
+
   const mailOptions = {
     from: smtpUser,
-    to,
-    subject,
-    html: text,
-    text: String(text || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
-    attachments,
+    to: rawRecipient,
+    subject: destSubject,
+    html: destHtml,
+    text: String(destText || destHtml || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    attachments: destAttachments,
   };
 
   // Try Resend first if available
   if (resendAvailable && resendClient) {
     try {
-      const resendAttachments = attachments.map((att) => ({
+      const resendAttachments = destAttachments.map((att) => ({
         filename: att.filename || "attachment.pdf",
         content: att.content,
       }));
 
       const { data, error } = await resendClient.emails.send({
         from: resendFrom,
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html: text,
-        text: String(text || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+        to: recipientList,
+        subject: destSubject,
+        html: destHtml,
+        text: String(destText || destHtml || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
         attachments: resendAttachments.length > 0 ? resendAttachments.map(att => ({
           ...att,
           content: Buffer.isBuffer(att.content)

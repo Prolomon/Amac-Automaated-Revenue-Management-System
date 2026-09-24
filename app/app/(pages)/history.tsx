@@ -111,10 +111,6 @@ export default function History() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.govTag}>
-            <HistoryIcon size={13} color="#065f46" />
-            <Text style={styles.govTagText}>REVENUE AUDIT TRAIL</Text>
-          </View>
           <Text style={styles.headerTitle}>Transaction History</Text>
           <Text style={styles.headerSubtitle}>
             Verified receipts, bank deposits, and assessment remittances
@@ -286,25 +282,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 16,
   },
-  govTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ecfdf5",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
-    gap: 4,
-  },
-  govTagText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#065f46",
-    letterSpacing: 0.8,
-  },
   headerTitle: {
     fontSize: 22,
     fontWeight: "800",
@@ -399,11 +376,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   transactionItem: {
     flexDirection: "row",

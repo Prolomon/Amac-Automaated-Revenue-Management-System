@@ -152,7 +152,7 @@ export default function PaymentTransactions() {
 
       <View style={styles.summaryCard}>
         <View style={styles.summaryIconWrap}>
-          <CreditCard size={20} color="#0ea360" />
+          <CreditCard size={20} color="#064e3b" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.summaryTitle}>Transaction Overview</Text>
@@ -189,7 +189,7 @@ export default function PaymentTransactions() {
 
       {loadingTransactions ? (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="small" color="#0ea360" />
+          <ActivityIndicator size="small" color="#064e3b" />
           <Text style={styles.loadingText}>Loading payment transactions...</Text>
         </View>
       ) : error ? (
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 6, fontSize: 13, color: "#64748b" },
   listWrap: { paddingHorizontal: 14, marginTop: 2 },
   totalCard: {
-    backgroundColor: "#0ea360",
+    backgroundColor: "#064e3b",
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -406,10 +406,10 @@ const styles = StyleSheet.create({
     minWidth: 70,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#0ea360",
+    borderColor: "#064e3b",
   },
   amountLabel: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
-  amountValue: { fontSize: 16, color: "#0ea360", fontWeight: "700", marginTop: 2 },
+  amountValue: { fontSize: 16, color: "#064e3b", fontWeight: "700", marginTop: 2 },
   debtBadge: {
     flex: 1,
     backgroundColor: "#eef2ff",

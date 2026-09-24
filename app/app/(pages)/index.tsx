@@ -307,9 +307,9 @@ export default function Dashboard() {
             onPress={() => router.push("/payment" as RelativePathString)}
           >
             <View style={styles.quickActionIconWrap}>
-              <CreditCard size={22} color="#0ea360" strokeWidth={2.2} />
+              <CreditCard size={22} color="#064e3b" strokeWidth={2.2} />
             </View>
-            <Text style={styles.quickActionTitle}>Pay Assessment</Text>
+            <Text style={styles.quickActionTitle}>Payment Records</Text>
             <Text style={styles.quickActionSubtitle}>Instant Remittance</Text>
           </TouchableOpacity>
 
@@ -319,7 +319,7 @@ export default function Dashboard() {
             onPress={() => router.push("agent" as RelativePathString)}
           >
             <View style={styles.quickActionIconWrap}>
-              <UserCheck size={22} color="#0ea360" strokeWidth={2.2} />
+              <UserCheck size={22} color="#064e3b" strokeWidth={2.2} />
             </View>
             <Text style={styles.quickActionTitle}>Assigned Agent</Text>
             <Text style={styles.quickActionSubtitle}>AMAC Revenue Officer</Text>
@@ -331,7 +331,7 @@ export default function Dashboard() {
             onPress={() => router.push("/transfer" as RelativePathString)}
           >
             <View style={styles.quickActionIconWrap}>
-              <ArrowLeftRight size={22} color="#0ea360" strokeWidth={2.2} />
+              <ArrowLeftRight size={22} color="#064e3b" strokeWidth={2.2} />
             </View>
             <Text style={styles.quickActionTitle}>Transfer</Text>
             <Text style={styles.quickActionSubtitle}>Wallet Payout</Text>
@@ -343,7 +343,7 @@ export default function Dashboard() {
             onPress={() => router.push("history" as RelativePathString)}
           >
             <View style={styles.quickActionIconWrap}>
-              <History size={22} color="#0ea360" strokeWidth={2.2} />
+              <History size={22} color="#064e3b" strokeWidth={2.2} />
             </View>
             <Text style={styles.quickActionTitle}>Receipts</Text>
             <Text style={styles.quickActionSubtitle}>Tax Audit Trail</Text>
@@ -757,155 +757,7 @@ const styles = StyleSheet.create({
   sectionLink: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0ea360",
-  },
-  propertyCard: {
-    marginHorizontal: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  propertyTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  propertyIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "#ecfdf5",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
-  },
-  propertyName: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0f172a",
-  },
-  pidBadgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 5,
-  },
-  pidChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ecfdf5",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
-  },
-  pidChipText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#065f46",
-    letterSpacing: 0.4,
-  },
-  propTypeChip: {
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  propTypeChipText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#475569",
-    textTransform: "capitalize",
-  },
-  zoneChip: {
-    backgroundColor: "#eff6ff",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-  },
-  zoneChipText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#1d4ed8",
-  },
-  propertyAddressRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    gap: 6,
-  },
-  propertyAddressText: {
-    flex: 1,
-    fontSize: 13,
-    color: "#475569",
-    lineHeight: 18,
-  },
-  propertyImagesStrip: {
-    marginTop: 10,
-  },
-  photoCountBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  photoCountText: {
-    fontSize: 11,
-    color: "#065f46",
-    fontWeight: "700",
-  },
-  propertyThumb: {
-    width: 60,
-    height: 48,
-    borderRadius: 8,
-    marginRight: 8,
-    backgroundColor: "#f1f5f9",
-  },
-  propertyFooterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-  },
-  propertyFooterHint: {
-    fontSize: 12,
-    color: "#0ea360",
-    fontWeight: "700",
-  },
-  noPropertyCard: {
-    marginHorizontal: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  noPropertyTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  noPropertyDesc: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 2,
+    color: "##064e3b",
   },
   quickActionGrid: {
     flexDirection: "row",
@@ -920,11 +772,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
   },
   quickActionIconWrap: {
     width: 44,
@@ -934,7 +781,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#a7f3d0",
+    borderColor: "#e2e8f0",
     marginBottom: 12,
   },
   quickActionTitle: {
@@ -954,11 +801,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   loadingBox: {
     paddingVertical: 24,

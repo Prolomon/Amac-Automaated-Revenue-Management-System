@@ -2,8 +2,8 @@ import { MainHeader } from "@/components/MainHeader";
 import { MainFooter } from "@/components/MainFooter";
 
 export const metadata = {
-    title: "URMS Admin Dashboard",
-    description: "Revenue Management & Analytics",
+    title: "AMAC Revenue & Tax Payment Portal | Abuja Municipal Area Council",
+    description: "Official Automated Revenue Management & Tax Payment System for tenement rates, business levies, and municipal services in AMAC.",
 };
 
 export default function RootLayout({ children }) {

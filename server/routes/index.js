@@ -43,6 +43,7 @@ router.post('/auth/refresh', refreshTokenHandler);
 router.post('/member/refresh-token', refreshTokenHandler);
 router.post('/agent/refresh-token', refreshTokenHandler);
 router.post('/admin/refresh-token', refreshTokenHandler);
+router.post('/enumerator/refresh-token', refreshTokenHandler);
 
 // This file will export all routes
 router.use('/upload', uploadRouter);
