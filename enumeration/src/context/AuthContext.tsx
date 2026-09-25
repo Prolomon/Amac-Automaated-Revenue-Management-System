@@ -118,7 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     requiredLevel?: EnumeratorLevel
   ): Promise<{ ok: boolean; message?: string }> => {
     try {
-      console.log(requiredLevel, "requiredLevel");
       const res = await enumeratorService.login(emailOrPhone.trim(), password);
 
       if (!res.ok) {

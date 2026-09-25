@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import {
   Camera,
   Trash2,
   MapPin,
   Sparkles,
   Check,
+  Image as ImageIcon,
+  Plus,
 } from "lucide-react-native";
 import { useAuth } from "@/context/AuthContext";
 import { enumeratorService } from "@/lib/services/enumeratorService";
@@ -25,44 +28,116 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CaptureScreen() {
   const router = useRouter();
   const { user, token, refreshDailyTasks } = useAuth();
-  const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView | null>(null);
 
   const [images, setImages] = useState<string[]>([]);
   const [address, setAddress] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [propertyType, setPropertyType] = useState("Commercial");
-  const [takingPhoto, setTakingPhoto] = useState(false);
+  const [openingCamera, setOpeningCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!permission?.granted) {
-      requestPermission();
-    }
-  }, [permission]);
+  // Auto-captured GPS GeoTag without manual user input
+  const [geoTag, setGeoTag] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<"requesting" | "granted" | "denied">("requesting");
 
-  const handleCapturePhoto = async () => {
-    if (!cameraRef.current || takingPhoto) return;
+  useEffect(() => {
+    async function requestLocation() {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          setLocationStatus("granted");
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (pos?.coords) {
+            setGeoTag({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          }
+        } else {
+          setLocationStatus("denied");
+        }
+      } catch (err) {
+        console.warn("Location acquisition notice:", err);
+        setLocationStatus("denied");
+      }
+    }
+
+    requestLocation();
+  }, []);
+
+  const handleLaunchCamera = async () => {
     if (images.length >= 8) {
       Alert.alert("Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
       return;
     }
 
     try {
-      setTakingPhoto(true);
-      const photo = await cameraRef.current.takePictureAsync({
+      setOpeningCamera(true);
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Camera Permission Required",
+          "Please grant camera access to photograph real property structures for field verification."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
         quality: 0.7,
         base64: true,
       });
 
-      if (photo?.base64) {
-        const dataUrl = `data:image/jpeg;base64,${photo.base64}`;
-        setImages((prev) => [...prev, dataUrl]);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const dataUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setImages((prev) => [...prev, dataUri]);
       }
     } catch (err: any) {
-      Alert.alert("Capture Error", err?.message || "Failed to capture photo from camera.");
+      console.error("Camera launch error:", err);
+      Alert.alert("Camera Error", err?.message || "Failed to open device camera.");
     } finally {
-      setTakingPhoto(false);
+      setOpeningCamera(false);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    if (images.length >= 8) {
+      Alert.alert("Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
+      return;
+    }
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please grant media library access to select property photos."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const dataUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setImages((prev) => [...prev, dataUri]);
+      }
+    } catch (err: any) {
+      Alert.alert("Gallery Error", err?.message || "Failed to pick image from gallery.");
     }
   };
 
@@ -94,6 +169,14 @@ export default function CaptureScreen() {
         address: address.trim(),
         type: propertyType,
         images,
+        geoTag: geoTag || undefined,
+        location: geoTag
+          ? {
+              latitude: geoTag.latitude,
+              longitude: geoTag.longitude,
+              address: address.trim(),
+            }
+          : undefined,
         center: user?.center || "AMAC Central",
         zone: user?.zone || "A",
       };
@@ -126,33 +209,8 @@ export default function CaptureScreen() {
     }
   };
 
-  if (!permission) {
-    return (
-      <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center p-6">
-        <ActivityIndicator color="#059669" size="large" />
-      </SafeAreaView>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center p-6">
-        <View className="bg-white rounded-3xl p-6 items-center border border-slate-200 max-w-sm">
-          <Camera size={48} color="#059669" />
-          <Text className="text-lg font-bold text-slate-900 mt-3 text-center">Camera Permission Required</Text>
-          <Text className="text-xs text-slate-500 text-center mt-2 leading-5">
-            Field enumeration requires direct camera access to capture real property structures and prevent gallery screenshot uploads.
-          </Text>
-          <TouchableOpacity className="bg-emerald-600 px-5 py-3 rounded-xl mt-5" onPress={requestPermission}>
-            <Text className="text-white font-bold text-sm">Grant Camera Access</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView  style={{ flex: 1 }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
       <ScrollView contentContainerClassName="p-4 gap-4" keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View className="flex-row justify-between items-center">
@@ -181,36 +239,52 @@ export default function CaptureScreen() {
           </View>
         </View>
 
-        {/* Live Camera Viewfinder */}
-        <View className="h-80 rounded-3xl overflow-hidden bg-black border border-slate-300">
-          <CameraView ref={cameraRef} className="flex-1" facing="back">
-            {/* Overlay indicators */}
-            <View className="flex-1 justify-between p-4 bg-black/20">
-              <View className="flex-row items-center gap-1.5 self-center bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
-                <Sparkles size={14} color="#34D399" />
-                <Text className="text-[11px] font-semibold text-emerald-300">Auto-Sharpening & EXIF Active</Text>
-              </View>
+        {/* Camera Action Card */}
+        <View className="bg-white rounded-3xl p-5 border border-slate-200 items-center justify-center gap-3">
+          <View className="w-16 h-16 rounded-full bg-emerald-50 items-center justify-center border border-emerald-200">
+            <Camera size={32} color="#059669" />
+          </View>
 
-              <View className="items-center pb-2">
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  className={`w-18 h-18 rounded-full bg-white/30 border-4 border-white items-center justify-center ${
-                    images.length >= 8 || takingPhoto ? "opacity-40" : ""
-                  }`}
-                  onPress={handleCapturePhoto}
-                  disabled={images.length >= 8 || takingPhoto}
-                >
-                  <View className="w-14 h-14 rounded-full bg-white items-center justify-center">
-                    {takingPhoto ? (
-                      <ActivityIndicator size="small" color="#059669" />
-                    ) : (
-                      <Camera size={26} color="#059669" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </CameraView>
+          <View className="items-center">
+            <Text className="text-base font-bold text-slate-900">Take Property Photo</Text>
+            <Text className="text-xs text-slate-500 text-center mt-1 px-4 leading-4.5">
+              Click the button below to launch your device camera and capture clear views of the building facade, entrance, and surroundings.
+            </Text>
+          </View>
+
+          {/* Primary Action Button: Open Camera */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleLaunchCamera}
+            disabled={images.length >= 8 || openingCamera}
+            className={`w-full h-12 bg-emerald-600 rounded-2xl flex-row items-center justify-center gap-2 mt-1 ${
+              images.length >= 8 || openingCamera ? "opacity-50" : ""
+            }`}
+          >
+            {openingCamera ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Camera size={18} color="#FFFFFF" />
+                <Text className="text-white font-bold text-sm">
+                  {images.length === 0 ? "Open Camera & Take Photo" : "Take Another Photo"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Secondary Action: Select from Gallery */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handlePickFromGallery}
+            disabled={images.length >= 8 || openingCamera}
+            className="flex-row items-center gap-1.5 py-1"
+          >
+            <ImageIcon size={14} color="#64748B" />
+            <Text className="text-xs font-semibold text-slate-600">
+              or select photo from gallery
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Thumbnails of Taken Photos */}
@@ -237,7 +311,7 @@ export default function CaptureScreen() {
             <View className="items-center justify-center p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 gap-1.5">
               <Camera size={24} color="#94A3B8" />
               <Text className="text-xs text-slate-400 text-center">
-                No photos taken yet. Point camera at property and tap the capture button above.
+                No photos taken yet. Tap the button above to launch your camera.
               </Text>
             </View>
           ) : (
@@ -256,6 +330,15 @@ export default function CaptureScreen() {
                   </View>
                 </View>
               ))}
+              {images.length < 8 && (
+                <TouchableOpacity
+                  onPress={handleLaunchCamera}
+                  className="w-22 h-22 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/50 items-center justify-center gap-1"
+                >
+                  <Plus size={20} color="#059669" />
+                  <Text className="text-[10px] font-bold text-emerald-700">Add More</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           )}
         </View>
@@ -277,6 +360,32 @@ export default function CaptureScreen() {
                 value={address}
                 onChangeText={setAddress}
               />
+            </View>
+
+            {/* Auto-detected GPS GeoTag Display */}
+            <View className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 flex-row items-center justify-between mt-1">
+              <View className="flex-row items-center gap-2 flex-1">
+                <MapPin size={15} color={locationStatus === "granted" ? "#059669" : "#64748B"} />
+                <View className="flex-1">
+                  <Text className="text-[11px] font-bold text-slate-800">
+                    {locationStatus === "granted" && geoTag
+                      ? `GPS GeoTag: ${geoTag.latitude.toFixed(5)}, ${geoTag.longitude.toFixed(5)}`
+                      : locationStatus === "requesting"
+                      ? "Acquiring GPS fix (allow location permission)..."
+                      : "Location permission denied (capturing without GPS tag)"}
+                  </Text>
+                  <Text className="text-[10px] text-slate-500">
+                    {locationStatus === "granted" && geoTag
+                      ? "Coordinates auto-captured & will be attached on submit"
+                      : "Auto-detected from device GPS without manual input"}
+                  </Text>
+                </View>
+              </View>
+              {locationStatus === "granted" && geoTag && (
+                <View className="bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <Text className="text-[10px] font-bold text-emerald-800">Locked ✓</Text>
+                </View>
+              )}
             </View>
           </View>
 

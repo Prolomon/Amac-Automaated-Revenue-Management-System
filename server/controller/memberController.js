@@ -393,6 +393,7 @@ const createMember = async (req, res) => {
           const propCenter = member.center || value.center || null;
           const propAddress = value.property?.address || (typeof value.location?.address === "string" ? value.location.address : null);
           const propLocation = value.property?.location || value.location || null;
+          const propGeoTag = value.property?.geoTag || (propLocation?.latitude && propLocation?.longitude ? { latitude: Number(propLocation.latitude), longitude: Number(propLocation.longitude) } : null);
           const propZone = value.property?.zone || member.zone || value.zone || null;
           const propEnumeratorId = value.enumeratorId || (req.user?.role === "ENUMERATOR" ? req.user.uid : null);
           const propSupervisorId = value.supervisorId || (req.user?.role === "ENUMERATOR" ? req.user.supervisorId : null);
@@ -410,6 +411,7 @@ const createMember = async (req, res) => {
               center: propCenter,
               address: propAddress,
               location: propLocation,
+              geoTag: propGeoTag,
               zone: propZone,
               enumeratorId: propEnumeratorId,
               supervisorId: propSupervisorId,

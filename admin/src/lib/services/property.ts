@@ -8,6 +8,7 @@ export interface Property {
   size: string;
   address?: string | null;
   location?: any;
+  geoTag?: { latitude: number; longitude: number } | null;
   zone?: string | null;
   status?: string;
   images?: string[];

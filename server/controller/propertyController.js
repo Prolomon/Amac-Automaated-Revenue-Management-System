@@ -32,6 +32,7 @@ export const submitCapture = async (req, res) => {
       size = "Standard",
       address,
       location,
+      geoTag,
       images,
       center,
       zone,
@@ -87,6 +88,7 @@ export const submitCapture = async (req, res) => {
 
     const pid = `PID-${generatePid()}`;
     const propName = name ? String(name).trim() : `Premises - ${address.slice(0, 30)}`;
+    const resolvedGeoTag = geoTag || (location?.latitude && location?.longitude ? { latitude: Number(location.latitude), longitude: Number(location.longitude) } : null);
 
     const property = await prisma.property.create({
       data: {
@@ -96,6 +98,7 @@ export const submitCapture = async (req, res) => {
         size: String(size).trim(),
         address: String(address).trim(),
         location: location || null,
+        geoTag: resolvedGeoTag,
         images: processedImages,
         center: propCenter,
         zone: propZone,
@@ -274,7 +277,7 @@ export const getCaptureById = async (req, res) => {
  */
 export const createPropertyAdmin = async (req, res) => {
   try {
-    const { name, type, size, address, location, images, center, zone } = req.body;
+    const { name, type, size, address, location, geoTag, images, center, zone } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ ok: false, message: "Property name is required" });
     }
@@ -282,6 +285,7 @@ export const createPropertyAdmin = async (req, res) => {
     const pid = await generateUniquePropertyPid();
     const propCenter = center ? String(center).trim() : (req.user?.uid || req.user?.center || null);
     const propZone = zone ? String(zone).trim() : (req.user?.zone || null);
+    const resolvedGeoTag = geoTag || (location?.latitude && location?.longitude ? { latitude: Number(location.latitude), longitude: Number(location.longitude) } : null);
 
     const property = await prisma.property.create({
       data: {
@@ -291,6 +295,7 @@ export const createPropertyAdmin = async (req, res) => {
         size: size ? String(size).trim() : "Standard",
         address: address ? String(address).trim() : null,
         location: location || null,
+        geoTag: resolvedGeoTag,
         images: Array.isArray(images) ? images : [],
         center: propCenter,
         zone: propZone,
@@ -317,7 +322,7 @@ export const createPropertyAdmin = async (req, res) => {
 export const updatePropertyAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, type, size, address, location, images, center, zone, status } = req.body;
+    const { name, type, size, address, location, geoTag, images, center, zone, status } = req.body;
 
     const existing = await prisma.property.findFirst({
       where: { OR: [{ id }, { pid: id }] },
@@ -333,6 +338,7 @@ export const updatePropertyAdmin = async (req, res) => {
     if (size !== undefined) data.size = String(size).trim();
     if (address !== undefined) data.address = address ? String(address).trim() : null;
     if (location !== undefined) data.location = location;
+    if (geoTag !== undefined) data.geoTag = geoTag;
     if (images !== undefined) data.images = Array.isArray(images) ? images : [];
     if (center !== undefined) data.center = center ? String(center).trim() : null;
     if (zone !== undefined) data.zone = zone ? String(zone).trim() : null;

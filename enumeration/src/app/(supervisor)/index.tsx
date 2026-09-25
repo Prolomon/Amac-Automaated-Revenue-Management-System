@@ -176,7 +176,7 @@ export default function SupervisorHomeScreen() {
           {/* Action 1: Pending Reviews */}
           <TouchableOpacity
             activeOpacity={0.75}
-            className="bg-white rounded-2xl p-4 border border-amber-300 bg-amber-50/20 flex-row items-center justify-between"
+            className="bg-white rounded-2xl p-4 border border-amber-300 flex-row items-center justify-between"
             onPress={() =>
               router.push({
                 pathname: "/(supervisor)/reviews",
@@ -210,7 +210,7 @@ export default function SupervisorHomeScreen() {
           {/* Action 2: Approved Reviews */}
           <TouchableOpacity
             activeOpacity={0.75}
-            className="bg-white rounded-2xl p-4 border border-emerald-300 bg-emerald-50/20 flex-row items-center justify-between"
+            className="bg-white rounded-2xl p-4 border border-emerald-300 flex-row items-center justify-between"
             onPress={() =>
               router.push({
                 pathname: "/(supervisor)/reviews",
@@ -244,7 +244,7 @@ export default function SupervisorHomeScreen() {
           {/* Action 3: Denied Reviews */}
           <TouchableOpacity
             activeOpacity={0.75}
-            className="bg-white rounded-2xl p-4 border border-red-200 bg-red-50/20 flex-row items-center justify-between"
+            className="bg-white rounded-2xl p-4 border border-red-200 flex-row items-center justify-between"
             onPress={() =>
               router.push({
                 pathname: "/(supervisor)/reviews",

@@ -63,6 +63,7 @@ export const enumeratorService = {
       address: string;
       images: string[];
       location?: any;
+      geoTag?: { latitude: number; longitude: number };
       name?: string;
       type?: string;
       size?: string;

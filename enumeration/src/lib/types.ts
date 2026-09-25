@@ -56,6 +56,10 @@ export interface PropertyCapture {
     state?: string;
     city?: string;
   };
+  geoTag?: {
+    latitude: number;
+    longitude: number;
+  };
   images: string[];
   center?: string;
   zone?: string;

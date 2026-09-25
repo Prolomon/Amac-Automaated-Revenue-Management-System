@@ -50,6 +50,32 @@ export default function ITAddPropertyPage() {
   const [centers, setCenters] = useState<{ uid: string; center: string; adminName?: string }[]>([]);
   const [loadingCenters, setLoadingCenters] = useState(false);
 
+  // Auto-captured GeoTag
+  const [geoTag, setGeoTag] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<"requesting" | "granted" | "denied" | "unsupported">("requesting");
+
+  // Automatically request browser geolocation permission and acquire coordinates without user input
+  useEffect(() => {
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoTag({
+            latitude: Number(pos.coords.latitude),
+            longitude: Number(pos.coords.longitude),
+          });
+          setGeoStatus("granted");
+        },
+        (err) => {
+          console.warn("Geolocation permission notice:", err.message);
+          setGeoStatus("denied");
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      );
+    } else {
+      setGeoStatus("unsupported");
+    }
+  }, []);
+
   const [formData, setFormData] = useState({
     name: "",
     type: "Commercial",
@@ -177,6 +203,7 @@ export default function ITAddPropertyPage() {
         size: formData.size.trim(),
         zone: formData.zone.trim(),
         address: formData.address.trim(),
+        geoTag: geoTag || undefined,
         center: formData.center.trim() || user?.uid || centerId || undefined,
         images: formData.images,
       };
@@ -352,6 +379,49 @@ export default function ITAddPropertyPage() {
             <p className="mt-1 text-xs text-slate-400">
               Provide full street address, building numbers, landmarks, or district details for location verification.
             </p>
+          </div>
+
+          {/* Auto-detected GPS GeoTag Display */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={14} className="text-emerald-600" />
+                Automatic GPS GeoTag
+              </span>
+              {geoStatus === "granted" && geoTag ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
+                  <CheckCircle2 size={12} />
+                  GPS Locked
+                </span>
+              ) : geoStatus === "requesting" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
+                  <RefreshCw size={11} className="animate-spin" />
+                  Requesting Permission...
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 border border-slate-200">
+                  Permission Denied / Manual
+                </span>
+              )}
+            </div>
+
+            {geoStatus === "granted" && geoTag ? (
+              <div className="mt-2.5 flex flex-wrap items-center gap-3 text-xs">
+                <div className="rounded-lg bg-white px-3 py-1.5 border border-emerald-200 font-mono text-emerald-950 font-bold">
+                  Latitude: {geoTag.latitude.toFixed(6)}
+                </div>
+                <div className="rounded-lg bg-white px-3 py-1.5 border border-emerald-200 font-mono text-emerald-950 font-bold">
+                  Longitude: {geoTag.longitude.toFixed(6)}
+                </div>
+                <span className="text-[11px] text-slate-500">
+                  ✓ Automatically mapped to property coordinates without manual typing
+                </span>
+              </div>
+            ) : (
+              <p className="mt-1.5 text-xs text-slate-500">
+                Coordinates are automatically captured from device GPS once browser location permission is granted.
+              </p>
+            )}
           </div>
         </div>
 

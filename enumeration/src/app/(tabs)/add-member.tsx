@@ -34,6 +34,7 @@ import {
   Plus,
   ExternalLink,
 } from "lucide-react-native";
+import * as Location from "expo-location";
 import { useAuth } from "@/context/AuthContext";
 import { enumeratorService } from "@/lib/services/enumeratorService";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -105,6 +106,32 @@ export default function AddMemberScreen() {
   const [city, setCity] = useState("Abuja Municipal Area Council");
   const [state, setState] = useState("Abuja");
   const [zipcode, setZipcode] = useState("900001");
+
+  // Auto-captured GPS GeoTag without manual user input
+  const [geoTag, setGeoTag] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  useEffect(() => {
+    async function requestLocation() {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (pos?.coords) {
+            setGeoTag({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Location acquisition notice:", err);
+      }
+    }
+
+    requestLocation();
+  }, []);
 
   // Form Submission & Success State
   const [submitting, setSubmitting] = useState(false);
@@ -276,7 +303,10 @@ export default function AddMemberScreen() {
           city: city.trim(),
           state: state.trim(),
           zipcode: zipcode.trim() || "900001",
+          latitude: geoTag?.latitude,
+          longitude: geoTag?.longitude,
         },
+        geoTag: geoTag || undefined,
         property: selectedProp
           ? {
               id: selectedProp.id,
@@ -291,7 +321,10 @@ export default function AddMemberScreen() {
                 city: city.trim(),
                 state: state.trim(),
                 zipcode: zipcode.trim() || "900001",
+                latitude: geoTag?.latitude,
+                longitude: geoTag?.longitude,
               },
+              geoTag: geoTag || selectedProp.geoTag,
               center: user?.center || selectedProp.center,
               zone: zone || selectedProp.zone || "A",
               images: Array.isArray(selectedProp.images) ? selectedProp.images : [],
@@ -973,6 +1006,30 @@ export default function AddMemberScreen() {
                 onChangeText={setZipcode}
                 keyboardType="number-pad"
               />
+            </View>
+
+            {/* Auto-detected GPS GeoTag Display */}
+            <View className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2 flex-1">
+                <MapPin size={15} color={geoTag ? "#059669" : "#64748B"} />
+                <View className="flex-1">
+                  <Text className="text-[11px] font-bold text-slate-800">
+                    {geoTag
+                      ? `GPS GeoTag: ${geoTag.latitude.toFixed(5)}, ${geoTag.longitude.toFixed(5)}`
+                      : "Acquiring GPS fix (allow location permission)..."}
+                  </Text>
+                  <Text className="text-[10px] text-slate-500">
+                    {geoTag
+                      ? "Coordinates auto-attached to premises without manual input"
+                      : "Auto-detected from device GPS"}
+                  </Text>
+                </View>
+              </View>
+              {geoTag && (
+                <View className="bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <Text className="text-[10px] font-bold text-emerald-800">Locked ✓</Text>
+                </View>
+              )}
             </View>
           </View>
 

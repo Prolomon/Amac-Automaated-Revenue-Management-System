@@ -47,6 +47,25 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
   const [memberSearch, setMemberSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // Resolved GPS GeoTag Coordinates
+  const geoCoords = useMemo(() => {
+    if (property?.geoTag && typeof property.geoTag === "object") {
+      const lat = Number((property.geoTag as any).latitude);
+      const lng = Number((property.geoTag as any).longitude);
+      if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    if (property?.location && typeof property.location === "object") {
+      const lat = Number((property.location as any).latitude);
+      const lng = Number((property.location as any).longitude);
+      if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    return null;
+  }, [property]);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -383,6 +402,65 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
             </div>
           </div>
         )}
+
+        {/* Geographical Google Map & GeoTag Coordinates Section */}
+        <div className="mt-6 border-t border-slate-100 pt-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1.5">
+                <MapPin size={15} className="text-emerald-600" />
+                Geographical Location & Mapping
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {geoCoords
+                  ? "Property mapped to exact GPS GeoTag coordinates recorded during enumeration."
+                  : "GPS coordinates not yet recorded. Mapped to municipal premises address."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {geoCoords && (
+                <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                  <span>Lat: {geoCoords.latitude.toFixed(6)}</span>
+                  <span>•</span>
+                  <span>Long: {geoCoords.longitude.toFixed(6)}</span>
+                </div>
+              )}
+
+              <a
+                href={
+                  geoCoords
+                    ? `https://www.google.com/maps/search/?api=1&query=${geoCoords.latitude},${geoCoords.longitude}`
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.address || property.name || "Abuja")}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+              >
+                <ExternalLink size={13} />
+                Open in Google Maps
+              </a>
+            </div>
+          </div>
+
+          {/* Embedded Google Map */}
+          <div className="w-full h-80 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative">
+            <iframe
+              title={`Map for ${property.name}`}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              src={
+                geoCoords
+                  ? `https://maps.google.com/maps?q=${geoCoords.latitude},${geoCoords.longitude}&z=16&output=embed`
+                  : `https://maps.google.com/maps?q=${encodeURIComponent(property.address || property.name || "Abuja")}&z=15&output=embed`
+              }
+            />
+          </div>
+        </div>
       </div>
 
       {/* SECTION: ALL MEMBERS USING THIS PROPERTY */}

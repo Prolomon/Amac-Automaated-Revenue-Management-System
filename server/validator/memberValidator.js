@@ -84,6 +84,7 @@ const createMemberSchema = Joi.object({
     images: Joi.array().items(Joi.string()).optional().default([]),
     address: Joi.string().trim().optional().allow("", null),
     location: Joi.object().optional().allow(null),
+    geoTag: Joi.object().optional().allow(null),
     center: Joi.string().trim().optional().allow("", null),
     zone: Joi.string().trim().optional().allow("", null),
     enumeratorId: Joi.string().trim().optional().allow("", null),

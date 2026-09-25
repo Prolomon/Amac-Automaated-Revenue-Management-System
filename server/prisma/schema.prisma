@@ -516,6 +516,7 @@ model Property {
   size            String            @default("Standard")
   address         String?
   location        Json?
+  geoTag          Json?
   images          String[]          @default([])
   center          String?
   zone            String?

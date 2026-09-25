@@ -140,10 +140,6 @@ export default function ProfileScreen() {
         <View className="bg-white rounded-3xl p-4 border border-slate-200 gap-3">
           <View className="flex-row justify-between items-center">
             <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">Enumerator Wallet & Account</Text>
-            <View className="flex-row items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              <CreditCard size={12} color="#059669" />
-              <Text className="text-[10px] font-bold text-emerald-700">Tier-1 Automated</Text>
-            </View>
           </View>
 
           <View className="flex-row items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-200">
