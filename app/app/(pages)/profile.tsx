@@ -944,8 +944,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#64748b",
   },
-
-  // Property Card
   propertyCard: {
     backgroundColor: "#ffffff",
     borderRadius: 18,
