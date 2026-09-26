@@ -35,6 +35,7 @@ import {
   ExternalLink,
 } from "lucide-react-native";
 import * as Location from "expo-location";
+import { Dialog } from "heroui-native";
 import { useAuth } from "@/context/AuthContext";
 import { enumeratorService } from "@/lib/services/enumeratorService";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -137,6 +138,35 @@ export default function AddMemberScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [registeredResult, setRegisteredResult] = useState<any | null>(null);
 
+  // HeroUI Native Feedback Modal state (Success / Error)
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
+
+  const showFeedback = (
+    type: "success" | "error",
+    title: string,
+    message: string,
+    onConfirm?: () => void
+  ) => {
+    setFeedbackModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onConfirm,
+    });
+  };
+
   // Sync docType when switching between Business and Individual
   useEffect(() => {
     if (type === "BUSINESS") {
@@ -207,32 +237,33 @@ export default function AddMemberScreen() {
   const handleSubmit = async () => {
     // 1. Contact Person Validation
     if (!fullname.trim() || fullname.trim().length < 3) {
-      Alert.alert("Required", "Please enter the full legal name of the taxpayer / representative (min 3 characters).");
+      showFeedback("error", "Required", "Please enter the full legal name of the taxpayer / representative (min 3 characters).");
       return;
     }
 
     // 2. Business Name Validation
     if (type === "BUSINESS" && (!businessName.trim() || businessName.trim().length < 2)) {
-      Alert.alert("Required", "Please enter the registered business / enterprise name.");
+      showFeedback("error", "Required", "Please enter the registered business / enterprise name.");
       return;
     }
 
     // 3. Email Validation
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      Alert.alert("Required", "Please provide a valid official email address.");
+      showFeedback("error", "Required", "Please provide a valid official email address.");
       return;
     }
 
     // 4. Phone Validation
     const cleanPhone = phone.replace(/[^0-9+]/g, "").trim();
     if (!cleanPhone || cleanPhone.length < 10) {
-      Alert.alert("Required", "Please enter a valid phone number (at least 10 digits).");
+      showFeedback("error", "Required", "Please enter a valid phone number (at least 10 digits).");
       return;
     }
 
     // 5. Document Number Validation
     if (!docNumber.trim() || docNumber.trim().length < 3) {
-      Alert.alert(
+      showFeedback(
+        "error",
         "Identification Required",
         type === "BUSINESS"
           ? "Please provide the official CAC Registration Number (RC/BN)."
@@ -243,14 +274,15 @@ export default function AddMemberScreen() {
 
     // If individual doc is NIN, require 11 digits
     if (type === "INDIVIDUAL" && docType === "nin" && !/^\d{11}$/.test(docNumber.trim())) {
-      Alert.alert("Invalid NIN", "National Identity Number (NIN) must be exactly 11 numeric digits.");
+      showFeedback("error", "Invalid NIN", "National Identity Number (NIN) must be exactly 11 numeric digits.");
       return;
     }
 
     // 6. BVN Validation
     const cleanBvn = bvn.replace(/[^0-9]/g, "").trim();
     if (!cleanBvn || cleanBvn.length !== 11 || !/^\d{11}$/.test(cleanBvn)) {
-      Alert.alert(
+      showFeedback(
+        "error",
         "Compulsory BVN",
         "An 11-digit Bank Verification Number (BVN) is compulsory for automated municipal revenue wallet creation."
       );
@@ -259,7 +291,8 @@ export default function AddMemberScreen() {
 
     // 7. Property Selection Validation
     if (!selectedPropertyId) {
-      Alert.alert(
+      showFeedback(
+        "error",
         "Select Property",
         "Please select a registered premises/property occupied by this entity from the council directory."
       );
@@ -268,12 +301,12 @@ export default function AddMemberScreen() {
 
     // 8. Address Validation
     if (!address.trim() || address.trim().length < 5) {
-      Alert.alert("Required", "Please enter the detailed physical street address of the premises.");
+      showFeedback("error", "Required", "Please enter the detailed physical street address of the premises.");
       return;
     }
 
     if (!token) {
-      Alert.alert("Error", "Session invalid. Please sign in again.");
+      showFeedback("error", "Error", "Session invalid. Please sign in again.");
       return;
     }
 
@@ -338,7 +371,7 @@ export default function AddMemberScreen() {
       const res = await enumeratorService.registerMember(payload, token);
       if (res.ok) {
         const createdData = res.data || res.message || payload;
-        setRegisteredResult({
+        const newResult = {
           uid: (res as any).member?.uid || (res as any).data?.uid || `MEB-${Date.now().toString().slice(-6)}`,
           name: type === "BUSINESS" ? businessName.trim() : fullname.trim(),
           contact: fullname.trim(),
@@ -348,13 +381,21 @@ export default function AddMemberScreen() {
           docNumber: docNumber.trim(),
           propertyName: selectedProp?.name || "Council Premises",
           phone: cleanPhone,
-        });
+        };
         refreshDailyTasks();
+        showFeedback(
+          "success",
+          "Entity Registered Successfully!",
+          `Enrolled ${newResult.name} with ID ${newResult.uid}. ₦50 reward pending supervisor review.`,
+          () => {
+            setRegisteredResult(newResult);
+          }
+        );
       } else {
-        Alert.alert("Registration Failed", res.message || "Failed to register entity.");
+        showFeedback("error", "Registration Failed", res.message || "Failed to register entity.");
       }
     } catch (err: any) {
-      Alert.alert("Error", err?.message || "Failed to register entity. Please verify all inputs.");
+      showFeedback("error", "Error", err?.message || "Failed to register entity. Please verify all inputs.");
     } finally {
       setSubmitting(false);
     }
@@ -1060,6 +1101,64 @@ export default function AddMemberScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* HeroUI Native Feedback Modal (Success / Error) */}
+      <Dialog
+        isOpen={feedbackModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open && feedbackModal.onConfirm) {
+            feedbackModal.onConfirm();
+          }
+          setFeedbackModal((prev) => ({ ...prev, isOpen: open }));
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="bg-black/50" />
+          <Dialog.Content className="mx-4 p-5 bg-white rounded-3xl border border-slate-200 max-w-sm">
+            <View className="items-center text-center">
+              <View
+                className={`w-14 h-14 rounded-full items-center justify-center mb-3 border ${
+                  feedbackModal.type === "success"
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                {feedbackModal.type === "success" ? (
+                  <CheckCircle2 size={30} color="#059669" />
+                ) : (
+                  <AlertCircle size={30} color="#DC2626" />
+                )}
+              </View>
+
+              <Dialog.Title className="text-base font-bold text-slate-900 text-center">
+                {feedbackModal.title}
+              </Dialog.Title>
+
+              <Dialog.Description className="text-xs text-slate-500 text-center mt-2 leading-5">
+                {feedbackModal.message}
+              </Dialog.Description>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                className={`w-full h-11 rounded-xl items-center justify-center mt-5 ${
+                  feedbackModal.type === "success" ? "bg-emerald-600" : "bg-slate-900"
+                }`}
+                onPress={() => {
+                  const onConfirm = feedbackModal.onConfirm;
+                  setFeedbackModal((prev) => ({ ...prev, isOpen: false }));
+                  if (onConfirm) {
+                    onConfirm();
+                  }
+                }}
+              >
+                <Text className="text-white text-xs font-bold">
+                  {feedbackModal.type === "success" ? "Continue" : "Dismiss"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
     </SafeAreaView>
   );
 }

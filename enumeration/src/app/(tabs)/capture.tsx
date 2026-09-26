@@ -7,7 +7,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -19,7 +18,11 @@ import {
   Check,
   Image as ImageIcon,
   Plus,
+  CheckCircle2,
+  AlertCircle,
+  X,
 } from "lucide-react-native";
+import { Dialog } from "heroui-native";
 import { useAuth } from "@/context/AuthContext";
 import { enumeratorService } from "@/lib/services/enumeratorService";
 import { useRouter } from "expo-router";
@@ -39,6 +42,35 @@ export default function CaptureScreen() {
   // Auto-captured GPS GeoTag without manual user input
   const [geoTag, setGeoTag] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<"requesting" | "granted" | "denied">("requesting");
+
+  // HeroUI Native Feedback Modal state (Success / Error)
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
+
+  const showFeedback = (
+    type: "success" | "error",
+    title: string,
+    message: string,
+    onConfirm?: () => void
+  ) => {
+    setFeedbackModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onConfirm,
+    });
+  };
 
   useEffect(() => {
     async function requestLocation() {
@@ -69,7 +101,7 @@ export default function CaptureScreen() {
 
   const handleLaunchCamera = async () => {
     if (images.length >= 8) {
-      Alert.alert("Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
+      showFeedback("error", "Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
       return;
     }
 
@@ -77,7 +109,8 @@ export default function CaptureScreen() {
       setOpeningCamera(true);
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
+        showFeedback(
+          "error",
           "Camera Permission Required",
           "Please grant camera access to photograph real property structures for field verification."
         );
@@ -100,7 +133,7 @@ export default function CaptureScreen() {
       }
     } catch (err: any) {
       console.error("Camera launch error:", err);
-      Alert.alert("Camera Error", err?.message || "Failed to open device camera.");
+      showFeedback("error", "Camera Error", err?.message || "Failed to open device camera.");
     } finally {
       setOpeningCamera(false);
     }
@@ -108,14 +141,15 @@ export default function CaptureScreen() {
 
   const handlePickFromGallery = async () => {
     if (images.length >= 8) {
-      Alert.alert("Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
+      showFeedback("error", "Maximum Limit Reached", "You can upload a maximum of 8 property photos.");
       return;
     }
 
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
+        showFeedback(
+          "error",
           "Permission Required",
           "Please grant media library access to select property photos."
         );
@@ -137,7 +171,7 @@ export default function CaptureScreen() {
         setImages((prev) => [...prev, dataUri]);
       }
     } catch (err: any) {
-      Alert.alert("Gallery Error", err?.message || "Failed to pick image from gallery.");
+      showFeedback("error", "Gallery Error", err?.message || "Failed to pick image from gallery.");
     }
   };
 
@@ -147,18 +181,19 @@ export default function CaptureScreen() {
 
   const handleSubmitCapture = async () => {
     if (images.length < 3) {
-      Alert.alert(
+      showFeedback(
+        "error",
         "Photos Required",
         `Please take at least 3 photos of the property. Currently taken: ${images.length}.`
       );
       return;
     }
     if (!address.trim()) {
-      Alert.alert("Address Required", "Please enter the physical property street address.");
+      showFeedback("error", "Address Required", "Please enter the physical property street address.");
       return;
     }
     if (!token) {
-      Alert.alert("Authentication Error", "Session expired. Please sign in again.");
+      showFeedback("error", "Authentication Error", "Session expired. Please sign in again.");
       return;
     }
 
@@ -183,27 +218,23 @@ export default function CaptureScreen() {
 
       const res = await enumeratorService.submitCapture(payload, token);
       if (res.ok) {
-        Alert.alert(
+        showFeedback(
+          "success",
           "Capture Submitted!",
-          "Property capture has been submitted for supervisor verification. ₦50 reward will be credited upon approval.",
-          [
-            {
-              text: "Done",
-              onPress: () => {
-                setImages([]);
-                setAddress("");
-                setPropertyName("");
-                refreshDailyTasks();
-                router.replace("/(tabs)");
-              },
-            },
-          ]
+          "Property capture has been submitted for supervisor verification. ₦50 reward will be credited directly to your virtual wallet upon approval.",
+          () => {
+            setImages([]);
+            setAddress("");
+            setPropertyName("");
+            refreshDailyTasks();
+            router.replace("/(tabs)");
+          }
         );
       } else {
-        Alert.alert("Submission Failed", res.message || "Could not submit capture.");
+        showFeedback("error", "Submission Failed", res.message || "Could not submit capture.");
       }
     } catch (err: any) {
-      Alert.alert("Error", err?.message || "Failed to submit property capture.");
+      showFeedback("error", "Error", err?.message || "Failed to submit property capture.");
     } finally {
       setSubmitting(false);
     }
@@ -452,6 +483,64 @@ export default function CaptureScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* HeroUI Native Feedback Modal (Success / Error) */}
+      <Dialog
+        isOpen={feedbackModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open && feedbackModal.onConfirm) {
+            feedbackModal.onConfirm();
+          }
+          setFeedbackModal((prev) => ({ ...prev, isOpen: open }));
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="bg-black/50" />
+          <Dialog.Content className="mx-4 p-5 bg-white rounded-3xl border border-slate-200 max-w-sm">
+            <View className="items-center text-center">
+              <View
+                className={`w-14 h-14 rounded-full items-center justify-center mb-3 border ${
+                  feedbackModal.type === "success"
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                {feedbackModal.type === "success" ? (
+                  <CheckCircle2 size={30} color="#059669" />
+                ) : (
+                  <AlertCircle size={30} color="#DC2626" />
+                )}
+              </View>
+
+              <Dialog.Title className="text-base font-bold text-slate-900 text-center">
+                {feedbackModal.title}
+              </Dialog.Title>
+
+              <Dialog.Description className="text-xs text-slate-500 text-center mt-2 leading-5">
+                {feedbackModal.message}
+              </Dialog.Description>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                className={`w-full h-11 rounded-xl items-center justify-center mt-5 ${
+                  feedbackModal.type === "success" ? "bg-emerald-600" : "bg-slate-900"
+                }`}
+                onPress={() => {
+                  const onConfirm = feedbackModal.onConfirm;
+                  setFeedbackModal((prev) => ({ ...prev, isOpen: false }));
+                  if (onConfirm) {
+                    onConfirm();
+                  }
+                }}
+              >
+                <Text className="text-white text-xs font-bold">
+                  {feedbackModal.type === "success" ? "Continue" : "Dismiss"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
     </SafeAreaView>
   );
 }

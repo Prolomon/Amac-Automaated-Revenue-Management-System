@@ -295,11 +295,13 @@ export default function RecruitmentPortalPage() {
                                 >
                                     <option value="" hidden>Select an option</option>
                                     <option value="Project Manager">Project Manager</option>
+                                    <option value="Field Officer">Field Officer</option>
+                                    <option value="Office Assistant">Office Assistant</option>
                                     <option value="Fund Transaction Officer">Fund Transaction Officer</option>
                                     <option value="Secretary">Secretary</option>
                                     <option value="Frontend Developer">Frontend Developer</option>
                                     <option value="Backend Developer">Backend Developer</option>
-                                    <option value="Full Stack Developer">Full Stack Developer</option>
+                                    <option value="Others">Others</option>
                                 </select>
                             </div>
 
