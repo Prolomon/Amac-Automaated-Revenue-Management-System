@@ -29,6 +29,9 @@ export default function RecruitmentPortalPage() {
         state: "",
         lga: "",
         designation: "",
+        qualification: "",
+        hasDevice: "",
+        deviceName: "",
         address: "",
         isCopper: "",
         accountNumber: "",
@@ -108,6 +111,9 @@ export default function RecruitmentPortalPage() {
                 accountName: form.accountName,
                 dob: form.dob,
                 designation: form.designation,
+                qualification: form.qualification,
+                hasDevice: form.hasDevice,
+                deviceName: form.hasDevice === "Yes" ? form.deviceName : (form.deviceName || "None"),
             });
 
             setShowSuccessModal(true);
@@ -117,6 +123,9 @@ export default function RecruitmentPortalPage() {
                 phone: "",
                 gender: "",
                 designation: "",
+                qualification: "",
+                hasDevice: "",
+                deviceName: "",
                 state: "",
                 lga: "",
                 address: "",
@@ -284,7 +293,7 @@ export default function RecruitmentPortalPage() {
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="isCopper">
+                                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="designation">
                                     Designation
                                 </label>
                                 <select
@@ -303,6 +312,59 @@ export default function RecruitmentPortalPage() {
                                     <option value="Backend Developer">Backend Developer</option>
                                     <option value="Others">Others</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="qualification">
+                                    Educational Qualification
+                                </label>
+                                <select
+                                    id="qualification"
+                                    value={form.qualification || ""}
+                                    onChange={(event) => handleChange("qualification", event.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none appearance-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                                >
+                                    <option value="" hidden>Select highest qualification</option>
+                                    <option value="SSCE / WAEC / NECO">SSCE / WAEC / NECO</option>
+                                    <option value="OND / National Diploma">OND / National Diploma</option>
+                                    <option value="NCE">NCE</option>
+                                    <option value="HND">HND</option>
+                                    <option value="Bachelor's Degree (B.Sc / B.A / B.Tech)">Bachelor&apos;s Degree (B.Sc / B.A / B.Tech)</option>
+                                    <option value="Master's Degree (M.Sc / M.A / MBA)">Master&apos;s Degree (M.Sc / M.A / MBA)</option>
+                                    <option value="Doctorate (Ph.D)">Doctorate (Ph.D)</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="hasDevice">
+                                    Do you have a working device?
+                                </label>
+                                <select
+                                    id="hasDevice"
+                                    value={form.hasDevice || ""}
+                                    onChange={(event) => handleChange("hasDevice", event.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none appearance-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                                >
+                                    <option value="" hidden>Select yes or no</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="deviceName">
+                                    Device Name / Model
+                                </label>
+                                <input
+                                    id="deviceName"
+                                    type="text"
+                                    value={form.deviceName || ""}
+                                    onChange={(event) => handleChange("deviceName", event.target.value)}
+                                    disabled={form.hasDevice === "No"}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none appearance-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                    placeholder={form.hasDevice === "No" ? "No device" : "e.g. Samsung Galaxy A14, iPhone 11, Tecno Spark 10"}
+                                />
                             </div>
 
                             <div>

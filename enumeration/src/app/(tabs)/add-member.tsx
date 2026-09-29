@@ -339,7 +339,7 @@ export default function AddMemberScreen() {
           latitude: geoTag?.latitude,
           longitude: geoTag?.longitude,
         },
-        geoTag: geoTag || undefined,
+        geoTag: geoTag ? { latitude: geoTag.latitude, longitude: geoTag.longitude } : undefined,
         property: selectedProp
           ? {
               id: selectedProp.id,
@@ -354,10 +354,11 @@ export default function AddMemberScreen() {
                 city: city.trim(),
                 state: state.trim(),
                 zipcode: zipcode.trim() || "900001",
-                latitude: geoTag?.latitude,
-                longitude: geoTag?.longitude,
+                ...(geoTag ? { latitude: geoTag.latitude, longitude: geoTag.longitude } : {}),
               },
-              geoTag: geoTag || selectedProp.geoTag,
+              geoTag: geoTag
+                ? { latitude: geoTag.latitude, longitude: geoTag.longitude }
+                : (selectedProp.geoTag || undefined),
               center: user?.center || selectedProp.center,
               zone: zone || selectedProp.zone || "A",
               images: Array.isArray(selectedProp.images) ? selectedProp.images : [],

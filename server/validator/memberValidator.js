@@ -60,10 +60,10 @@ const createMemberSchema = Joi.object({
   password: Joi.string().optional().default(Joi.ref("phone")).messages({
     "any.required": "Password is required",
   }),
-  location: Joi.object().optional().allow(null).messages({
+  location: Joi.object().unknown(true).optional().allow(null).messages({
     "object.base": "Location must be a valid JSON object",
   }),
-  geoTag: Joi.object().optional().allow(null),
+  geoTag: Joi.any().optional().allow(null),
   avatar: Joi.string().optional().allow("", null).messages({
     "string.base": "Avatar must be a valid URI",
   }),
@@ -84,8 +84,8 @@ const createMemberSchema = Joi.object({
     size: Joi.string().trim().optional().allow("", null),
     images: Joi.array().items(Joi.string()).optional().default([]),
     address: Joi.string().trim().optional().allow("", null),
-    location: Joi.object().optional().allow(null),
-    geoTag: Joi.object().optional().allow(null),
+    location: Joi.object().unknown(true).optional().allow(null),
+    geoTag: Joi.any().optional().allow(null),
     center: Joi.string().trim().optional().allow("", null),
     zone: Joi.string().trim().optional().allow("", null),
     enumeratorId: Joi.string().trim().optional().allow("", null),
@@ -159,7 +159,7 @@ const updateMemberSchema = Joi.object({
   pricing: Joi.array().items(Joi.string()).optional().messages({
     "array.base": "Pricing must be an array",
   }),
-  geoTag: Joi.object().optional().allow(null),
+  geoTag: Joi.any().optional().allow(null),
   property: Joi.object().unknown(true).optional().allow(null),
 }).unknown(true);
 

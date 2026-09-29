@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
 	ArrowLeft,
+	Briefcase,
 	CalendarDays,
 	CreditCard,
+	GraduationCap,
 	Landmark,
 	Mail,
 	MapPin,
 	Phone,
 	RefreshCw,
 	ShieldCheck,
+	Smartphone,
 	Trash2,
 	UserRound,
 } from "lucide-react";
@@ -172,6 +175,37 @@ export default function AdminRecruitmentDetailsPage() {
 								</p>
 								<p className="text-slate-600">
 									<span className="font-semibold text-slate-700">Date of Birth:</span> {new Date(record.dob).toDateString() || "-"}
+								</p>
+							</div>
+						</div>
+
+						<div className="rounded-2xl bg-white p-5 ring-1 ring-slate-100 shadow-sm">
+							<p className="text-xs uppercase tracking-wide text-slate-500">Requirements & Qualifications</p>
+							<h2 className="mt-1 text-lg font-semibold text-slate-900">Role & Device Assessment</h2>
+
+							<div className="mt-4 space-y-3 text-sm text-slate-700">
+								<p className="flex items-start gap-2">
+									<Briefcase className="mt-0.5 h-4 w-4 text-emerald-600" />
+									<span>
+										<span className="font-semibold text-slate-700">Applied Role:</span> {record.designation || "-"}
+									</span>
+								</p>
+								<p className="flex items-start gap-2">
+									<GraduationCap className="mt-0.5 h-4 w-4 text-emerald-600" />
+									<span>
+										<span className="font-semibold text-slate-700">Qualification:</span> {record.qualification || "-"}
+									</span>
+								</p>
+								<p className="flex items-center gap-2">
+									<Smartphone className="h-4 w-4 text-emerald-600" />
+									<span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+										record.hasDevice === "Yes" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+									}`}>
+										Working Device: {record.hasDevice || "-"}
+									</span>
+								</p>
+								<p className="text-slate-600">
+									<span className="font-semibold text-slate-700">Device Model / Name:</span> {record.deviceName && record.deviceName !== "None" ? record.deviceName : "None reported"}
 								</p>
 							</div>
 						</div>

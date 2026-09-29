@@ -42,6 +42,10 @@ export default function AdminRecruitmentPage() {
             "Email",
             "Phone",
             "Gender",
+            "Designation",
+            "Qualification",
+            "Has Device",
+            "Device Name",
             "State",
             "LGA",
             "Copper",
@@ -58,6 +62,10 @@ export default function AdminRecruitmentPage() {
                     escapeCSV(record.email || "-"),
                     escapeCSV(record.phone || "-"),
                     escapeCSV(record.gender || "-"),
+                    escapeCSV(record.designation || "-"),
+                    escapeCSV(record.qualification || "-"),
+                    escapeCSV(record.hasDevice || "-"),
+                    escapeCSV(record.deviceName || "-"),
                     escapeCSV(record.state || "-"),
                     escapeCSV(record.lga || "-"),
                     escapeCSV(record.isCopper || "-"),
@@ -143,10 +151,11 @@ export default function AdminRecruitmentPage() {
                                 <thead className="border-b border-slate-200 bg-slate-50">
                                     <tr>
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Full Name</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Email</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Gender</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">State</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">LGA</th>
+                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Role</th>
+                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Qualification</th>
+                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Device</th>
+                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Phone</th>
+                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">State / LGA</th>
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Copper</th>
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Date</th>
                                     </tr>
@@ -155,10 +164,22 @@ export default function AdminRecruitmentPage() {
                                     {records.map((record, index) => (
                                         <tr key={`${record.email}-${record.phone}-${index}`} className="transition-colors hover:bg-slate-50">
                                             <td className="px-4 py-4 text-xs font-semibold text-slate-900 md:px-6 md:text-sm text-nowrap"><Link href={`/it/recruitment/${record.id}`} className="hover:text-emerald-600">{record.fullname || "-"}</Link></td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 text-nowrap md:px-6 md:text-sm">{record.email || "-"}</td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.gender || "-"}</td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.state || "-"}</td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.lga || "-"}</td>
+                                            <td className="px-4 py-4 text-xs text-slate-700 text-nowrap md:px-6 md:text-sm font-medium">{record.designation || "-"}</td>
+                                            <td className="px-4 py-4 text-xs text-slate-700 text-nowrap md:px-6 md:text-sm">{record.qualification || "-"}</td>
+                                            <td className="px-4 py-4 text-xs text-nowrap md:px-6 md:text-sm">
+                                                <div className="flex flex-col">
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold w-fit ${
+                                                        record.hasDevice === "Yes" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                                                    }`}>
+                                                        {record.hasDevice === "Yes" ? "Has Device" : "No Device"}
+                                                    </span>
+                                                    {record.deviceName && record.deviceName !== "None" && (
+                                                        <span className="text-[11px] text-slate-500 mt-0.5">{record.deviceName}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.phone || "-"}</td>
+                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.state || "-"}, {record.lga || "-"}</td>
                                             <td className="px-4 py-4 text-xs md:px-6 md:text-sm text-nowrap">
                                                 <span
                                                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${record.isCopper === "Yes"

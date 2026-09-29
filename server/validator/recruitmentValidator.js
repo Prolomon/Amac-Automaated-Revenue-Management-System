@@ -70,7 +70,24 @@ const createRecruitmentSchema = Joi.object({
     "string.empty": "isCopper is required",
     "any.required": "isCopper is required",
   }),
-});
+  designation: Joi.string().trim().optional().allow("", null).messages({
+    "string.base": "Designation must be a string",
+  }),
+  qualification: Joi.string().trim().required().messages({
+    "string.base": "Qualification must be a string",
+    "string.empty": "Qualification is required",
+    "any.required": "Educational qualification is required",
+  }),
+  hasDevice: Joi.string().trim().valid("Yes", "No").required().messages({
+    "string.base": "Working device selection must be a string",
+    "string.empty": "Working device selection is required",
+    "any.required": "Please indicate if you have a working device (Yes / No)",
+    "any.only": "Working device must be either Yes or No",
+  }),
+  deviceName: Joi.string().trim().optional().allow("", null).messages({
+    "string.base": "Device name must be a string",
+  }),
+}).unknown(true);
 
 const deleteRecruitmentSchema = Joi.object({
   id: Joi.string().trim().required().messages({

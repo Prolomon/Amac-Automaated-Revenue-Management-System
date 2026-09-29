@@ -4,6 +4,9 @@ export type FormState = {
     email: string;
     phone: string;
     designation?: string;
+    qualification?: string;
+    hasDevice?: string;
+    deviceName?: string;
     gender: string;
     state: string;
     lga: string;

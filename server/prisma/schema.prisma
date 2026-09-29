@@ -336,6 +336,10 @@ model Recruitment {
   bank          String
   accountName   String
   isCopper      String
+  designation   String?
+  qualification String?
+  hasDevice     String?
+  deviceName    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
