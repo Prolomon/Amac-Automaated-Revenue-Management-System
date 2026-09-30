@@ -307,49 +307,14 @@ export const processDemands = async () => {
  * Start the Demand Generation Cron
  */
 export const startDemandCron = () => {
-  if (demandCronStarted) {
-    return;
-  }
-  demandCronStarted = true;
-
-  // Run once on startup after 10s to allow DB connection to initialize
-  setTimeout(() => {
-    console.log("[Demand Generation] Running startup check...");
-    processDemandGeneration();
-  }, 10000);
-
-  // Run every 10 minutes
-  cron.schedule("*/10 * * * *", processDemandGeneration);
-  console.log(
-    "[Demand Generation] Cron scheduled successfully (every 10 minutes)",
-  );
+  console.log("[Demand Generation] Demand Cron is disabled.");
+  return;
 };
 
 /**
  * Start the Demand Email Sender Cron
  */
 export const startDemandEmailCron = () => {
-  if (demandEmailCronStarted) {
-    return;
-  }
-  demandEmailCronStarted = true;
-
-  // Run once on startup after 15s
-  setTimeout(() => {
-    console.log("[Demand Email Cron] Running startup check...");
-    processDemandEmails();
-  }, 15000);
-
-  // Run every 7 hours
-  cron.schedule("0 0 * * *", async () => {
-    const lastRun = await getLastRunTimestamp(); // however you persist this
-    const daysSince = (Date.now() - lastRun) / (1000 * 60 * 60 * 24);
-    if (daysSince >= 7) {
-      await processDemandEmails();
-      await setLastRunTimestamp(Date.now());
-    }
-  });
-  console.log(
-    "[Demand Email Cron] Cron scheduled successfully (every 7 hours)",
-  );
+  console.log("[Demand Email Cron] Demand Email Cron is disabled.");
+  return;
 };

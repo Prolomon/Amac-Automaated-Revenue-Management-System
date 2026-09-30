@@ -18,6 +18,7 @@ import {
   ClipboardList,
   Home,
   UserCheck,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -67,6 +68,7 @@ export default function Sidebar({ onClose }) {
       },
       { href: "/it/admins", label: "Admins", icon: <ShieldCheck size={18} /> },
       { href: "/it/payments", label: "Payments", icon: <HandCoins size={18} /> },
+      { href: "/it/payment-code", label: "Payment Code", icon: <QrCode size={18} /> },
       { href: "/it/demands", label: "Demand Notice", icon: <Flag size={18} /> },
       {
         href: "/it/activity-logs",
@@ -170,6 +172,11 @@ export default function Sidebar({ onClose }) {
         href: "/admin/payments",
         label: "Payments",
         icon: <HandCoins size={18} />,
+      },
+      {
+        href: "/admin/payment-code",
+        label: "Payment Code",
+        icon: <QrCode size={18} />,
       },
       {
         href: "/admin/payment-split",

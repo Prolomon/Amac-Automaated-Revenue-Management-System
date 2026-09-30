@@ -51,6 +51,7 @@ const memberSafeSelect = {
   payments: true,
   zone: true,
   propertyId: true,
+  wallets: true,
 };
 
 // Compute next due date based on billing frequency

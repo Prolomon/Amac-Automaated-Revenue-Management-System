@@ -20,6 +20,36 @@ export type Demand = {
   dates: Date[];
 };
 
+export async function createDemandNotice(
+  items: Array<{ user: string; paymentId: string }>,
+): Promise<{ ok: boolean; message?: string; data?: any }> {
+  const response = await fetch(`${API_URL}/demand/send`, {
+    method: "POST",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ items }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to create demand notice");
+  }
+  return data;
+}
+
+export async function sendMemberDemandNoticeEmail(
+  userId: string,
+): Promise<{ ok: boolean; message?: string; data?: any }> {
+  const response = await fetch(`${API_URL}/demand/send-member-notice`, {
+    method: "POST",
+    headers: { ...buildHeaders(true) },
+    body: JSON.stringify({ userId }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to send demand notice email to member");
+  }
+  return data;
+}
+
 export async function sendDemand(
   userId: string,
 ): Promise<{ ok: boolean; message?: string }> {

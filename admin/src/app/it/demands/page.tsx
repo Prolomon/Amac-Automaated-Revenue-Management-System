@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check } from "lucide-react";
+import { Download, Eye, FileText, RefreshCw, ChevronLeft, ChevronRight, Filter, Check, FilePlus } from "lucide-react";
 import { getDemandsByCenter, getAllDemands, resendDemand, downloadDemandPdf, downloadMultipleDemandsPdf } from "@/lib/services/demand";
 import withAuth from "@/components/withAuth";
 import { useToast } from "@/context/ToastContext";
 import { getAllAdmins, Admin } from "@/lib/services/admin";
+import GenerateDemandModal from "@/components/GenerateDemandModal";
 
 function DemandsListPage() {
   const [demands, setDemands] = useState<any[]>([]);
@@ -14,6 +15,7 @@ function DemandsListPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [batchDownloading, setBatchDownloading] = useState(false);
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const { addToast } = useToast();
   const [center, setCenter] = useState("");
   const [centers, setCenters] = useState<Admin[]>([]);
@@ -228,10 +230,17 @@ function DemandsListPage() {
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => fetchDemands()}
-              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4"
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 md:px-4 cursor-pointer"
             >
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              onClick={() => setIsGenerateModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700 md:px-4 cursor-pointer"
+            >
+              <FilePlus size={18} />
+              <span>Generate Demand Notice</span>
             </button>
             <button
               onClick={handleBatchDownload}
@@ -507,6 +516,12 @@ function DemandsListPage() {
           )}
         </div>
       </div>
+
+      <GenerateDemandModal
+        isOpen={isGenerateModalOpen}
+        onClose={() => setIsGenerateModalOpen(false)}
+        onSuccess={() => fetchDemands()}
+      />
     </div>
   );
 }

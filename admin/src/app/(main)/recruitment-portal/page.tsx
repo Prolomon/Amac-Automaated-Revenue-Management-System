@@ -310,7 +310,12 @@ export default function RecruitmentPortalPage() {
                                     <option value="Secretary">Secretary</option>
                                     <option value="Frontend Developer">Frontend Developer</option>
                                     <option value="Backend Developer">Backend Developer</option>
-                                    <option value="Others">Others</option>
+                                    <option value="Admin Assistant">Admin Assistant</option>
+                                    <option value="Project Coordinator Assistant">Project Coordinator Assistant</option>
+                                    <option value="Media">Media</option>
+                                    <option value="Customer Care">Customer Care</option>
+                                    <option value="Marketer">Marketer</option>
+                                    <option value="Field Enumerator">Field Enumerator</option>
                                 </select>
                             </div>
 

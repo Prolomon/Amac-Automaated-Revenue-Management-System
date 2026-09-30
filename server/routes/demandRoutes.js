@@ -2,6 +2,7 @@ import express from 'express';
 const router = express.Router();
 import {
   createDemandNotice,
+  sendMemberDemandNoticeEmail,
   createMultipleDemandNotice,
   getDemands,
   getDemandById,
@@ -16,8 +17,11 @@ import {
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 
-// Send demand notice to a single member
+// Send demand notice to member(s) based on array of { user, paymentId }
 router.post('/send', authMiddleware, roleMiddleware(['admin', 'it', "staff", "company"]), createDemandNotice);
+
+// Send demand notice email directly to member without creating DB record
+router.post('/send-member-notice', authMiddleware, roleMiddleware(['admin', 'it', "staff", "company"]), sendMemberDemandNoticeEmail);
 
 // Send demand notice to a single member by payment ID
 router.post('/send-by-payment', authMiddleware, roleMiddleware(['admin', 'it', "staff", "company"]), createDemandNoticeByPayment);

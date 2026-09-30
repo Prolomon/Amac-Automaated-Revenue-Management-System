@@ -1,6 +1,7 @@
 import { prisma } from "../config/db.js";
 import { processDemands, processDemandEmails } from "../service/demandCron.js";
 import { createDemandNoticePdf, createMultipleDemandNoticesPdf } from "../service/demandPdf.js";
+import { sendDemandNoticeEmail } from "../service/mail.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -21,6 +22,237 @@ const generateDemandUid = customAlphabet("0123456789", 10);
 
 export const createDemandNotice = async (req, res) => {
   try {
+    let items = [];
+    if (Array.isArray(req.body)) {
+      items = req.body;
+    } else if (Array.isArray(req.body?.items)) {
+      items = req.body.items;
+    } else if (Array.isArray(req.body?.demands)) {
+      items = req.body.demands;
+    } else if (req.body?.user || req.body?.userId) {
+      items = [
+        {
+          user: req.body.user || req.body.userId,
+          paymentId: req.body.paymentId,
+        },
+      ];
+    }
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "An array of { user, paymentId } is required",
+      });
+    }
+
+    const createdDemands = [];
+    const errors = [];
+
+    for (const item of items) {
+      const targetUserId = item.user || item.userId;
+      const targetPaymentId = item.paymentId;
+
+      if (!targetUserId) {
+        errors.push({ item, reason: "Missing user/userId in item" });
+        continue;
+      }
+
+      // Fetch member details
+      const member = await prisma.member.findUnique({
+        where: { uid: targetUserId },
+      });
+
+      if (!member) {
+        errors.push({ item, reason: `Member not found for uid ${targetUserId}` });
+        continue;
+      }
+
+      // Determine which payments to create demand notice for
+      let paymentsToProcess = [];
+      if (targetPaymentId) {
+        const payment = await prisma.payment.findUnique({
+          where: { id: targetPaymentId },
+          include: { pricing: true },
+        });
+
+        if (!payment) {
+          errors.push({ item, reason: `Payment not found for id ${targetPaymentId}` });
+          continue;
+        }
+        paymentsToProcess = [payment];
+      } else {
+        // Fallback for single user without specified paymentId: fetch unpaid payments
+        paymentsToProcess = await prisma.payment.findMany({
+          where: {
+            userId: member.uid,
+            status: { not: "PAID" },
+          },
+          include: { pricing: true },
+        });
+
+        if (paymentsToProcess.length === 0) {
+          errors.push({ item, reason: `No outstanding payments found for member ${targetUserId}` });
+          continue;
+        }
+      }
+
+      // Resolve wallet once for this member
+      let wallet = await prisma.wallet.findFirst({
+        where: { userId: member.uid },
+      });
+      if (!wallet && member.agent) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: member.agent },
+        });
+      }
+
+      for (const payment of paymentsToProcess) {
+        try {
+          // Generate unique reference with collision detection
+          let uniqueRef;
+          let attempts = 0;
+          while (!uniqueRef && attempts < 5) {
+            const genUid = generateDemandUid();
+            const existingWithUid = await prisma.demand.findFirst({
+              where: { reference: genUid },
+              select: { id: true },
+            });
+            if (!existingWithUid) {
+              uniqueRef = genUid;
+            }
+            attempts++;
+          }
+          if (!uniqueRef) {
+            uniqueRef = generateDemandUid();
+          }
+
+          const remainingAmount = Math.max(
+            0,
+            Number(payment.debt || payment.amount || 0) - Number(payment.paid || 0)
+          ) || Number(payment.amount || 0);
+
+          // Create Demand notice in DB based on demand schema
+          const demandRecord = await prisma.demand.create({
+            data: {
+              reference: uniqueRef,
+              userId: member.uid,
+              paymentId: payment.id,
+              amount: remainingAmount,
+              status: "CREATED",
+              center: member.center || payment.centerId || "AMAC",
+              walletId: wallet ? wallet.id : null,
+              isSent: false,
+            },
+            include: {
+              member: true,
+              payment: {
+                include: {
+                  pricing: true,
+                },
+              },
+              wallet: true,
+            },
+          });
+
+          // Mark payment as having demand notice
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: { idDemand: true },
+          });
+
+          // Send email immediately to member email
+          if (member.email) {
+            try {
+              const pdfBuffer = await createDemandNoticePdf({
+                demand: demandRecord,
+                member,
+                payment,
+                wallet,
+                pricing: payment.pricing,
+              });
+
+              const memberName = member.businessName || member.fullname || "Taxpayer";
+              const referenceNo = demandRecord.reference || payment.reference || demandRecord.id;
+              const subject = `Official AMAC Demand Notice - ${referenceNo} - ${memberName}`;
+              const formattedAmount = `NGN ${Number(demandRecord.amount || 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+
+              const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+                  <div style="background-color: #15803d; padding: 16px 20px; border-radius: 8px 8px 0 0; color: #ffffff;">
+                    <h2 style="margin: 0; font-size: 20px;">ABUJA MUNICIPAL AREA COUNCIL</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Unified Revenue & Compliance Directorate</p>
+                  </div>
+                  <div style="padding: 24px 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
+                    <p>Dear <strong>${memberName}</strong>,</p>
+                    <p>Please find attached your official AMAC Demand Notice under reference <strong>AMAC/DN/${referenceNo}</strong>.</p>
+                    <div style="background-color: #f8fafc; border-left: 4px solid #15803d; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+                      <p style="margin: 0; font-size: 13px; color: #64748b;">Total Compliance Assessment Due:</p>
+                      <p style="margin: 4px 0 0 0; font-size: 22px; font-weight: bold; color: #0f172a;">${formattedAmount}</p>
+                    </div>
+                    <p>Please review the attached PDF document for your complete liability breakdown, statutory schedule, and approved settlement instructions.</p>
+                    <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an official computer-generated notice. If you have already completed payment for this assessment, please disregard this notice.</p>
+                  </div>
+                </div>
+              `;
+
+              const filename = `AMAC_Demand_Notice_${referenceNo.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+              const emailResult = await sendDemandNoticeEmail(
+                member.email,
+                subject,
+                emailHtml,
+                pdfBuffer,
+                filename,
+              );
+
+              if (emailResult.ok) {
+                await prisma.demand.update({
+                  where: { id: demandRecord.id },
+                  data: {
+                    status: "PENDING",
+                    isSent: true,
+                  },
+                });
+                demandRecord.isSent = true;
+                demandRecord.status = "PENDING";
+              }
+            } catch (mailErr) {
+              console.error(`Failed to send demand notice email to ${member.email}:`, mailErr);
+            }
+          }
+
+          createdDemands.push(demandRecord);
+        } catch (itemErr) {
+          console.error(`Error processing payment ${payment.id}:`, itemErr);
+          errors.push({ item, paymentId: payment.id, reason: itemErr?.message || "Failed to create demand" });
+        }
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: `Demand notice(s) created: ${createdDemands.length} successful, ${errors.length} failed.`,
+      data: {
+        createdCount: createdDemands.length,
+        demands: createdDemands,
+        errors,
+      },
+    });
+  } catch (err) {
+    console.error("createDemandNotice error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "Server error",
+    });
+  }
+};
+
+/**
+ * Send demand notice email directly to a member (without creating a demand notice in the database)
+ * POST /api/demand/send-member-notice
+ * Body: { userId: string }
+ */
+export const sendMemberDemandNoticeEmail = async (req, res) => {
+  try {
     const { userId } = req.body;
 
     if (!userId) {
@@ -30,7 +262,6 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    // Fetch member details
     const member = await prisma.member.findUnique({
       where: { uid: userId },
     });
@@ -42,123 +273,130 @@ export const createDemandNotice = async (req, res) => {
       });
     }
 
-    if (!member.agent) {
-      return res.status(404).json({
+    if (!member.email) {
+      return res.status(400).json({
         ok: false,
-        message:
-          "Member must be assigned to an agent to create a demand notice",
+        message: "Member does not have an email address configured",
       });
     }
 
-    // Fetch all payments for this user where status is not COMPLETED
-    const payments = await prisma.payment.findMany({
+    // Fetch member's payments (unpaid first, or latest payments)
+    let payments = await prisma.payment.findMany({
       where: {
-        userId: userId,
-        status: {
-          not: "PAID",
-        },
+        userId: member.uid,
+        status: { not: "PAID" },
       },
+      include: { pricing: true },
+      orderBy: { createdAt: "desc" },
     });
+
+    if (payments.length === 0) {
+      payments = await prisma.payment.findMany({
+        where: { userId: member.uid },
+        include: { pricing: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+    }
 
     if (payments.length === 0) {
       return res.status(404).json({
         ok: false,
-        message: "No outstanding payments found for this payment record",
+        message: "No payment records found for this member to generate a notice",
       });
     }
 
-    // Resolve wallet once (it's the same for every payment on this member)
     let wallet = await prisma.wallet.findFirst({
       where: { userId: member.uid },
     });
-
-    if (!wallet) {
+    if (!wallet && member.agent) {
       wallet = await prisma.wallet.findFirst({
         where: { userId: member.agent },
       });
     }
 
-    // Do all the async prep work FIRST (unique ref generation),
-    // since this can't happen inside the $transaction array itself.
-    const preparedDemands = [];
+    const totalAmount = payments.reduce((sum, p) => {
+      const rem = Math.max(0, Number(p.debt || p.amount || 0) - Number(p.paid || 0)) || Number(p.amount || 0);
+      return sum + rem;
+    }, 0);
 
-    for (const payment of payments) {
-      let uniqueRef;
-      let attempts = 0;
-      const maxAttempts = 5;
+    const ref = generateDemandUid();
+    // IN-MEMORY mock demand object (CRITICAL: DO NOT CREATE IN DATABASE)
+    const mockDemand = {
+      id: `NOTICE-${Date.now()}`,
+      reference: ref,
+      userId: member.uid,
+      amount: totalAmount,
+      center: member.center || payments[0]?.centerId || "AMAC",
+      status: "PENDING",
+      createdAt: new Date(),
+      isSent: true,
+    };
 
-      while (!uniqueRef && attempts < maxAttempts) {
-        const genUid = generateDemandUid();
-        const existingWithUid = await prisma.demand.findFirst({
-          where: { reference: genUid },
-          select: { id: true },
-        });
+    const primaryPayment = {
+      ...payments[0],
+      amount: totalAmount,
+    };
 
-        if (!existingWithUid) {
-          uniqueRef = genUid;
-        }
-        attempts++;
-      }
+    const pdfBuffer = await createDemandNoticePdf({
+      demand: mockDemand,
+      member,
+      payment: primaryPayment,
+      wallet,
+      pricing: primaryPayment.pricing,
+    });
 
-      if (!uniqueRef) {
-        throw new Error(
-          `Failed to generate a unique reference for payment ${payment.id} after ${maxAttempts} attempts`,
-        );
-      }
+    const memberName = member.businessName || member.fullname || "Taxpayer";
+    const subject = `Official AMAC Demand Notice - ${ref} - ${memberName}`;
+    const formattedAmount = `NGN ${Number(totalAmount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 
-      preparedDemands.push({ payment, uniqueRef });
-    }
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+        <div style="background-color: #15803d; padding: 16px 20px; border-radius: 8px 8px 0 0; color: #ffffff;">
+          <h2 style="margin: 0; font-size: 20px;">ABUJA MUNICIPAL AREA COUNCIL</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Unified Revenue & Compliance Directorate</p>
+        </div>
+        <div style="padding: 24px 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
+          <p>Dear <strong>${memberName}</strong>,</p>
+          <p>Please find attached your official AMAC Demand Notice under reference <strong>AMAC/DN/${ref}</strong>.</p>
+          <div style="background-color: #f8fafc; border-left: 4px solid #15803d; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; font-size: 13px; color: #64748b;">Total Compliance Assessment Due:</p>
+            <p style="margin: 4px 0 0 0; font-size: 22px; font-weight: bold; color: #0f172a;">${formattedAmount}</p>
+          </div>
+          <p>Please review the attached PDF document for your complete liability breakdown, statutory schedule, and approved settlement instructions.</p>
+          <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an official computer-generated notice. If you have already completed payment for this assessment, please disregard this notice.</p>
+        </div>
+      </div>
+    `;
 
-    // Now build a flat array of PLAIN (non-awaited) Prisma Client calls.
-    // These are PrismaPromise objects, not JS Promises from async functions —
-    // that's what $transaction requires to batch them atomically.
-    const transactionOps = preparedDemands.flatMap(({ payment, uniqueRef }) => [
-      prisma.payment.update({
-        where: { id: payment.id },
-        data: { idDemand: true },
-      }),
-      prisma.demand.create({
-        data: {
-          reference: uniqueRef,
-          userId: userId,
-          walletId: wallet ? wallet.id : null,
-          paymentId: payment.id,
-          amount: Number(payment.debt || payment.amount),
-          status: "CREATED",
-          isSent: false,
-          center: member.center,
-        },
-      }),
-    ]);
-
-    const results = await prisma.$transaction(transactionOps);
-
-    // Every other op is the demand.create result (payment.update, demand.create, ...)
-    const demandRecords = results.filter((_, idx) => idx % 2 === 1);
-
-    // Calculate totals for response
-    const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-    // Trigger instant email processing in the background
-    processDemands().catch((err) =>
-      console.error("Error in background demand processing:", err),
+    const filename = `AMAC_Demand_Notice_${ref}.pdf`;
+    const emailResult = await sendDemandNoticeEmail(
+      member.email,
+      subject,
+      emailHtml,
+      pdfBuffer,
+      filename,
     );
+
+    if (!emailResult.ok) {
+      return res.status(500).json({
+        ok: false,
+        message: emailResult.error || "Failed to send demand notice email",
+      });
+    }
 
     return res.status(200).json({
       ok: true,
-      message: "Demand notice created successfully. Email is being sent.",
+      message: `Demand notice sent successfully to ${member.email}`,
       data: {
-        demandsCreated: demandRecords.length,
-        paymentsProcessed: payments.length,
         memberEmail: member.email,
-        memberName: member.businessName || member.fullname || "N/A",
+        memberName,
         totalAmount: formatCurrency(totalAmount),
-        status: "CREATED",
-        note: "Email is being sent instantly in the background",
+        note: "Email notice sent without creating demand notice in database",
       },
     });
   } catch (err) {
-    console.error("sendDemandNotice error:", err);
+    console.error("sendMemberDemandNoticeEmail error:", err);
     return res.status(500).json({
       ok: false,
       message: err?.message || "Server error",
@@ -490,6 +728,49 @@ export const createDemandNoticeByPayment = async (req, res) => {
   }
 };
 
+/**
+ * Helper to ensure a Demand record adheres completely to the Demand schema,
+ * populating member, payment, pricing, and resolving fallback wallet if null.
+ */
+const formatDemandWithRelations = async (demand) => {
+  if (!demand) return demand;
+
+  // Resolve wallet if null
+  if (!demand.wallet) {
+    let resolvedWallet = demand.member?.wallets?.[0] || null;
+    if (!resolvedWallet && (demand.member?.uid || demand.userId)) {
+      resolvedWallet = await prisma.wallet.findFirst({
+        where: { userId: demand.member?.uid || demand.userId },
+      });
+    }
+    if (!resolvedWallet && demand.member?.agent) {
+      resolvedWallet = await prisma.wallet.findFirst({
+        where: { userId: demand.member.agent },
+      });
+    }
+    if (resolvedWallet) {
+      demand.wallet = resolvedWallet;
+      demand.walletId = resolvedWallet.id;
+    }
+  }
+
+  // Populate payment date fallback if not set
+  if (demand.payment) {
+    if (!demand.payment.date) {
+      demand.payment.date = demand.payment.due || demand.payment.createdAt;
+    }
+    if (!demand.pricing && demand.payment.pricing) {
+      demand.pricing = demand.payment.pricing;
+    }
+  }
+
+  if (!demand.reference) {
+    demand.reference = demand.payment?.reference || demand.id;
+  }
+
+  return demand;
+};
+
 export const getDemands = async (req, res) => {
   try {
     const { status, startDate, endDate, page = 1, limit = 50, center, userId } = req.query;
@@ -498,9 +779,23 @@ export const getDemands = async (req, res) => {
 
     // Build where clause on prisma.demand
     const where = {};
-    if (status) where.status = status;
-    if (center) where.center = center;
-    if (userId) where.userId = userId;
+    if (status && status.toUpperCase() !== "ALL") {
+      if (status.toUpperCase() === "SENT") {
+        where.isSent = true;
+      } else if (["CREATED", "PENDING", "PAID"].includes(status.toUpperCase())) {
+        where.status = status.toUpperCase();
+      }
+    }
+    if (center && center.toUpperCase() !== "ALL") {
+      where.center = center;
+    }
+    if (userId) {
+      where.OR = [
+        { userId },
+        { member: { uid: userId } },
+        { member: { id: userId } },
+      ];
+    }
 
     // Date range filter
     if (startDate || endDate) {
@@ -509,7 +804,7 @@ export const getDemands = async (req, res) => {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    // Get demands with payment, member, and wallet info
+    // Get demands strictly with demand schema relations
     const [demands, total] = await Promise.all([
       prisma.demand.findMany({
         where,
@@ -517,7 +812,11 @@ export const getDemands = async (req, res) => {
         skip,
         take: Number(limit),
         include: {
-          member: true,
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
           payment: {
             include: {
               pricing: true,
@@ -529,9 +828,13 @@ export const getDemands = async (req, res) => {
       prisma.demand.count({ where }),
     ]);
 
+    const formattedDemands = await Promise.all(
+      demands.map((demand) => formatDemandWithRelations(demand))
+    );
+
     return res.status(200).json({
       ok: true,
-      data: demands,
+      data: formattedDemands,
       meta: {
         total: String(total),
         page: Number(page),
@@ -559,7 +862,7 @@ export const getDemandById = async (req, res) => {
       });
     }
 
-    const demand = await prisma.demand.findFirst({
+    let demand = await prisma.demand.findFirst({
       where: {
         OR: [
           { id },
@@ -569,7 +872,11 @@ export const getDemandById = async (req, res) => {
         ],
       },
       include: {
-        member: true,
+        member: {
+          include: {
+            wallets: true,
+          },
+        },
         payment: {
           include: {
             pricing: true,
@@ -580,31 +887,77 @@ export const getDemandById = async (req, res) => {
     });
 
     if (!demand) {
-      return res.status(404).json({
-        ok: false,
-        message: "Demand not found",
+      // Fallback: check if id belongs to an existing payment to auto-create demand according to schema
+      const payment = await prisma.payment.findFirst({
+        where: {
+          OR: [{ id }, { reference: id }],
+        },
+        include: {
+          pricing: true,
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
+        },
+      });
+
+      if (!payment || !payment.member) {
+        return res.status(404).json({
+          ok: false,
+          message: "Demand not found",
+        });
+      }
+
+      let wallet = payment.member.wallets?.[0] || null;
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: payment.member.uid },
+        });
+      }
+      if (!wallet && payment.member.agent) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: payment.member.agent },
+        });
+      }
+
+      const remainingAmount = Math.max(
+        0,
+        Number(payment.debt || payment.amount || 0) - Number(payment.paid || 0)
+      ) || Number(payment.amount || 0);
+
+      demand = await prisma.demand.create({
+        data: {
+          reference: generateDemandUid(),
+          userId: payment.member.uid,
+          paymentId: payment.id,
+          amount: remainingAmount,
+          status: payment.status === "PAID" ? "PAID" : "PENDING",
+          center: payment.member.center || payment.centerId || "AMAC",
+          walletId: wallet ? wallet.id : null,
+          isSent: false,
+        },
+        include: {
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
+          payment: {
+            include: {
+              pricing: true,
+            },
+          },
+          wallet: true,
+        },
       });
     }
 
-    // Ensure wallet fallback if demand.wallet is null
-    if (!demand.wallet) {
-      let wallet = await prisma.wallet.findFirst({
-        where: { userId: demand.member?.uid || demand.userId },
-      });
-      if (!wallet && demand.member?.agent) {
-        wallet = await prisma.wallet.findFirst({
-          where: { userId: demand.member.agent },
-        });
-      }
-      if (wallet) {
-        demand.wallet = wallet;
-        demand.walletId = wallet.id;
-      }
-    }
+    const formattedDemand = await formatDemandWithRelations(demand);
 
     return res.status(200).json({
       ok: true,
-      data: demand,
+      data: formattedDemand,
     });
   } catch (err) {
     console.error("getDemandById error:", err);
@@ -630,10 +983,18 @@ export const getDemandByCenter = async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where = {
-      center: id,
-    };
-    if (status) where.status = status;
+    const where = {};
+    if (id && id.toUpperCase() !== "ALL") {
+      where.center = id;
+    }
+
+    if (status && status.toUpperCase() !== "ALL") {
+      if (status.toUpperCase() === "SENT") {
+        where.isSent = true;
+      } else if (["CREATED", "PENDING", "PAID"].includes(status.toUpperCase())) {
+        where.status = status.toUpperCase();
+      }
+    }
 
     if (startDate || endDate) {
       where.createdAt = {};
@@ -645,7 +1006,11 @@ export const getDemandByCenter = async (req, res) => {
       prisma.demand.findMany({
         where,
         include: {
-          member: true,
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
           payment: {
             include: {
               pricing: true,
@@ -660,9 +1025,13 @@ export const getDemandByCenter = async (req, res) => {
       prisma.demand.count({ where }),
     ]);
 
+    const formattedDemands = await Promise.all(
+      demands.map((demand) => formatDemandWithRelations(demand))
+    );
+
     return res.status(200).json({
       ok: true,
-      data: demands,
+      data: formattedDemands,
       meta: {
         total: String(total),
         page: Number(page),
@@ -700,7 +1069,11 @@ export const getDemandByPayment = async (req, res) => {
         ],
       },
       include: {
-        member: true,
+        member: {
+          include: {
+            wallets: true,
+          },
+        },
         payment: {
           include: {
             pricing: true,
@@ -708,33 +1081,82 @@ export const getDemandByPayment = async (req, res) => {
         },
         wallet: true,
       },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!demand) {
-      return res.status(404).json({
-        ok: false,
-        message: "Demand not found for this payment",
+      // Fallback: check if payment exists in prisma.payment to create demand according to schema
+      const payment = await prisma.payment.findFirst({
+        where: {
+          OR: [{ id }, { reference: id }],
+        },
+        include: {
+          pricing: true,
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
+        },
+      });
+
+      if (!payment || !payment.member) {
+        return res.status(404).json({
+          ok: false,
+          message: "Demand not found for this payment",
+        });
+      }
+
+      let wallet = payment.member.wallets?.[0] || null;
+      if (!wallet) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: payment.member.uid },
+        });
+      }
+      if (!wallet && payment.member.agent) {
+        wallet = await prisma.wallet.findFirst({
+          where: { userId: payment.member.agent },
+        });
+      }
+
+      const remainingAmount = Math.max(
+        0,
+        Number(payment.debt || payment.amount || 0) - Number(payment.paid || 0)
+      ) || Number(payment.amount || 0);
+
+      demand = await prisma.demand.create({
+        data: {
+          reference: generateDemandUid(),
+          userId: payment.member.uid,
+          paymentId: payment.id,
+          amount: remainingAmount,
+          status: payment.status === "PAID" ? "PAID" : "PENDING",
+          center: payment.member.center || payment.centerId || "AMAC",
+          walletId: wallet ? wallet.id : null,
+          isSent: false,
+        },
+        include: {
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
+          payment: {
+            include: {
+              pricing: true,
+            },
+          },
+          wallet: true,
+        },
       });
     }
 
-    if (!demand.wallet) {
-      let wallet = await prisma.wallet.findFirst({
-        where: { userId: demand.member?.uid || demand.userId },
-      });
-      if (!wallet && demand.member?.agent) {
-        wallet = await prisma.wallet.findFirst({
-          where: { userId: demand.member.agent },
-        });
-      }
-      if (wallet) {
-        demand.wallet = wallet;
-        demand.walletId = wallet.id;
-      }
-    }
+    const formattedDemand = await formatDemandWithRelations(demand);
 
     return res.status(200).json({
       ok: true,
-      data: demand,
+      data: formattedDemand,
+      demands: [formattedDemand],
     });
   } catch (err) {
     console.error("getDemandByPayment error:", err);
@@ -760,8 +1182,21 @@ export const getDemandByUser = async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where = { userId: id };
-    if (status) where.status = status;
+    const where = {
+      OR: [
+        { userId: id },
+        { member: { uid: id } },
+        { member: { id: id } },
+      ],
+    };
+
+    if (status && status.toUpperCase() !== "ALL") {
+      if (status.toUpperCase() === "SENT") {
+        where.isSent = true;
+      } else if (["CREATED", "PENDING", "PAID"].includes(status.toUpperCase())) {
+        where.status = status.toUpperCase();
+      }
+    }
 
     if (startDate || endDate) {
       where.createdAt = {};
@@ -773,7 +1208,11 @@ export const getDemandByUser = async (req, res) => {
       prisma.demand.findMany({
         where,
         include: {
-          member: true,
+          member: {
+            include: {
+              wallets: true,
+            },
+          },
           payment: {
             include: {
               pricing: true,
@@ -788,9 +1227,13 @@ export const getDemandByUser = async (req, res) => {
       prisma.demand.count({ where }),
     ]);
 
+    const formattedDemands = await Promise.all(
+      demands.map((demand) => formatDemandWithRelations(demand))
+    );
+
     return res.status(200).json({
       ok: true,
-      data: demands,
+      data: formattedDemands,
       meta: {
         total: String(total),
         page: Number(page),

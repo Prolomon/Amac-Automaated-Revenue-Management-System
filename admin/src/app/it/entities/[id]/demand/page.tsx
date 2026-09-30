@@ -9,7 +9,7 @@ import withAuth from "@/components/withAuth";
 import { useToast } from "@/context/ToastContext";
 import { useParams } from 'next/navigation'
 
-import { sendDemand } from "@/lib/services/demand";
+import { sendMemberDemandNoticeEmail } from "@/lib/services/demand";
 
 function DemandsListPage() {
     const [demands, setDemands] = useState<any[]>([]);
@@ -30,13 +30,14 @@ function DemandsListPage() {
         const userId = id as string | undefined;
         if (!userId) {
             addToast("error", "Member does not have a valid User ID / UID");
+            setLoading(false);
             return;
         }
 
         try {
-            const res = await sendDemand(userId);
+            const res = await sendMemberDemandNoticeEmail(userId);
             if (res.ok) {
-                addToast("success", res.message || "Demand notice sent successfully");
+                addToast("success", res.message || "Demand notice email sent to member successfully");
                 fetchDemands();
             } else {
                 addToast("error", res.message || "Failed to send demand notice");

@@ -428,13 +428,14 @@ const getAllPayments = async (req, res) => {
 
     const search = req.query.search ? String(req.query.search).trim() : null;
 
+    const where = {
+      ...(search ? { reference: { contains: search, mode: "insensitive" } } : {}),
+      ...(req.query.status ? { status: req.query.status } : {}),
+    };
+
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
-        where: {
-          reference: search
-            ? { contains: search, mode: "insensitive" }
-            : undefined,
-        },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -443,7 +444,7 @@ const getAllPayments = async (req, res) => {
           pricing: true,
         },
       }),
-      prisma.payment.count(),
+      prisma.payment.count({ where }),
     ]);
 
     return res.status(200).json({

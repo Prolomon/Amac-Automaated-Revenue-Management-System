@@ -52,6 +52,7 @@ export type Member = {
   documents?: Document[];
   bvn?: string;
   wallet?: any;
+  wallets?: any[];
 };
 
 export type Property = {

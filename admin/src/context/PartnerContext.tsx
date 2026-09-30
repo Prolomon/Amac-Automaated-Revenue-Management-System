@@ -1,22 +1,28 @@
 "use client";
 
-import Cookies from 'js-cookie'
+import Cookies from "js-cookie";
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Company, getCompany, login as CompanyLogin } from "@/lib/services/company";
-import { refreshAuthToken } from "@/lib/api";
+import {
+  refreshAuthToken,
+  isTokenExpired,
+  getValidAccessToken,
+  clearAuthTokens,
+  setAuthTokens,
+} from "@/lib/api";
 
 const PartnerContext = createContext<any>(null);
 
 export const usePartner = () => {
   const context = useContext(PartnerContext);
   if (!context) {
-    throw new Error("usePartner must be used within an PartnerProvider");
+    throw new Error("usePartner must be used within a PartnerProvider");
   }
   return context;
 };
 
-export const PartnerProvider = ({ children }) => {
+export const PartnerProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [user, setUser] = useState<Company | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -29,27 +35,29 @@ export const PartnerProvider = ({ children }) => {
   const refresh = async () => {
     setLoading(true);
     try {
-      
-      const res = await getCompany(uid);
+      await getValidAccessToken();
 
-      if (res.ok) {
-        setUser(res.company);
-        setIsAuthenticated(true);
-        Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
-        setUid(res.company.uid);
-        setRole(res.company.role);
-        
-        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 }); // 3 days
-      } else {
-        throw new Error(res.message || "Failed to refresh user data");
+      if (uid) {
+        const res = await getCompany(uid);
+
+        if (res.ok) {
+          setUser(res.company);
+          setIsAuthenticated(true);
+          Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
+          setUid(res.company.uid);
+          setRole(res.company.role);
+          Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 });
+        } else {
+          throw new Error(res.message || "Failed to refresh user data");
+        }
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (err: any) {
+      setError(err?.message || "Failed to refresh user data");
       throw err;
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   // Login function
   const login = async (email: string, password: string) => {
@@ -62,25 +70,24 @@ export const PartnerProvider = ({ children }) => {
         throw new Error(res.message || "Login failed");
       }
 
-        setUser(res.company);
-        setIsAuthenticated(true);
-        Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
-        setUid(res.company.uid);
-        const accessToken = res.accessToken || res.token;
-        const refreshToken = res.refreshToken;
-        if (accessToken) {
-          setToken(accessToken);
-          Cookies.set("amac_token", accessToken, { path: "/", expires: 1 });
-        }
-        if (refreshToken) {
-          Cookies.set("amac_refresh_token", refreshToken, { path: "/", expires: 7 });
-        }
-        setRole(res.role || res.company.role);
-        Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 });
+      setUser(res.company);
+      setIsAuthenticated(true);
+      Cookies.set("amac_session", JSON.stringify(res.company), { path: "/", expires: 1 });
+      setUid(res.company.uid);
+      const accessToken = res.accessToken || res.token;
+      const refreshToken = res.refreshToken;
+      if (accessToken) {
+        setToken(accessToken);
+      }
+      if (accessToken || refreshToken) {
+        setAuthTokens(accessToken, refreshToken);
+      }
+      setRole(res.role || res.company.role);
+      Cookies.set("amac_role", res.company.role, { path: "/", expires: 1 });
 
-        router.replace("/partner");
-    } catch (err) {
-      setError(err.message);
+      router.replace("/partner");
+    } catch (err: any) {
+      setError(err?.message || "Login failed");
       throw err;
     } finally {
       setLoading(false);
@@ -89,10 +96,7 @@ export const PartnerProvider = ({ children }) => {
 
   // Logout function
   const logout = () => {
-    Cookies.remove("amac_token");
-    Cookies.remove("amac_refresh_token");
-    Cookies.remove("amac_role");
-    Cookies.remove("amac_session");
+    clearAuthTokens();
     setUser(null);
     setIsAuthenticated(false);
     setToken(null);
@@ -103,7 +107,9 @@ export const PartnerProvider = ({ children }) => {
 
   // Get company data function
   useEffect(() => {
-    (async () => {
+    let isMounted = true;
+
+    const restoreSession = async () => {
       try {
         const companyData = Cookies.get("amac_session");
         let cookieData = Cookies.get("amac_token");
@@ -113,38 +119,76 @@ export const PartnerProvider = ({ children }) => {
         if (companyData) {
           const parsedCompany = JSON.parse(companyData);
 
-          if (!cookieData && refreshToken) {
+          // Proactively refresh access token if it's missing or expired
+          if ((!cookieData || isTokenExpired(cookieData)) && refreshToken) {
             const newTok = await refreshAuthToken();
             if (newTok) {
               cookieData = newTok;
             }
           }
 
-          setIsAuthenticated(true);
-          setToken(cookieData || null);
-          setUser(parsedCompany);
-          setUid(parsedCompany?.uid || null);
-          setRole(companyRole || parsedCompany?.role || null);
+          if (isMounted) {
+            setIsAuthenticated(true);
+            setToken(cookieData || null);
+            setUser(parsedCompany);
+            setUid(parsedCompany?.uid || null);
+            setRole(companyRole || parsedCompany?.role || null);
+          }
         } else {
+          if (isMounted) {
+            setIsAuthenticated(false);
+            setToken(null);
+            setUser(null);
+            setUid(null);
+            setRole(null);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err : new Error("Failed to restore session"));
           setIsAuthenticated(false);
           setToken(null);
           setUser(null);
           setUid(null);
           setRole(null);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Failed to restore session"));
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    // Listen for background token refreshes to keep state synchronized
+    const handleTokenRefreshed = (e: any) => {
+      if (e?.detail?.token && isMounted) {
+        setToken(e.detail.token);
+      }
+    };
+
+    // Listen for session expiry to clear state and redirect to login
+    const handleSessionExpired = () => {
+      if (isMounted) {
+        setUser(null);
         setIsAuthenticated(false);
         setToken(null);
-        setUser(null);
         setUid(null);
         setRole(null);
-      } finally {
-        setLoading(false);
+        router.push("/auth/partner");
       }
-    })();
-  }, []);
+    };
 
+    window.addEventListener("amac_token_refreshed", handleTokenRefreshed);
+    window.addEventListener("amac_session_expired", handleSessionExpired);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("amac_token_refreshed", handleTokenRefreshed);
+      window.removeEventListener("amac_session_expired", handleSessionExpired);
+    };
+  }, [router]);
 
   const value = {
     user,

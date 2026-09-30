@@ -1228,7 +1228,7 @@ export default function EntityDetailsPage({ params }) {
                   <Wallet className="h-4 w-4 text-emerald-600" />
                   Settlement Account
                 </div>
-                {!readOnly && (
+                {!readOnly || isExist && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1238,7 +1238,7 @@ export default function EntityDetailsPage({ params }) {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 shadow-sm"
                   >
                     <Wallet className="h-3.5 w-3.5" />
-                    {isExist ? "Re-link Wallet" : "Create Wallet"}
+                    Create Wallet
                   </button>
                 )}
               </div>
@@ -1578,15 +1578,11 @@ export default function EntityDetailsPage({ params }) {
             </div>
             {primaryProperty ? (
               <div className="flex items-center gap-2">
-                {primaryProperty.pid && (
-                  <span className="inline-flex items-center gap-1 font-mono rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                    {primaryProperty.pid}
+                {primaryProperty.status && (
+                  <span className={`inline-flex items-center gap-1 font-mono rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold ${primaryProperty.status.toUpperCase() === "APPROVED" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    {primaryProperty.status}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
-                  <Layers className="h-3.5 w-3.5" />
-                  {primaryProperty.type || "Property"}
-                </span>
               </div>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
@@ -1597,7 +1593,7 @@ export default function EntityDetailsPage({ params }) {
 
           {primaryProperty ? (
             <div className="mt-5 space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="w-full grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     Property ID (PID)
@@ -1624,7 +1620,7 @@ export default function EntityDetailsPage({ params }) {
                     {primaryProperty.type || "—"}
                   </p>
                 </div>
-
+ 
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     Property Size
@@ -1635,46 +1631,13 @@ export default function EntityDetailsPage({ params }) {
                 </div>
 
                 {primaryProperty.address && (
-                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
+                  <div className="rounded-xl border col-span-2 border-slate-100 bg-slate-50 p-3 sm:col-span-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       Physical Premises Address
                     </p>
                     <p className="mt-1 text-sm font-medium text-slate-800">
                       {primaryProperty.address}
                     </p>
-                  </div>
-                )}
-
-                {primaryProperty.status && (
-                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2 lg:col-span-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          Status:
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold ${
-                            primaryProperty.status === "APPROVED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : primaryProperty.status === "DENIED"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {primaryProperty.status}
-                        </span>
-                      </div>
-                      {primaryProperty.enumeratorId && (
-                        <span className="text-xs text-slate-500">
-                          Captured by Enumerator: <strong className="font-mono text-slate-700">{primaryProperty.enumeratorId}</strong>
-                        </span>
-                      )}
-                    </div>
-                    {primaryProperty.rejectionReason && (
-                      <p className="mt-2 text-xs font-medium text-red-600">
-                        Rejection reason: {primaryProperty.rejectionReason}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

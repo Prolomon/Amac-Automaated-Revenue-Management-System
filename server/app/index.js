@@ -96,8 +96,9 @@ app.use(express.urlencoded({ extended: true, limit: bodySizeLimit }));
 app.use("/api", apiRouter);
 
 startPaymentCron();
-startDemandCron();
-startDemandEmailCron();
+// Demand notice crons disabled per instruction:
+// startDemandCron();
+// startDemandEmailCron();
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
