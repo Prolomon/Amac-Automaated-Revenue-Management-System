@@ -5,15 +5,24 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import {
+  ALL_PERMISSIONS,
+  can as canHelper,
   DASHBOARD_PATH,
   getDepartmentRoleForUser,
   getPageAccess,
+  hasPermission as hasPermissionHelper,
+  NO_PERMISSIONS,
   PageAccess,
+  PermissionAction,
+  PermissionsGroup,
 } from "@/lib/permissions";
 
 type PageAccessState = PageAccess & {
   loading: boolean;
   departmentRole: string | null;
+  permissions: PermissionsGroup;
+  hasPermission: (permissionKey: string) => boolean;
+  can: (resource: keyof PermissionsGroup, action: PermissionAction) => boolean;
 };
 
 const DEFAULT_STATE: PageAccessState = {
@@ -21,36 +30,38 @@ const DEFAULT_STATE: PageAccessState = {
   readOnly: false,
   loading: true,
   departmentRole: null,
+  permissions: ALL_PERMISSIONS,
+  hasPermission: () => true,
+  can: () => true,
 };
 
 const PageAccessContext = createContext<PageAccessState>(DEFAULT_STATE);
 
-/** Consume the resolved access for the current page. */
+/** Consume the resolved access and granular permissions for the current page. */
 export const usePageAccess = () => useContext(PageAccessContext);
 
 /**
  * Global route guard for the /admin area.
- * - Resolves the signed-in user's department role (from departmentId).
+ * - Resolves the signed-in user's department role and permissions.
  * - Redirects to /admin when the current page is not allowed.
- * - Exposes { allowed, readOnly, departmentRole } via usePageAccess()
- *   so pages can hide create/edit/delete UI for read-only roles.
+ * - Exposes { allowed, readOnly, departmentRole, permissions, hasPermission, can } via usePageAccess()
+ *   so pages can hide create/edit/delete UI based on granular permissions (e.g. payment.create).
  */
 export default function PageGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || DASHBOARD_PATH;
   const router = useRouter();
   const { user, role } = useAuth();
-  // IT users have unrestricted access — same as ADMIN.
+  // IT and ADMIN users have unrestricted access.
   const isAdminRole = role === "ADMIN" || role === "IT";
   const { addToast } = useToast();
 
   const [departmentRole, setDepartmentRole] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<PermissionsGroup>(
+    isAdminRole ? ALL_PERMISSIONS : NO_PERMISSIONS
+  );
   const [loading, setLoading] = useState(!isAdminRole);
 
-  // IT / ADMIN roles are unrestricted — derive their role synchronously
-  // during render instead of setting it from an effect. This prevents the
-  // redirect effect from seeing a stale `allowed: false` on the very first
-  // render (before departmentRole is resolved), which previously bounced IT
-  // users out of /it and into /admin.
+  const effectivePermissions = isAdminRole ? ALL_PERMISSIONS : permissions;
   const effectiveDepartmentRole = isAdminRole
     ? "Financial Controller / Super Admin"
     : departmentRole;
@@ -62,12 +73,15 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
     let mounted = true;
     const resolve = async () => {
       setLoading(true);
-      const { departmentRole: resolved } = await getDepartmentRoleForUser(
-        user?.departmentId,
-        user?.department
-      );
+      const { departmentRole: resolvedRole, permissions: resolvedPerms } =
+        await getDepartmentRoleForUser(
+          user?.departmentId,
+          user?.department,
+          (user as any)?.permissions
+        );
       if (!mounted) return;
-      setDepartmentRole(resolved);
+      setDepartmentRole(resolvedRole);
+      setPermissions(resolvedPerms);
       setLoading(false);
     };
     resolve();
@@ -77,8 +91,8 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
   }, [isAdminRole, user?.departmentId, user?.department?.role, user?.uid]);
 
   const access = useMemo(
-    () => getPageAccess(effectiveDepartmentRole, pathname),
-    [effectiveDepartmentRole, pathname]
+    () => getPageAccess(effectivePermissions, pathname),
+    [effectivePermissions, pathname]
   );
 
   useEffect(() => {
@@ -95,8 +109,12 @@ export default function PageGuard({ children }: { children: React.ReactNode }) {
       readOnly: access.readOnly,
       loading,
       departmentRole: effectiveDepartmentRole,
+      permissions: effectivePermissions,
+      hasPermission: (key: string) => hasPermissionHelper(effectivePermissions, key),
+      can: (resource: keyof PermissionsGroup, action: PermissionAction) =>
+        canHelper(effectivePermissions, resource, action),
     }),
-    [access.allowed, access.readOnly, loading, effectiveDepartmentRole]
+    [access.allowed, access.readOnly, loading, effectiveDepartmentRole, effectivePermissions]
   );
 
   return (

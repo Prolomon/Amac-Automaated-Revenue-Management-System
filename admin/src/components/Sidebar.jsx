@@ -19,6 +19,7 @@ import {
   Home,
   UserCheck,
   QrCode,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -31,21 +32,25 @@ export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const { user, role } = useAuth();
   const partner = pathname.split("/")[1] === "partner";
-  // Show IT navigation when on /it routes OR when the signed-in role is IT.
-  const it = pathname.split("/")[1] === "it" || role === "IT";
+  // Show IT navigation when on /it routes OR when the signed-in role is IT or IT_STAFF.
+  const it = pathname.split("/")[1] === "it" || role === "IT" || role === "IT_STAFF";
   const [departmentRole, setDepartmentRole] = useState(null);
+  const [permissions, setPermissions] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-    getDepartmentRoleForUser(user?.departmentId, user?.department).then(
-      ({ departmentRole: resolved }) => {
-        if (mounted) setDepartmentRole(resolved);
+    getDepartmentRoleForUser(user?.departmentId, user?.department, user?.permissions).then(
+      ({ departmentRole: resolved, permissions: resolvedPerms }) => {
+        if (mounted) {
+          setDepartmentRole(resolved);
+          setPermissions(resolvedPerms);
+        }
       }
     );
     return () => {
       mounted = false;
     };
-  }, [user?.departmentId, user?.department?.role, user?.uid]);
+  }, [user?.departmentId, user?.department?.role, user?.permissions, user?.uid]);
 
   let navItems;
 
@@ -66,6 +71,11 @@ export default function Sidebar({ onClose }) {
         label: "Properties",
         icon: <Home size={18} />,
       },
+      {
+        href: "/it/enumerators",
+        label: "Enumerators",
+        icon: <UserCheck size={18} />,
+      },
       { href: "/it/admins", label: "Admins", icon: <ShieldCheck size={18} /> },
       { href: "/it/payments", label: "Payments", icon: <HandCoins size={18} /> },
       { href: "/it/payment-code", label: "Payment Code", icon: <QrCode size={18} /> },
@@ -78,6 +88,7 @@ export default function Sidebar({ onClose }) {
       { href: "/it/tiers", label: "Pricing", icon: <Tag size={18} /> },
       { href: "/it/terminal", label: "Terminals", icon: <Monitor size={18} /> },
       { href: "/it/staffs", label: "Staffs", icon: <Users size={18} /> },
+      { href: "/it/it-staffs", label: "IT Staffs", icon: <Shield size={18} /> },
       {
         href: "/it/department",
         label: "Departments",
@@ -207,11 +218,12 @@ export default function Sidebar({ onClose }) {
     ];
   }
 
-  // Hide nav items the user's department cannot access (dashboard always shows).
+  // Hide nav items the user cannot access based on department role or custom permissions.
+  const isSuperUser = role === "ADMIN" || role === "IT";
   const visibleNavItems =
-    partner || it || role === "ADMIN" || role === "IT"
+    partner || isSuperUser
       ? navItems
-      : filterNavItems(navItems, departmentRole);
+      : filterNavItems(navItems, permissions || departmentRole);
 
   const handleNavClick = () => {
     if (onClose) onClose();

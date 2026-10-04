@@ -100,6 +100,7 @@ export default function AddMemberScreen() {
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [propertySearch, setPropertySearch] = useState("");
+  const [occupant, setOccupant] = useState<"OWNER" | "TENANT">("OWNER");
 
   // Step 5: Location Details
   const [address, setAddress] = useState("");
@@ -231,6 +232,7 @@ export default function AddMemberScreen() {
     setCity("Abuja Municipal Area Council");
     setState("Abuja");
     setZipcode("900001");
+    setOccupant("OWNER");
     setRegisteredResult(null);
   };
 
@@ -364,6 +366,7 @@ export default function AddMemberScreen() {
               images: Array.isArray(selectedProp.images) ? selectedProp.images : [],
             }
           : undefined,
+        occupant: occupant || "OWNER",
         enumeratorId: user?.uid,
         supervisorId: user?.supervisorId,
         password: `Amac@${cleanPhone.slice(-4)}`,
@@ -381,6 +384,7 @@ export default function AddMemberScreen() {
           docType: type === "BUSINESS" ? "CAC" : docType.toUpperCase(),
           docNumber: docNumber.trim(),
           propertyName: selectedProp?.name || "Council Premises",
+          occupant: occupant === "TENANT" ? "Tenant" : "Property Owner",
           phone: cleanPhone,
         };
         refreshDailyTasks();
@@ -453,6 +457,10 @@ export default function AddMemberScreen() {
               <View className="flex-row justify-between items-center py-1 border-b border-slate-200">
                 <Text className="text-[11px] text-slate-500">Occupied Property</Text>
                 <Text className="text-[11px] font-bold text-slate-800">{registeredResult.propertyName}</Text>
+              </View>
+              <View className="flex-row justify-between items-center py-1 border-b border-slate-200">
+                <Text className="text-[11px] text-slate-500">Occupancy Status</Text>
+                <Text className="text-[11px] font-bold text-emerald-800">{registeredResult.occupant || "Property Owner"}</Text>
               </View>
               <View className="flex-row justify-between items-center py-1">
                 <Text className="text-[11px] text-slate-500">Category & Zone</Text>
@@ -942,7 +950,7 @@ export default function AddMemberScreen() {
                           <View className="flex-row items-center gap-1 mt-0.5">
                             <MapPin size={11} color="#94A3B8" />
                             <Text className="text-[11px] text-slate-500 flex-1" numberOfLines={1}>
-                              {pAddress}
+                              {pAddress}{p.postalCode ? ` • Postal: ${p.postalCode}` : ""}
                             </Text>
                           </View>
                         </View>
@@ -972,6 +980,74 @@ export default function AddMemberScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Occupancy Status: Owner vs Tenant */}
+            <View className="gap-1.5 pt-1">
+              <Text className="text-xs font-semibold text-slate-700">
+                Occupancy Status <Text className="text-red-500">*</Text>
+              </Text>
+              <View className="flex-row gap-2">
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  className={`flex-1 p-3 rounded-2xl border flex-row items-center gap-2.5 ${
+                    occupant === "OWNER"
+                      ? "bg-emerald-50 border-emerald-600"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                  onPress={() => setOccupant("OWNER")}
+                >
+                  <View
+                    className={`w-4 h-4 rounded-full border items-center justify-center ${
+                      occupant === "OWNER"
+                        ? "border-emerald-600 bg-emerald-600"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {occupant === "OWNER" && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className={`text-xs font-bold ${
+                        occupant === "OWNER" ? "text-emerald-950 font-extrabold" : "text-slate-800"
+                      }`}
+                    >
+                      Property Owner
+                    </Text>
+                    <Text className="text-[10px] text-slate-500">Landlord / Title</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  className={`flex-1 p-3 rounded-2xl border flex-row items-center gap-2.5 ${
+                    occupant === "TENANT"
+                      ? "bg-emerald-50 border-emerald-600"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                  onPress={() => setOccupant("TENANT")}
+                >
+                  <View
+                    className={`w-4 h-4 rounded-full border items-center justify-center ${
+                      occupant === "TENANT"
+                        ? "border-emerald-600 bg-emerald-600"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {occupant === "TENANT" && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className={`text-xs font-bold ${
+                        occupant === "TENANT" ? "text-emerald-950 font-extrabold" : "text-slate-800"
+                      }`}
+                    >
+                      Tenant
+                    </Text>
+                    <Text className="text-[10px] text-slate-500">Rent-paying</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           {/* SECTION 5: DETAILED LOCATION & PREMISES */}
@@ -1077,7 +1153,6 @@ export default function AddMemberScreen() {
 
           {/* Reward Notice */}
           <View className="flex-row items-center gap-2 bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200">
-            <Sparkles size={18} color="#059669" />
             <Text className="flex-1 text-xs text-emerald-900 leading-4">
               Registering an entity pays <Text className="font-extrabold">₦50</Text> reward into your revenue wallet upon supervisor verification.
             </Text>

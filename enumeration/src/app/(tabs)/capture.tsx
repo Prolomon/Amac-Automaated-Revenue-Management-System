@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Video,
 } from "lucide-react-native";
 import { Dialog } from "heroui-native";
 import { useAuth } from "@/context/AuthContext";
@@ -34,8 +35,11 @@ export default function CaptureScreen() {
 
   const [images, setImages] = useState<string[]>([]);
   const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [propertyType, setPropertyType] = useState("Commercial");
+  const [video, setVideo] = useState<string | null>(null);
+  const [capturingVideo, setCapturingVideo] = useState(false);
   const [openingCamera, setOpeningCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -179,6 +183,63 @@ export default function CaptureScreen() {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleRecordVideo = async () => {
+    try {
+      setCapturingVideo(true);
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        showFeedback(
+          "error",
+          "Camera Permission Required",
+          "Please grant camera access to record property walkthrough video."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["videos"],
+        allowsEditing: false,
+        videoMaxDuration: 60,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setVideo(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      showFeedback("error", "Video Error", err?.message || "Failed to record video.");
+    } finally {
+      setCapturingVideo(false);
+    }
+  };
+
+  const handlePickVideo = async () => {
+    try {
+      setCapturingVideo(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showFeedback(
+          "error",
+          "Permission Required",
+          "Please grant media library access to select video."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setVideo(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      showFeedback("error", "Video Error", err?.message || "Failed to pick video.");
+    } finally {
+      setCapturingVideo(false);
+    }
+  };
+
   const handleSubmitCapture = async () => {
     if (images.length < 3) {
       showFeedback(
@@ -202,8 +263,10 @@ export default function CaptureScreen() {
       const payload = {
         name: propertyName.trim() || `Capture @ ${address.slice(0, 20)}`,
         address: address.trim(),
+        postalCode: postalCode.trim() || undefined,
         type: propertyType,
         images,
+        video: video || undefined,
         geoTag: geoTag || undefined,
         location: geoTag
           ? {
@@ -225,6 +288,8 @@ export default function CaptureScreen() {
           () => {
             setImages([]);
             setAddress("");
+            setPostalCode("");
+            setVideo(null);
             setPropertyName("");
             refreshDailyTasks();
             router.replace("/(tabs)");
@@ -374,6 +439,71 @@ export default function CaptureScreen() {
           )}
         </View>
 
+        {/* Optional Premises Video */}
+        <View className="bg-white rounded-3xl p-4 border border-slate-200 gap-3">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Premises Video Walkthrough
+            </Text>
+            {video ? (
+              <View className="flex-row items-center gap-1">
+                <Check size={14} color="#059669" />
+                <Text className="text-xs text-emerald-600 font-bold">Attached</Text>
+              </View>
+            ) : (
+              <Text className="text-[11px] text-slate-400">Max 1 clip (60s)</Text>
+            )}
+          </View>
+
+          {video ? (
+            <View className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2.5 flex-1 mr-2">
+                <View className="w-10 h-10 rounded-xl bg-emerald-100 items-center justify-center">
+                  <Video size={20} color="#059669" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-bold text-slate-800" numberOfLines={1}>
+                    Video Walkthrough Recorded
+                  </Text>
+                  <Text className="text-[10px] text-slate-500" numberOfLines={1}>
+                    {video}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setVideo(null)}
+                className="w-8 h-8 rounded-full bg-red-100 items-center justify-center border border-red-200"
+              >
+                <Trash2 size={14} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="flex-row gap-2.5">
+              <TouchableOpacity
+                onPress={handleRecordVideo}
+                disabled={capturingVideo}
+                className="flex-1 h-12 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-center gap-2"
+              >
+                {capturingVideo ? (
+                  <ActivityIndicator size="small" color="#059669" />
+                ) : (
+                  <>
+                    <Video size={16} color="#059669" />
+                    <Text className="text-xs font-bold text-slate-700">Record Video</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handlePickVideo}
+                disabled={capturingVideo}
+                className="flex-1 h-12 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center justify-center gap-2"
+              >
+                <Text className="text-xs font-semibold text-slate-600">Choose Clip</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* Address and Property Details Form */}
         <View className="bg-white rounded-3xl p-4 border border-slate-200 gap-3.5">
           <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">Property Location & Details</Text>
@@ -421,7 +551,18 @@ export default function CaptureScreen() {
           </View>
 
           <View className="gap-1.5">
-            <Text className="text-xs font-semibold text-slate-700">Property / Building Name (Optional)</Text>
+            <Text className="text-xs font-semibold text-slate-700">Postal Code</Text>
+            <TextInput
+              className="h-12 bg-slate-50 rounded-2xl border border-slate-200 px-3.5 text-sm text-slate-900"
+              placeholder="e.g. 900211"
+              placeholderTextColor="#94A3B8"
+              value={postalCode}
+              onChangeText={setPostalCode}
+            />
+          </View>
+
+          <View className="gap-1.5">
+            <Text className="text-xs font-semibold text-slate-700">Property / Building Name</Text>
             <TextInput
               className="h-12 bg-slate-50 rounded-2xl border border-slate-200 px-3.5 text-sm text-slate-900"
               placeholder="e.g. Sterling Plaza, Block B"
@@ -458,7 +599,6 @@ export default function CaptureScreen() {
 
           {/* Reward Alert */}
           <View className="flex-row items-center gap-2 bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
-            <Sparkles size={16} color="#059669" />
             <Text className="text-xs text-emerald-800 flex-1 leading-4.5">
               Submitting this verified capture awards <Text className="font-extrabold">₦50</Text> directly to your virtual wallet upon supervisor approval.
             </Text>

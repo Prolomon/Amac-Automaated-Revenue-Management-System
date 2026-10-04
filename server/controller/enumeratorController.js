@@ -79,7 +79,7 @@ export const createEnumerator = async (req, res) => {
         supervisorId: supervisorId ? supervisorId.trim() : null,
         password: hashedPassword,
         role: "ENUMERATOR",
-        status: true,
+        status: "ACTIVE",
       },
     });
 
@@ -154,7 +154,31 @@ export const loginEnumerator = async (req, res) => {
       });
     }
 
-    if (!enumerator.status) {
+    if (enumerator.status === "DELETED") {
+      return res.status(403).json({
+        ok: false,
+        code: "ACCOUNT_DELETED",
+        isBlocked: true,
+        status: "DELETED",
+        message: "You do not have permission to access the application. Please contact support.",
+      });
+    }
+
+    if ((enumerator.failedLoginAttempts || 0) > 3) {
+      return res.status(403).json({
+        ok: false,
+        code: "ACCOUNT_LOCKED",
+        isBlocked: true,
+        failedAttempts: enumerator.failedLoginAttempts,
+        message: "You do not have permission to access the application. Please contact support.",
+      });
+    }
+
+    if (
+      enumerator.status === "INACTIVE" ||
+      enumerator.status === "DISABLED" ||
+      enumerator.status === false
+    ) {
       return res.status(403).json({
         ok: false,
         message: "Your account is currently disabled. Please contact your supervisor or administrator.",
@@ -169,9 +193,35 @@ export const loginEnumerator = async (req, res) => {
     }
 
     if (!isPasswordValid) {
+      const updatedCount = (enumerator.failedLoginAttempts || 0) + 1;
+      await prisma.enumerator.update({
+        where: { id: enumerator.id },
+        data: { failedLoginAttempts: updatedCount },
+      });
+
+      if (updatedCount > 3) {
+        return res.status(403).json({
+          ok: false,
+          code: "ACCOUNT_LOCKED",
+          isBlocked: true,
+          failedAttempts: updatedCount,
+          message: "You do not have permission to access the application. Please contact support.",
+        });
+      }
+
       return res.status(401).json({
         ok: false,
-        message: "Invalid credentials",
+        code: "INVALID_CREDENTIALS",
+        failedAttempts: updatedCount,
+        message: `Invalid credentials. (Attempt ${updatedCount} of 3)`,
+      });
+    }
+
+    // Reset failedLoginAttempts on successful login
+    if (enumerator.failedLoginAttempts > 0) {
+      await prisma.enumerator.update({
+        where: { id: enumerator.id },
+        data: { failedLoginAttempts: 0 },
       });
     }
 
@@ -469,6 +519,16 @@ export const getProfile = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Enumerator not found" });
     }
 
+    if (enumerator.status === "DELETED") {
+      return res.status(403).json({
+        ok: false,
+        code: "ACCOUNT_DELETED",
+        isBlocked: true,
+        status: "DELETED",
+        message: "You do not have permission to access the application. Please contact support.",
+      });
+    }
+
     let supervisor = null;
     if (enumerator.supervisorId) {
       supervisor = await prisma.enumerator.findUnique({
@@ -595,8 +655,17 @@ export const getAllEnumerators = async (req, res) => {
     if (center && center !== "all") {
       where.center = center;
     }
-    if (status !== undefined && status !== "") {
-      where.status = status === "true" || status === true;
+    if (status !== undefined && status !== "" && status !== "all") {
+      const s = String(status).toUpperCase();
+      if (s === "TRUE" || s === "ACTIVE") {
+        where.status = "ACTIVE";
+      } else if (s === "DELETED") {
+        where.status = "DELETED";
+      } else if (s === "FALSE" || s === "INACTIVE" || s === "DISABLED") {
+        where.status = "INACTIVE";
+      } else {
+        where.status = s;
+      }
     }
     if (supervisorId) {
       where.supervisorId = supervisorId;
@@ -880,5 +949,159 @@ export const getAnalytics = async (req, res) => {
   } catch (error) {
     console.error("getAnalytics error:", error);
     return res.status(500).json({ ok: false, message: error?.message || "Server error" });
+  }
+};
+
+/**
+ * Delete Enumerator (Two-Stage Delete: Soft-delete to DELETED, then Permanent Purge on second delete)
+ */
+export const deleteEnumerator = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const enumerator = await prisma.enumerator.findFirst({
+      where: {
+        OR: [{ uid: id }, { id }],
+      },
+    });
+
+    if (!enumerator) {
+      return res.status(404).json({
+        ok: false,
+        message: "Enumerator not found",
+      });
+    }
+
+    // 1st Delete Request: If status is not DELETED, set status = DELETED
+    if (enumerator.status !== "DELETED") {
+      const updated = await prisma.enumerator.update({
+        where: { id: enumerator.id },
+        data: { status: "DELETED" },
+        select: {
+          id: true,
+          uid: true,
+          name: true,
+          email: true,
+          status: true,
+        },
+      });
+
+      return res.status(200).json({
+        ok: true,
+        message: "Enumerator status has been changed to DELETED.",
+        action: "SOFT_DELETED",
+        status: "DELETED",
+        data: updated,
+      });
+    }
+
+    // 2nd Delete Request: Already DELETED, perform permanent hard delete
+    await prisma.$transaction([
+      prisma.property.updateMany({
+        where: { enumeratorId: enumerator.uid },
+        data: { enumeratorId: null },
+      }),
+      prisma.member.updateMany({
+        where: { enumeratorId: enumerator.uid },
+        data: { enumeratorId: null },
+      }),
+      prisma.enumerator.updateMany({
+        where: { supervisorId: enumerator.uid },
+        data: { supervisorId: null },
+      }),
+      prisma.wallet.deleteMany({
+        where: { userId: enumerator.uid },
+      }),
+      prisma.enumerator.delete({
+        where: { id: enumerator.id },
+      }),
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Enumerator permanently removed from the system.",
+      action: "HARD_DELETED",
+      status: "PURGED",
+    });
+  } catch (error) {
+    console.error("deleteEnumerator error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: error?.message || "Failed to delete enumerator",
+    });
+  }
+};
+
+/**
+ * Update Enumerator (Edit fields or restore status)
+ */
+export const updateEnumerator = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      altPhone,
+      dob,
+      address,
+      center,
+      zone,
+      level,
+      supervisorId,
+      status,
+      password,
+    } = req.body;
+
+    const enumerator = await prisma.enumerator.findFirst({
+      where: {
+        OR: [{ uid: id }, { id }],
+      },
+    });
+
+    if (!enumerator) {
+      return res.status(404).json({
+        ok: false,
+        message: "Enumerator not found",
+      });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name.trim();
+    if (email) updateData.email = email.trim().toLowerCase();
+    if (phone) updateData.phone = phone.trim();
+    if (altPhone !== undefined) updateData.altPhone = altPhone ? altPhone.trim() : null;
+    if (dob) updateData.dob = new Date(dob);
+    if (address !== undefined) updateData.address = address ? address.trim() : null;
+    if (center) updateData.center = center.trim();
+    if (zone !== undefined) updateData.zone = zone ? zone.trim() : null;
+    if (level) updateData.level = level.toUpperCase() === "SUPER" ? "SUPER" : "BASIC";
+    if (supervisorId !== undefined) updateData.supervisorId = supervisorId ? supervisorId.trim() : null;
+    if (status !== undefined) {
+      updateData.status = typeof status === "boolean" ? (status ? "ACTIVE" : "INACTIVE") : String(status).toUpperCase();
+      if (updateData.status === "ACTIVE") {
+        updateData.failedLoginAttempts = 0; // reset lock on reactivate
+      }
+    }
+    if (password && String(password).trim().length >= 6) {
+      updateData.password = await argon2.hash(String(password).trim());
+    }
+
+    const updated = await prisma.enumerator.update({
+      where: { id: enumerator.id },
+      data: updateData,
+    });
+
+    const { password: _, ...safeData } = updated;
+    return res.status(200).json({
+      ok: true,
+      message: "Enumerator updated successfully",
+      data: safeData,
+    });
+  } catch (error) {
+    console.error("updateEnumerator error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: error?.message || "Failed to update enumerator",
+    });
   }
 };

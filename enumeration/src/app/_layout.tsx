@@ -9,14 +9,19 @@ import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import "../global.css";
+import BlockedScreen from "@/components/BlockedScreen";
 
 function NavigationGate() {
-  const { user, level, loading } = useAuth();
+  const { user, level, loading, isBlocked, blockReason } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
+  if (isBlocked) {
+    return <BlockedScreen reason={blockReason} />;
+  }
+
   useEffect(() => {
-    if (loading) return;
+    if (loading || isBlocked) return;
 
     const inAuthGroup = segments[0] === "(auth)";
 
@@ -29,7 +34,7 @@ function NavigationGate() {
         router.replace("/(tabs)");
       }
     }
-  }, [user, level, loading, segments]);
+  }, [user, level, loading, segments, isBlocked]);
 
   if (loading) {
     return (

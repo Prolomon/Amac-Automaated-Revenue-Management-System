@@ -31,7 +31,7 @@ import EnumeratorActionModal, {
   EnumeratorModalAction,
 } from "@/components/EnumeratorActionModal";
 
-export default function EnumeratorsPage() {
+export default function ITEnumeratorsPage() {
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -181,14 +181,14 @@ export default function EnumeratorsPage() {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/admin/enumerators/analytics"
+            href="/it/enumerators/analytics"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
           >
             <BarChart3 className="h-4 w-4 text-emerald-600" />
             View Analytics
           </Link>
           <Link
-            href="/admin/enumerators/add"
+            href="/it/enumerators/add"
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-emerald-700 transition"
           >
             <Plus className="h-4 w-4" />
@@ -418,7 +418,7 @@ export default function EnumeratorsPage() {
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
-                          href={`/admin/enumerators/${item.uid}`}
+                          href={`/it/enumerators/${item.uid}`}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
                         >
                           <Eye className="h-3.5 w-3.5" />

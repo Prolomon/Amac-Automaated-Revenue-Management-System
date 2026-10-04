@@ -20,6 +20,7 @@ import {
   MapPin,
   X,
   AlertTriangle,
+  Video,
 } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Dialog } from "heroui-native";
@@ -257,9 +258,26 @@ export default function SupervisorReviewsScreen() {
                   </View>
 
                   {/* Property Details */}
-                  <View className="flex-row items-center gap-1.5">
-                    <MapPin size={16} color="#059669" />
-                    <Text className="text-xs font-semibold text-slate-900 flex-1">{item.address}</Text>
+                  <View className="gap-1">
+                    <View className="flex-row items-center gap-1.5">
+                      <MapPin size={16} color="#059669" />
+                      <Text className="text-xs font-semibold text-slate-900 flex-1">{item.address}</Text>
+                    </View>
+                    {(item.postalCode || item.video) && (
+                      <View className="flex-row items-center gap-2 pl-5">
+                        {item.postalCode ? (
+                          <View className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            <Text className="text-[10px] font-semibold text-slate-600">Postal: {item.postalCode}</Text>
+                          </View>
+                        ) : null}
+                        {item.video ? (
+                          <View className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex-row items-center gap-1">
+                            <Video size={10} color="#059669" />
+                            <Text className="text-[10px] font-bold text-emerald-700">Video Attached</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    )}
                   </View>
 
                   {/* Photo Gallery (3 - 8 Photos) */}

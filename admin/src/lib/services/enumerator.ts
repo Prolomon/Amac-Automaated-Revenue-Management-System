@@ -21,7 +21,7 @@ export interface Enumerator {
   zone?: string;
   level: "BASIC" | "SUPER";
   supervisorId?: string;
-  status: boolean;
+  status: "ACTIVE" | "DELETED" | "INACTIVE" | boolean | string;
   role: string;
   createdAt: string;
   updatedAt: string;
@@ -236,10 +236,38 @@ export const reviewMemberRegistration = async (
   return data;
 };
 
+export const deleteEnumerator = async (
+  id: string
+): Promise<{ ok: boolean; message: string; action: "SOFT_DELETED" | "HARD_DELETED"; status: string; data?: any }> => {
+  const res = await fetch(`${API_URL}/enumerator/${id}`, {
+    method: "DELETE",
+    headers: { ...buildHeaders() },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to delete enumerator");
+  return data;
+};
+
+export const updateEnumerator = async (
+  id: string,
+  payload: any
+): Promise<{ ok: boolean; message: string; data: Enumerator }> => {
+  const res = await fetch(`${API_URL}/enumerator/${id}`, {
+    method: "PUT",
+    headers: { ...buildHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to update enumerator");
+  return data;
+};
+
 export const enumeratorService = {
   getAll: getAllEnumerators,
   getById: getEnumeratorById,
   create: createEnumerator,
+  update: updateEnumerator,
+  delete: deleteEnumerator,
   getDailyTaskProgress,
   getAnalytics: getEnumerationAnalytics,
   getCaptures,

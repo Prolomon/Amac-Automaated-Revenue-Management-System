@@ -155,9 +155,6 @@ export default function AdminRecruitmentPage() {
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Qualification</th>
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Device</th>
                                         <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Phone</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">State / LGA</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Copper</th>
-                                        <th className="px-4 py-3 text-xs font-semibold text-slate-700 md:px-6 md:text-sm">Date</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -179,20 +176,6 @@ export default function AdminRecruitmentPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.phone || "-"}</td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">{record.state || "-"}, {record.lga || "-"}</td>
-                                            <td className="px-4 py-4 text-xs md:px-6 md:text-sm text-nowrap">
-                                                <span
-                                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${record.isCopper === "Yes"
-                                                            ? "bg-emerald-100 text-emerald-700"
-                                                            : "bg-slate-100 text-slate-700"
-                                                        }`}
-                                                >
-                                                    {record.isCopper || "-"}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4 text-xs text-slate-700 md:px-6 md:text-sm text-nowrap">
-                                                {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : "-"}
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

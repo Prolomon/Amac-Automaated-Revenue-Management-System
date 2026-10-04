@@ -26,14 +26,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [level, setLevel] = useState<EnumeratorLevel | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState("");
   const [dailyTasks, setDailyTasks] = useState<DailyTaskProgress | null>(null);
+
+  const triggerBlock = async (reason?: string) => {
+    const r =
+      reason ||
+      "You do not have permission to access the application. Please contact support.";
+    setIsBlocked(true);
+    setBlockReason(r);
+    await AsyncStorage.setItem(STORAGE_KEYS.IS_BLOCKED, "true");
+    await AsyncStorage.setItem(STORAGE_KEYS.BLOCK_REASON, r);
+    await clearTokens();
+    setUser(null);
+    setToken(null);
+    setLevel(null);
+    setWallet(null);
+  };
 
   const loadStoredSession = async () => {
     try {
+      // 1. Check permanent block flag
+      const storedIsBlocked = await AsyncStorage.getItem(STORAGE_KEYS.IS_BLOCKED);
+      if (storedIsBlocked === "true") {
+        const storedReason = await AsyncStorage.getItem(STORAGE_KEYS.BLOCK_REASON);
+        setIsBlocked(true);
+        setBlockReason(
+          storedReason ||
+            "You do not have permission to access the application. Please contact support."
+        );
+        setLoading(false);
+        return;
+      }
+
       let storedToken = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
       const storedUser = await AsyncStorage.getItem(STORAGE_KEYS.USER);
       const storedWallet = await AsyncStorage.getItem(STORAGE_KEYS.WALLET);
       const storedLevel = (await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_LEVEL)) as EnumeratorLevel | null;
+
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          if (parsedUser?.status === "DELETED") {
+            await triggerBlock(
+              "You do not have permission to access the application. Please contact support."
+            );
+            setLoading(false);
+            return;
+          }
+        } catch (_) {}
+      }
 
       if (storedToken && storedUser) {
         // Proactive token expiration check
@@ -65,6 +108,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Fetch fresh profile in background
         try {
           const profileRes = await enumeratorService.getProfile();
+          if (
+            (profileRes as any)?.status === "DELETED" ||
+            (profileRes as any)?.code === "ACCOUNT_DELETED" ||
+            profileRes.data?.status === "DELETED"
+          ) {
+            await triggerBlock(
+              "You do not have permission to access the application. Please contact support."
+            );
+            return;
+          }
+
           if (profileRes.ok && profileRes.data) {
             setUser(profileRes.data);
             if (profileRes.data.level) {
@@ -82,7 +136,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (taskRes.ok && taskRes.data) {
             setDailyTasks(taskRes.data);
           }
-        } catch (err) {
+        } catch (err: any) {
+          if (err?.message?.includes("ACCOUNT_DELETED") || err?.status === 403) {
+            await triggerBlock(
+              "You do not have permission to access the application. Please contact support."
+            );
+            return;
+          }
           console.warn("Background session update failed:", err);
         }
       }
@@ -117,17 +177,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     requiredLevel?: EnumeratorLevel
   ): Promise<{ ok: boolean; message?: string }> => {
+    // Check if already permanently blocked
+    const isCurrentlyBlocked = await AsyncStorage.getItem(STORAGE_KEYS.IS_BLOCKED);
+    if (isCurrentlyBlocked === "true" || isBlocked) {
+      return {
+        ok: false,
+        message: "You do not have permission to access the application. Please contact support.",
+      };
+    }
+
     try {
       const res = await enumeratorService.login(emailOrPhone.trim(), password);
 
+      // Handle server block responses (DELETED or ACCOUNT_LOCKED)
+      if (
+        (res as any)?.code === "ACCOUNT_DELETED" ||
+        (res as any)?.status === "DELETED" ||
+        (res as any)?.isBlocked ||
+        (res as any)?.code === "ACCOUNT_LOCKED"
+      ) {
+        await triggerBlock(
+          res.message ||
+            "You do not have permission to access the application. Please contact support."
+        );
+        return {
+          ok: false,
+          message:
+            "You do not have permission to access the application. Please contact support.",
+        };
+      }
+
       if (!res.ok) {
-        return { ok: false, message: res.message || "Invalid credentials" };
+        // Track local failed attempts
+        const attemptsKey = `${STORAGE_KEYS.FAILED_PASSWORD_ATTEMPTS}_${emailOrPhone.trim().toLowerCase()}`;
+        const prevAttempts = parseInt((await AsyncStorage.getItem(attemptsKey)) || "0", 10) || 0;
+        const newAttempts = prevAttempts + 1;
+        await AsyncStorage.setItem(attemptsKey, String(newAttempts));
+
+        // If user enters wrong password more than 3 times (i.e. > 3 attempts)
+        if (newAttempts > 3) {
+          await triggerBlock(
+            "You do not have permission to access the application. Please contact support."
+          );
+          return {
+            ok: false,
+            message:
+              "You do not have permission to access the application. Please contact support.",
+          };
+        }
+
+        return {
+          ok: false,
+          message: res.message || `Invalid credentials. (Attempt ${newAttempts} of 3)`,
+        };
       }
 
       const userData: EnumeratorUser = res.user || res.data;
       if (!userData) {
         return { ok: false, message: "Invalid user account data received from server" };
       }
+
+      if (userData.status === "DELETED") {
+        await triggerBlock(
+          "You do not have permission to access the application. Please contact support."
+        );
+        return {
+          ok: false,
+          message:
+            "You do not have permission to access the application. Please contact support.",
+        };
+      }
+
+      // Successful sign in -> reset failed attempts
+      const attemptsKey = `${STORAGE_KEYS.FAILED_PASSWORD_ATTEMPTS}_${emailOrPhone.trim().toLowerCase()}`;
+      await AsyncStorage.removeItem(attemptsKey);
+
       const userLevel: EnumeratorLevel = userData.level || "BASIC";
 
       // If user signed in through Supervisor portal, verify they have SUPER level
@@ -215,11 +339,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         level,
         token,
         loading,
+        isBlocked,
+        blockReason,
         dailyTasks,
         login,
         logout,
         refreshProfile,
         refreshDailyTasks,
+        triggerBlock,
       }}
     >
       {children}

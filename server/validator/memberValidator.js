@@ -74,6 +74,7 @@ const createMemberSchema = Joi.object({
     "array.base": "Pricing must be an array",
   }),
   role: Joi.string().valid("USER", "ADMIN", "ENUMERATOR").optional().default("USER"),
+  occupant: Joi.string().valid("TENANT", "OWNER", "tenant", "owner", "Tenant", "Owner").optional().default("OWNER"),
   enumeratorId: Joi.string().trim().optional().allow("", null),
   supervisorId: Joi.string().trim().optional().allow("", null),
   property: Joi.object({
@@ -160,6 +161,7 @@ const updateMemberSchema = Joi.object({
     "array.base": "Pricing must be an array",
   }),
   geoTag: Joi.any().optional().allow(null),
+  occupant: Joi.string().valid("TENANT", "OWNER", "tenant", "owner", "Tenant", "Owner").optional().allow("", null),
   property: Joi.object().unknown(true).optional().allow(null),
 }).unknown(true);
 

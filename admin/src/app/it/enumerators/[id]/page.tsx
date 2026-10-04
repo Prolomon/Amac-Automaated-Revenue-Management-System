@@ -42,7 +42,7 @@ import EnumeratorActionModal, {
   EnumeratorModalAction,
 } from "@/components/EnumeratorActionModal";
 
-export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ITEnumeratorDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const id = resolvedParams.id;
@@ -114,7 +114,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
         <h2 className="mt-3 text-lg font-bold text-slate-800">Enumerator Not Found</h2>
         <p className="mt-1 text-sm text-slate-500">The requested personnel record does not exist.</p>
         <Link
-          href="/admin/enumerators"
+          href="/it/enumerators"
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
         >
           <ArrowLeft className="h-4 w-4" /> Back to List
@@ -153,7 +153,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
         const res = await deleteEnumerator(enumerator.uid);
         if (res.action === "HARD_DELETED" || isDeleted) {
           addToast("success", "Enumerator permanently removed from the system");
-          router.push("/admin/enumerators");
+          router.push("/it/enumerators");
         } else {
           addToast("success", "Enumerator status set to Deleted");
           setEnumerator((prev: any) => (prev ? { ...prev, status: "DELETED" } : null));
@@ -189,7 +189,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/enumerators"
+            href="/it/enumerators"
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -649,7 +649,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
             {((enumerator as any).teamMembers || []).map((tm: any) => (
               <div key={tm.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition">
                 <div>
-                  <Link href={`/admin/enumerators/${tm.uid}`} className="font-semibold text-slate-900 hover:text-emerald-700">
+                  <Link href={`/it/enumerators/${tm.uid}`} className="font-semibold text-slate-900 hover:text-emerald-700">
                     {tm.name}
                   </Link>
                   <p className="font-mono text-xs text-slate-400">{tm.uid} • {tm.phone}</p>
@@ -664,7 +664,7 @@ export default function EnumeratorDetailsPage({ params }: { params: Promise<{ id
                     {tm._count?.members || 0} entities
                   </span>
                   <Link
-                    href={`/admin/enumerators/${tm.uid}`}
+                    href={`/it/enumerators/${tm.uid}`}
                     className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                   >
                     View

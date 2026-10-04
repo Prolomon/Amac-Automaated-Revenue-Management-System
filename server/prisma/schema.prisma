@@ -44,6 +44,7 @@ model Member {
   documents     Document[]
   wallets       Wallet[]   @relation("memberUserId")
   propertyId    String?
+  occupant      String?          @default("OWNER")
   bvn           String?
   enumeratorId  String?
   enumerator    Enumerator? @relation(fields: [enumeratorId], references: [uid], onDelete: SetNull)
@@ -106,6 +107,28 @@ model Staff {
   @@index([uid, email, center, status, phone])
 }
 
+model ITStaff {
+  id          String   @id @default(cuid())
+  uid         String   @unique
+  fullname    String
+  email       String   @unique
+  phone       String
+  gender      String
+  status      Boolean  @default(true)
+  password    String
+  location    Json?
+  avatar      String?
+  center      String?  @default("ALL")
+  role        String   @default("IT_STAFF")
+  permissions Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wallet Wallet[] @relation("itStaffUserId")
+
+  @@index([uid, email, status, phone])
+}
+
 model Wallet {
   id              String   @id @default(cuid())
   userId          String?
@@ -113,6 +136,7 @@ model Wallet {
   admin           Admin?   @relation("adminUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_admin_userId_fkey")
   company         Company? @relation("companyUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_company_userId_fkey")
   staff           Staff?   @relation("staffUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_staff_userId_fkey")
+  itStaff         ITStaff? @relation("itStaffUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_itStaff_userId_fkey")
   agent           Agent?   @relation("agentUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_agent_userId_fkey")
   enumerator      Enumerator? @relation("enumeratorUserId", fields: [userId], references: [uid], onDelete: Cascade, map: "Wallet_enumerator_userId_fkey")
   role            Role
@@ -409,6 +433,7 @@ enum Role {
   CHECKOUT
   IT
   ENUMERATOR
+  IT_STAFF
 }
 
 enum EnumeratorLevel {
@@ -519,9 +544,11 @@ model Property {
   type            String            @default("Commercial")
   size            String            @default("Standard")
   address         String?
+  postalCode      String?
   location        Json?
   geoTag          Json?
   images          String[]          @default([])
+  video           String?
   center          String?
   zone            String?
   status          EnumerationStatus @default(APPROVED)
@@ -561,8 +588,9 @@ model Enumerator {
   level        EnumeratorLevel   @default(BASIC)
   supervisorId String?
   password     String
-  status       Boolean           @default(true)
-  role         Role              @default(ENUMERATOR)
+  status              String            @default("ACTIVE")
+  failedLoginAttempts Int               @default(0)
+  role                Role              @default(ENUMERATOR)
   otpCode      String?
   otpExpiresAt DateTime?
   createdAt    DateTime          @default(now())

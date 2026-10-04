@@ -51,6 +51,7 @@ const memberSafeSelect = {
   payments: true,
   zone: true,
   propertyId: true,
+  occupant: true,
   wallets: true,
 };
 
@@ -213,6 +214,7 @@ const createMember = async (req, res) => {
           pricing: availablePricing.map((p) => p.id),
           category: value.category || null,
           zone: value.zone || null,
+          occupant: value.occupant ? String(value.occupant).toUpperCase() : "OWNER",
           bvn: value.bvn || value.document?.bvn || value.document?.data?.bvn || null,
           enumeratorId: value.enumeratorId || (req.user?.role === "ENUMERATOR" ? req.user.uid : null),
           supervisorId: value.supervisorId || (req.user?.role === "ENUMERATOR" ? req.user.supervisorId : null),
@@ -687,6 +689,9 @@ const updateMember = async (req, res) => {
     const updateData = { ...value };
     if (!value.pricing) {
       delete updateData.pricing;
+    }
+    if (updateData.occupant) {
+      updateData.occupant = String(updateData.occupant).toUpperCase();
     }
 
     const member = await prisma.member.update({

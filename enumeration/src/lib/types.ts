@@ -29,7 +29,7 @@ export interface EnumeratorUser {
   zone?: string;
   level: EnumeratorLevel;
   supervisorId?: string;
-  status: boolean;
+  status: "ACTIVE" | "DELETED" | "INACTIVE" | boolean | string;
   role: string;
   guarantor1?: Guarantor;
   guarantor2?: Guarantor;
@@ -49,6 +49,7 @@ export interface PropertyCapture {
   type?: string;
   size?: string;
   address: string;
+  postalCode?: string;
   location?: {
     latitude?: number;
     longitude?: number;
@@ -61,6 +62,7 @@ export interface PropertyCapture {
     longitude: number;
   };
   images: string[];
+  video?: string;
   center?: string;
   zone?: string;
   status: "PENDING" | "APPROVED" | "DENIED";
@@ -98,6 +100,7 @@ export interface RegisteredMember {
   center?: string;
   zone?: string;
   billingFrequency?: "MONTHLY" | "QUARTERLY" | "YEARLY";
+  occupant?: "TENANT" | "OWNER" | string;
   document?: {
     type: string;
     number: string;
@@ -147,9 +150,12 @@ export interface AuthContextValue {
   level: EnumeratorLevel | null;
   token: string | null;
   loading: boolean;
+  isBlocked: boolean;
+  blockReason?: string;
   dailyTasks: DailyTaskProgress | null;
   login: (emailOrPhone: string, password: string, requiredLevel?: EnumeratorLevel) => Promise<{ ok: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshDailyTasks: () => Promise<void>;
+  triggerBlock: (reason?: string) => Promise<void>;
 }

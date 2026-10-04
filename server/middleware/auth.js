@@ -147,6 +147,31 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user) {
+      user = await prisma.iTStaff.findFirst({
+        where: {
+          OR: [{ uid: userUid }, { id: userUid }],
+        },
+        select: {
+          id: true,
+          uid: true,
+          fullname: true,
+          email: true,
+          phone: true,
+          gender: true,
+          center: true,
+          role: true,
+          permissions: true,
+          avatar: true,
+          location: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      if (user) userType = "it_staff";
+    }
+
+    if (!user) {
       user = await prisma.company.findFirst({
         where: {
           OR: [{ uid: userUid }, { id: userUid }],

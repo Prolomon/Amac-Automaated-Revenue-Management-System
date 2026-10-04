@@ -23,6 +23,7 @@ import {
   ExternalLink,
   UploadCloud,
   Image as ImageIcon,
+  Video,
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { uploadImagesToCloudinary } from "@/lib/services/upload";
@@ -72,11 +73,14 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
     type: "",
     size: "",
     center: "",
+    postalCode: "",
+    video: "",
     images: [] as string[],
     newImageUrl: "",
   });
   const [updating, setUpdating] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const handlePropertyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -118,6 +122,42 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
     }
   };
 
+  const handlePropertyVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      addToast("error", `${file.name} is not a valid video file`);
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      addToast("error", "Video file size must be under 50MB");
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const uploadRes = await uploadImagesToCloudinary([base64]);
+      const videoUrl = uploadRes?.urls?.[0] || base64;
+      setEditFormData((prev) => ({ ...prev, video: videoUrl }));
+      addToast("success", "Video uploaded successfully!");
+    } catch (err: any) {
+      console.error("Video upload failed:", err);
+      addToast("error", err?.message || "Failed to upload video");
+    } finally {
+      setUploadingVideo(false);
+      e.target.value = "";
+    }
+  };
+
   const fetchPropertyData = useCallback(async () => {
     if (!propertyId) return;
     setLoading(true);
@@ -131,6 +171,8 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
           type: res.property.type || "Commercial",
           size: res.property.size || "Standard",
           center: res.property.center || "",
+          postalCode: res.property.postalCode || "",
+          video: res.property.video || "",
           images: res.property.images || [],
           newImageUrl: "",
         });
@@ -177,6 +219,8 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
         type: editFormData.type.trim(),
         size: editFormData.size.trim(),
         center: editFormData.center.trim() || undefined,
+        postalCode: editFormData.postalCode.trim() || null,
+        video: editFormData.video.trim() || null,
         images: editFormData.images,
       });
 
@@ -327,7 +371,7 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 border-t border-slate-100 pt-5 text-xs text-slate-600">
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5 border-t border-slate-100 pt-5 text-xs text-slate-600">
           <div>
             <span className="font-semibold uppercase tracking-wide text-slate-400 block mb-0.5">
               Registration Date
@@ -360,6 +404,15 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
 
           <div>
             <span className="font-semibold uppercase tracking-wide text-slate-400 block mb-0.5">
+              Postal Code
+            </span>
+            <span className="font-medium text-slate-800">
+              {property.postalCode || "—"}
+            </span>
+          </div>
+
+          <div>
+            <span className="font-semibold uppercase tracking-wide text-slate-400 block mb-0.5">
               Primary Creator ID
             </span>
             <span className="font-mono font-medium text-slate-700">
@@ -376,6 +429,23 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
             </span>
           </div>
         </div>
+
+        {/* Premises Video */}
+        {property.video && (
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1.5 mb-3">
+              <Video size={16} className="text-emerald-600" />
+              Premises Video Walkthrough
+            </h3>
+            <div className="max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 p-2 shadow-xs">
+              <video
+                src={property.video}
+                controls
+                className="w-full max-h-72 rounded-xl object-contain bg-black"
+              />
+            </div>
+          </div>
+        )}
 
         {property.images && property.images.length > 0 && (
           <div className="mt-6 border-t border-slate-100 pt-5">
@@ -707,6 +777,19 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
               </div>
 
               <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Postal Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 900211"
+                  value={editFormData.postalCode}
+                  onChange={(e) => setEditFormData({ ...editFormData, postalCode: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                     Property Photos (Cloudinary)
@@ -777,6 +860,62 @@ export default function ITPropertyDetailsPage({ params }: { params: Promise<{ id
                         </span>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600 flex items-center gap-1.5">
+                  <Video size={13} className="text-emerald-600" />
+                  Premises Video (Optional - Single Video)
+                </label>
+                <input
+                  type="url"
+                  placeholder="Video URL (https://...)"
+                  value={editFormData.video}
+                  onChange={(e) => setEditFormData({ ...editFormData, video: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition cursor-pointer">
+                    {uploadingVideo ? (
+                      <>
+                        <RefreshCw size={12} className="animate-spin" />
+                        Uploading Video...
+                      </>
+                    ) : (
+                      <>
+                        <Video size={12} />
+                        Upload Video File
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/*"
+                      disabled={uploadingVideo || updating}
+                      onChange={handlePropertyVideoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {editFormData.video && (
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, video: "" })}
+                      className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition"
+                    >
+                      Remove Video
+                    </button>
+                  )}
+                </div>
+
+                {editFormData.video && (
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-black p-1 overflow-hidden">
+                    <video
+                      src={editFormData.video}
+                      controls
+                      className="w-full max-h-48 object-contain"
+                    />
                   </div>
                 )}
               </div>

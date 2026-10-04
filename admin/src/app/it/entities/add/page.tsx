@@ -120,6 +120,7 @@ export default function ITAddEntityPage() {
       size: "",
       images: [] as string[],
     },
+    occupant: "OWNER" as "OWNER" | "TENANT",
   });
 
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -596,6 +597,7 @@ export default function ITAddEntityPage() {
           size: formData.property.size.trim(),
           images: formData.property.images,
         },
+        occupant: formData.occupant || "OWNER",
       };
 
       const res = await createMember(payload as Member);
@@ -653,6 +655,7 @@ export default function ITAddEntityPage() {
         size: "",
         images: [],
       },
+      occupant: "OWNER",
     });
     setSelectedCompany(null);
     setErrors({});
@@ -1435,6 +1438,68 @@ export default function ITAddEntityPage() {
                   </span>
                 </div>
               )}
+
+              {/* Occupancy Status Selector */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Occupancy Status <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Specify whether this entity / taxpayer is the legal property owner or an occupying tenant.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, occupant: "OWNER" }))}
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition ${
+                      formData.occupant === "OWNER"
+                        ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-500/20 shadow-sm"
+                        : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                        formData.occupant === "OWNER"
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-slate-300 bg-white"
+                      }`}
+                    >
+                      {formData.occupant === "OWNER" && <Check className="h-3 w-3 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Property Owner</div>
+                      <div className="text-[11px] text-slate-500">Landlord / Title Holder</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, occupant: "TENANT" }))}
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition ${
+                      formData.occupant === "TENANT"
+                        ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-500/20 shadow-sm"
+                        : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                        formData.occupant === "TENANT"
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-slate-300 bg-white"
+                      }`}
+                    >
+                      {formData.occupant === "TENANT" && <Check className="h-3 w-3 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Tenant</div>
+                      <div className="text-[11px] text-slate-500">Rent-paying Occupant</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1738,6 +1803,13 @@ export default function ITAddEntityPage() {
                         </span>
                       ) : null}
                       {formData.property.name} &bull; {formData.property.type} ({formData.property.size})
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block">Occupancy Status</span>
+                    <span className="font-semibold text-slate-900">
+                      {formData.occupant === "TENANT" ? "Tenant (Rent-paying Occupant)" : "Property Owner (Landlord)"}
                     </span>
                   </div>
 

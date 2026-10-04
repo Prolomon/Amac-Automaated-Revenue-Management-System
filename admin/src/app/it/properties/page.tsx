@@ -211,7 +211,7 @@ export default function ITPropertiesListPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 appearance-none"
           >
             <option value="all">All Property Types</option>
             <option value="commercial">Commercial</option>
@@ -247,7 +247,6 @@ export default function ITPropertiesListPage() {
                   <th className="px-4 py-3.5">Property Name</th>
                   <th className="px-4 py-3.5">Type</th>
                   <th className="px-4 py-3.5">Size</th>
-                  <th className="px-4 py-3.5">Center</th>
                   <th className="px-4 py-3.5 text-center">Occupants</th>
                   <th className="px-4 py-3.5">Created At</th>
                   <th className="px-4 py-3.5 text-right">Action</th>
@@ -284,16 +283,6 @@ export default function ITPropertiesListPage() {
                       </td>
                       <td className="px-4 py-4 text-xs text-slate-600">
                         {prop.size || "Standard"}
-                      </td>
-                      <td className="px-4 py-4 text-xs font-mono text-slate-500">
-                        {prop.center ? (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin size={12} className="text-slate-400" />
-                            {prop.center}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span

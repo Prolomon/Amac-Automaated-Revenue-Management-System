@@ -61,7 +61,9 @@ export const enumeratorService = {
   async submitCapture(
     payload: {
       address: string;
+      postalCode?: string;
       images: string[];
+      video?: string;
       location?: any;
       geoTag?: { latitude: number; longitude: number };
       name?: string;

@@ -29,6 +29,7 @@ import { refreshTokenHandler } from '../controller/authController.js';
 import { propertyRouter } from './propertyRoutes.js';
 import { documentRouter } from './documentRoutes.js';
 import { enumeratorRouter } from './enumeratorRoutes.js';
+import { itStaffRouter } from './itStaffRoutes.js';
 
 // Apply database health check to all API routes
 router.use(checkDatabaseConnection);
@@ -51,6 +52,7 @@ router.use('/member', memberRouter);
 router.use('/agent', agentRouter);
 router.use('/company', companyRouter);
 router.use('/staff', staffRouter);
+router.use('/it-staff', itStaffRouter);
 router.use('/admin', adminRouter);
 router.use('/notification', notificationRouter);
 router.use('/payment', paymentRouter);

@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Video,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePageAccess } from "@/components/PageGuard";
@@ -49,6 +50,7 @@ export default function AdminAddPropertyPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // Auto-captured GeoTag
   const [geoTag, setGeoTag] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -82,6 +84,8 @@ export default function AdminAddPropertyPage() {
     size: "Standard",
     zone: "Zone A",
     address: "",
+    postalCode: "",
+    video: "",
     images: [] as string[],
   });
 
@@ -132,6 +136,42 @@ export default function AdminAddPropertyPage() {
     }));
   };
 
+  const handlePropertyVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      addToast("error", `${file.name} is not a valid video file`);
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      addToast("error", "Video file size must be under 50MB");
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const uploadRes = await uploadImagesToCloudinary([base64]);
+      const videoUrl = uploadRes?.urls?.[0] || base64;
+      setFormData((prev) => ({ ...prev, video: videoUrl }));
+      addToast("success", "Video uploaded successfully!");
+    } catch (err: any) {
+      console.error("Video upload failed:", err);
+      addToast("error", err?.message || "Failed to upload video");
+    } finally {
+      setUploadingVideo(false);
+      e.target.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -158,6 +198,8 @@ export default function AdminAddPropertyPage() {
         size: formData.size.trim(),
         zone: formData.zone.trim(),
         address: formData.address.trim(),
+        postalCode: formData.postalCode.trim() || undefined,
+        video: formData.video.trim() || undefined,
         geoTag: geoTag || undefined,
         center: user?.uid || centerId || undefined,
         images: formData.images,
@@ -317,6 +359,22 @@ export default function AdminAddPropertyPage() {
             </p>
           </div>
 
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+              Postal Code (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 900211"
+              value={formData.postalCode}
+              onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-slate-600"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              District postal code. Kept separate from physical address.
+            </p>
+          </div>
+
           {/* Auto-detected GPS GeoTag Display */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
             <div className="flex items-center justify-between">
@@ -436,6 +494,90 @@ export default function AdminAddPropertyPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Card 4: Premises Video (Single Video) */}
+        <div className="rounded-2xl bg-white p-6 ring-1 ring-slate-200 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Video className="text-emerald-600" size={20} />
+              <h2 className="text-base font-bold text-slate-800">Premises Video (Optional)</h2>
+            </div>
+            {formData.video && (
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                1 Video Attached
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Attach a single walkthrough video recording (MP4/WebM) or provide a hosted video URL.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Video URL
+              </label>
+              <input
+                type="url"
+                placeholder="https://... (e.g. Cloudinary, S3, or direct video URL)"
+                value={formData.video}
+                onChange={(e) => setFormData({ ...formData, video: e.target.value })}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-slate-600"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-semibold text-slate-400 uppercase">Or upload video file</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 p-5 text-center transition hover:border-emerald-400">
+              <label className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer">
+                {uploadingVideo ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Uploading Video...
+                  </>
+                ) : (
+                  <>
+                    <Video size={14} />
+                    Browse & Upload Video Clip
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="video/*"
+                  disabled={uploadingVideo || submitting}
+                  onChange={handlePropertyVideoUpload}
+                  className="hidden"
+                />
+              </label>
+              <p className="text-[11px] text-slate-400 mt-2">
+                Maximum file size: 50MB. Single video file.
+              </p>
+            </div>
+
+            {formData.video && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-900 p-2 overflow-hidden relative">
+                <video
+                  src={formData.video}
+                  controls
+                  className="w-full max-h-64 rounded-xl object-contain bg-black"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, video: "" })}
+                  className="absolute top-4 right-4 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 transition"
+                  title="Remove video"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Action Buttons */}

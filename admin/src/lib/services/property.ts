@@ -7,11 +7,13 @@ export interface Property {
   type: string;
   size: string;
   address?: string | null;
+  postalCode?: string | null;
   location?: any;
   geoTag?: { latitude: number; longitude: number } | null;
   zone?: string | null;
   status?: string;
   images?: string[];
+  video?: string | null;
   center?: string | null;
   memberId?: string | null;
   createdAt?: string;

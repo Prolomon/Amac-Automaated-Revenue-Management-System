@@ -51,6 +51,7 @@ export type Member = {
   properties?: Property[];
   documents?: Document[];
   bvn?: string;
+  occupant?: "TENANT" | "OWNER" | string;
   wallet?: any;
   wallets?: any[];
 };

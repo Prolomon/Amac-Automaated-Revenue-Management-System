@@ -179,8 +179,8 @@ export async function refreshAccessToken(): Promise<string | null> {
       await saveTokens(newAccessToken, newRefreshToken);
       notifyTokenRefreshed(newAccessToken);
       return newAccessToken;
-    } catch (err) {
-      console.error("Token refresh network/unexpected error:", err);
+    } catch (err: any) {
+      console.warn("Token refresh network issue:", err?.message || err);
       return null;
     } finally {
       refreshPromise = null;

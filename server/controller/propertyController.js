@@ -31,9 +31,11 @@ export const submitCapture = async (req, res) => {
       type = "Commercial",
       size = "Standard",
       address,
+      postalCode,
       location,
       geoTag,
       images,
+      video,
       center,
       zone,
     } = req.body;
@@ -97,9 +99,11 @@ export const submitCapture = async (req, res) => {
         type: String(type).trim(),
         size: String(size).trim(),
         address: String(address).trim(),
+        postalCode: postalCode ? String(postalCode).trim() : null,
         location: location || null,
         geoTag: resolvedGeoTag,
         images: processedImages,
+        video: video ? String(video).trim() : null,
         center: propCenter,
         zone: propZone,
         status: "PENDING",
@@ -277,7 +281,7 @@ export const getCaptureById = async (req, res) => {
  */
 export const createPropertyAdmin = async (req, res) => {
   try {
-    const { name, type, size, address, location, geoTag, images, center, zone } = req.body;
+    const { name, type, size, address, postalCode, location, geoTag, images, video, center, zone } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ ok: false, message: "Property name is required" });
     }
@@ -294,9 +298,11 @@ export const createPropertyAdmin = async (req, res) => {
         type: type ? String(type).trim() : "Commercial",
         size: size ? String(size).trim() : "Standard",
         address: address ? String(address).trim() : null,
+        postalCode: postalCode ? String(postalCode).trim() : null,
         location: location || null,
         geoTag: resolvedGeoTag,
         images: Array.isArray(images) ? images : [],
+        video: video ? String(video).trim() : null,
         center: propCenter,
         zone: propZone,
         status: "APPROVED",
@@ -322,7 +328,7 @@ export const createPropertyAdmin = async (req, res) => {
 export const updatePropertyAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, type, size, address, location, geoTag, images, center, zone, status } = req.body;
+    const { name, type, size, address, postalCode, location, geoTag, images, video, center, zone, status } = req.body;
 
     const existing = await prisma.property.findFirst({
       where: { OR: [{ id }, { pid: id }] },
@@ -337,9 +343,11 @@ export const updatePropertyAdmin = async (req, res) => {
     if (type !== undefined) data.type = String(type).trim();
     if (size !== undefined) data.size = String(size).trim();
     if (address !== undefined) data.address = address ? String(address).trim() : null;
+    if (postalCode !== undefined) data.postalCode = postalCode ? String(postalCode).trim() : null;
     if (location !== undefined) data.location = location;
     if (geoTag !== undefined) data.geoTag = geoTag;
     if (images !== undefined) data.images = Array.isArray(images) ? images : [];
+    if (video !== undefined) data.video = video ? String(video).trim() : null;
     if (center !== undefined) data.center = center ? String(center).trim() : null;
     if (zone !== undefined) data.zone = zone ? String(zone).trim() : null;
     if (status !== undefined && ["PENDING", "APPROVED", "DENIED"].includes(String(status).toUpperCase())) {

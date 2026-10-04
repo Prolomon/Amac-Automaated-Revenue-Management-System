@@ -15,6 +15,9 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: "amac_enum_refresh_token",
   WALLET: "amac_enum_wallet",
   ACTIVE_LEVEL: "amac_enum_active_level", // "BASIC" | "SUPER"
+  IS_BLOCKED: "amac_enum_is_blocked",
+  BLOCK_REASON: "amac_enum_block_reason",
+  FAILED_PASSWORD_ATTEMPTS: "amac_enum_failed_attempts",
 };
 
 export function buildHeaders(token?: string | null, isMultipart = false): Record<string, string> {

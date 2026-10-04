@@ -11,6 +11,8 @@ import {
   getEnumeratorById,
   getSupervisorTeam,
   getAnalytics,
+  deleteEnumerator,
+  updateEnumerator,
 } from "../controller/enumeratorController.js";
 import { authMiddleware } from "../middleware/auth.js";
 
@@ -33,5 +35,7 @@ router.post("/", authMiddleware, createEnumerator);
 router.get("/", authMiddleware, getAllEnumerators);
 router.get("/analytics", authMiddleware, getAnalytics);
 router.get("/:id", authMiddleware, getEnumeratorById);
+router.put("/:id", authMiddleware, updateEnumerator);
+router.delete("/:id", authMiddleware, deleteEnumerator);
 
 export { router as enumeratorRouter };

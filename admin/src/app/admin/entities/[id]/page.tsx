@@ -77,6 +77,7 @@ export default function EntityDetailsPage({ params }) {
       nearestBusStop: "",
     },
     zone: "",
+    occupant: "OWNER",
   });
   const [saving, setSaving] = useState(false);
   const [wallet, setWallet] = useState<WalletType | null>(null);
@@ -292,6 +293,7 @@ export default function EntityDetailsPage({ params }) {
           location: data?.location || null,
           billingFrequency: data?.billingFrequency || "",
           zone: data?.zone || "",
+          occupant: (data as any)?.occupant || "OWNER",
         });
 
         addToast("success", "Member loaded");
@@ -452,6 +454,7 @@ export default function EntityDetailsPage({ params }) {
         email: form.email,
         phone: form.phone,
         location: form.location,
+        occupant: form.occupant,
       };
       const res = await updateMember(id, payload as Member);
       const updated = res?.member;
@@ -471,6 +474,7 @@ export default function EntityDetailsPage({ params }) {
           form.billingFrequency || updated?.billingFrequency || "",
         location: updated?.location || null,
         zone: updated?.zone || form.zone || "",
+        occupant: (updated as any)?.occupant || form.occupant || "OWNER",
       });
       setEditing(false);
       addToast("success", "Member updated");
@@ -529,6 +533,7 @@ export default function EntityDetailsPage({ params }) {
         category: data?.category || "",
         email: data?.email || "",
         phone: data?.phone || "",
+        occupant: (data as any)?.occupant || "OWNER",
       });
       addToast("success", "Member loaded");
     } catch (e) {
@@ -555,6 +560,7 @@ export default function EntityDetailsPage({ params }) {
       billingFrequency: member?.billingFrequency || "",
       location: member?.location || null,
       zone: member?.zone || "",
+      occupant: (member as any)?.occupant || "OWNER",
     });
     setEditing(false);
   };
@@ -1211,6 +1217,21 @@ export default function EntityDetailsPage({ params }) {
               </div>
             </div>
 
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Occupancy Status
+              </label>
+              <select
+                disabled={!editing}
+                value={form.occupant || "OWNER"}
+                onChange={(e) => handleChange("occupant", e.target.value)}
+                className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition ${editing ? "border-slate-400 bg-transparent text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" : "border-slate-200 bg-slate-50 text-slate-700"} appearance-none`}
+              >
+                <option value="OWNER">Property Owner (Landlord)</option>
+                <option value="TENANT">Tenant (Occupant)</option>
+              </select>
+            </div>
+
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
                 <Wallet className="h-4 w-4" />
@@ -1627,6 +1648,15 @@ export default function EntityDetailsPage({ params }) {
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
                     {primaryProperty.size || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Occupancy Status
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {((member as any)?.occupant || "").toUpperCase() === "TENANT" ? "Tenant" : "Property Owner"}
                   </p>
                 </div>
 

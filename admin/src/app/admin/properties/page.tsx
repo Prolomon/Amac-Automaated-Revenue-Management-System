@@ -110,7 +110,7 @@ export default function PropertiesListPage() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Top Banner / Header */}
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-5 md:p-6 ring-1 ring-emerald-100 shadow-sm">
+      <div className="rounded-2xl bg-linear-to-r from-emerald-50 via-white to-teal-50 p-5 md:p-6 ring-1 ring-emerald-100 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -220,7 +220,7 @@ export default function PropertiesListPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 appearance-none"
           >
             <option value="all">All Property Types</option>
             <option value="commercial">Commercial</option>
@@ -257,7 +257,6 @@ export default function PropertiesListPage() {
                   <th className="px-4 py-3.5">Property Name</th>
                   <th className="px-4 py-3.5">Type</th>
                   <th className="px-4 py-3.5">Size</th>
-                  <th className="px-4 py-3.5">Center</th>
                   <th className="px-4 py-3.5 text-center">Occupants</th>
                   <th className="px-4 py-3.5">Created At</th>
                   <th className="px-4 py-3.5 text-right">Action</th>
@@ -294,16 +293,6 @@ export default function PropertiesListPage() {
                       </td>
                       <td className="px-4 py-4 text-xs text-slate-600">
                         {prop.size || "Standard"}
-                      </td>
-                      <td className="px-4 py-4 text-xs font-mono text-slate-500">
-                        {prop.center ? (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin size={12} className="text-slate-400" />
-                            {prop.center}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span
