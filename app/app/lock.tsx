@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useWallet } from "@/hooks/use-wallet";
 import { RelativePathString, useRouter } from "expo-router";
 import { Lock, Delete, LogOut } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -16,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function LockScreen() {
     const router = useRouter();
     const { currentUser, logout, loading: authLoading, verifyCode } = useAuth();
-    const { refresh } = useWallet();
     const { failed, success } = useToast();
     const [loading, setLoading] = useState(false);
     const [pin, setPin] = useState<string>("")
@@ -66,7 +64,7 @@ export default function LockScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.lockIconWrap}>
-                        <Lock size={28} color="#0ea360" />
+                        <Lock size={28} color="#065f46" />
                     </View>
                     <Text style={styles.title}>Enter Security Code</Text>
                     <Text style={styles.subtitle}>
@@ -92,7 +90,7 @@ export default function LockScreen() {
 
                 {/* Loading indicator */}
                 <View style={styles.loadingContainer}>
-                    {loading && <ActivityIndicator size="small" color="#0ea360" />}
+                    {loading && <ActivityIndicator size="small" color="#065f46" />}
                 </View>
 
                 {/* Keypad */}
@@ -216,8 +214,8 @@ const styles = StyleSheet.create({
         backgroundColor: "transparent",
     },
     dotFilled: {
-        borderColor: "#0ea360",
-        backgroundColor: "#0ea360",
+        borderColor: "#065f46",
+        backgroundColor: "#065f46",
     },
     loadingContainer: {
         height: 24,
@@ -267,7 +265,7 @@ const styles = StyleSheet.create({
         borderColor: "#d4f5e6",
     },
     proceedTextActive: {
-        color: "#0ea360",
+        color: "#065f46",
     },
     switchAccountBtn: {
         flexDirection: "row",

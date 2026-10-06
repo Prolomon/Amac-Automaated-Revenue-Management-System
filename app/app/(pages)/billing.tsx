@@ -4,7 +4,7 @@ import { getPayments } from "@/lib/services/payment";
 import { getPricingByCenter } from "@/lib/services/pricing";
 import { Payment, Pricing } from "@/lib/types";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
+import { RelativePathString, useRouter } from "expo-router";
 import {
   AlertCircle,
   Calendar,
@@ -407,6 +407,7 @@ export default function MakePayment() {
 
                     {/* Action Button */}
                     {!isPaid ? (
+                      <>
                       <TouchableOpacity
                         style={styles.payBtn}
                         activeOpacity={0.85}
@@ -415,6 +416,14 @@ export default function MakePayment() {
                         <CreditCard size={16} color="#ffffff" />
                         <Text style={styles.payBtnText}>Pay Assessment ({formatAmount(breakdown.total)})</Text>
                       </TouchableOpacity>
+                      <TouchableOpacity
+                            style={styles.modalCancelButton}
+                            activeOpacity={0.8}
+                            onPress={() => router.push(`/request?reference=${payment.reference}` as RelativePathString)}
+                        >
+                            <Text style={styles.modalCancelText}>Request Discount</Text>
+                        </TouchableOpacity>
+                      </>
                     ) : (
                       <View style={styles.settledBanner}>
                         <CheckCircle2 size={16} color="#059669" />
@@ -437,6 +446,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8fafc",
   },
+  modalCancelButton: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#e2e8f0", paddingVertical: 12, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 10 },
+  modalCancelText: { color: "#374151", fontSize: 15, fontWeight: "600" },
   container: {
     paddingBottom: 40,
   },

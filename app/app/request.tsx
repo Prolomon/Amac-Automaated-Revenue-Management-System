@@ -1,7 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useWallet } from "@/hooks/use-wallet";
-import { getPayment, makePayment } from "@/lib/services/payment";
+import { getPayment } from "@/lib/services/payment";
 import { createRequest, getRequestsByPayment } from "@/lib/services/request";
 import { Payment, Request } from "@/lib/types";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -65,14 +64,11 @@ export default function MakePayment() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [payment, setPayment] = useState<Payment | null>(null);
-    const [paymentAmount, setPaymentAmount] = useState<string>("");
-    const [secureTokenInput, setSecureTokenInput] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [requests, setRequests] = useState<Request[]>([]);
     const [loadingRequests, setLoadingRequests] = useState(false);
     const [discountReason, setDiscountReason] = useState("");
     const [requestSubmitting, setRequestSubmitting] = useState(false);
-    const { pin } = useWallet();
 
     const formatAmount = (value: number, withSymbol = true) => {
         const formatted = value.toLocaleString("en-NG", {
@@ -185,70 +181,11 @@ export default function MakePayment() {
     };
 
     const closePaymentModal = () => {
-        setSecureTokenInput("");
-
         router.back();
     };
 
-    const handlePayNow = async () => {
-        if (loading) return; // guard against double-tap
-
-        if (!currentUser?.uid) {
-            failed("No user available");
-            return;
-        }
-
-        if (!secureTokenInput || secureTokenInput.trim().length === 0) {
-            failed("Please enter your secure token");
-            return;
-        }
-
-        if (secureTokenInput !== pin) {
-            failed("Invalid secure token");
-            return;
-        }
-
-        if (!payment) {
-            failed("No payment selected");
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            const paymentRes = await makePayment(
-                currentUser.uid,
-                Number(paymentAmount),
-                payment.reference as string,
-                currentUser.center as string,
-                currentUser.company as string,
-                token as string
-            );
-
-            if (!paymentRes || !paymentRes.ok) {
-                failed(paymentRes?.message || "Payment failed");
-                return;
-            }
-
-            success("Payment successful");
-            setSecureTokenInput("");
-            setPaymentAmount("");
-            fetchPayments();
-        } catch (error: any) {
-            failed(error?.message || "An error occurred during verification");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const breakdown = useMemo(() => computeBreakdown(payment), [payment]);
-    const { principal, vat, charges, subtotal, daysOverdue, penalty, total: totalAmount, discount } = breakdown;
-
-    useEffect(() => {
-        if (payment) {
-            setPaymentAmount(formatAmount(totalAmount, false));
-        }
-    }, [payment, totalAmount]);
+    const { total: totalAmount } = breakdown;
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -260,8 +197,8 @@ export default function MakePayment() {
                 <View style={styles.modalShell}>
                     <View style={styles.modalHeaderRow}>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.modalEyebrow}>Payment checkout</Text>
-                            <Text style={styles.modalHeaderTitle}>Review and pay securely</Text>
+                            <Text style={styles.modalEyebrow}>Payment Requests</Text>
+                            <Text style={styles.modalHeaderTitle}>Discount on your Payments</Text>
                         </View>
                         <TouchableOpacity
                             style={styles.closeButtonWrap}
@@ -341,8 +278,8 @@ export default function MakePayment() {
                                 <Text style={styles.summaryLabel}>Paid balance</Text>
                                 <Text style={[styles.summaryValue, { color: "#166534" }]}>
                                     {payment
-                                        ? formatAmount((Number(payment.amount) || 0) - (Number(payment.paid) || 0))
-                                        : "-"}
+                                        ? formatAmount((Number(totalAmount) || 0))
+                                        : 0.00}
                                 </Text>
                             </View>
                             <View style={[styles.summaryCard, styles.summaryCardWide]}>
@@ -352,116 +289,6 @@ export default function MakePayment() {
                                 </Text>
                             </View>
                         </View>
-
-                        <View style={styles.breakdownCard}>
-                            <Text style={styles.breakdownHeaderTitle}>Payment Calculation Breakdown</Text>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Principal Amount</Text>
-                                <Text style={styles.detailValue}>{formatAmount(principal)}</Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Discount</Text>
-                                <Text style={styles.detailValue}>{formatAmount(discount || 0)}</Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>VAT (7.5%)</Text>
-                                <Text style={styles.detailValue}>{formatAmount(vat)}</Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Charges (1.5%)</Text>
-                                <Text style={styles.detailValue}>{formatAmount(charges)}</Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Subtotal</Text>
-                                <Text style={styles.detailValueBold}>{formatAmount(subtotal)}</Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Days Overdue</Text>
-                                <Text style={[styles.detailValue, daysOverdue > 0 ? { color: "#dc2626" } : {}]}>
-                                    {daysOverdue} {daysOverdue === 1 ? "day" : "days"}
-                                </Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Penalty (0.005%/day)</Text>
-                                <Text style={[styles.detailValue, penalty > 0 ? { color: "#dc2626" } : {}]}>
-                                    {formatAmount(penalty)}
-                                </Text>
-                            </View>
-
-                            {breakdown.discount > 0 ? (
-                                <View style={styles.detailRow}>
-                                    <Text style={[styles.detailLabel, { color: "#166534", fontWeight: "700" }]}>
-                                        Approved Discount
-                                    </Text>
-                                    <Text style={[styles.detailValueBold, { color: "#166534" }]}>
-                                        -{formatAmount(breakdown.discount)}
-                                    </Text>
-                                </View>
-                            ) : null}
-
-                            <View style={[styles.detailRow, styles.totalRow]}>
-                                <Text style={styles.totalLabel}>Total Payable Amount</Text>
-                                <Text style={styles.totalValue}>{formatAmount(totalAmount)}</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Amount to pay</Text>
-                            <TextInput
-                                style={styles.amountInputLarge}
-                                placeholder="0"
-                                placeholderTextColor="#94a3b8"
-                                keyboardType="numeric"
-                                value={paymentAmount}
-                                onChangeText={(text) => setPaymentAmount(text.replace(/[^0-9]/g, ""))}
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Secure token</Text>
-                            <TextInput
-                                style={styles.amountInput}
-                                placeholder="Enter secure token"
-                                placeholderTextColor="#94a3b8"
-                                secureTextEntry
-                                value={secureTokenInput}
-                                onChangeText={(text) => setSecureTokenInput(text)}
-                            />
-                        </View>
-
-                        <View style={styles.feeNote}>
-                            <Text style={styles.feeNoteText}>
-                                A 1.5% charge ({formatAmount(charges)}) is already included in the total above.
-                            </Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.modalPayButton, loading && styles.modalPayButtonDisabled]}
-                            activeOpacity={0.95}
-                            disabled={loading}
-                            onPress={handlePayNow}
-                        >
-                            {loading ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <Text style={styles.modalPayText}>Pay now</Text>
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.modalCancelButton}
-                            disabled={loading}
-                            onPress={closePaymentModal}
-                        >
-                            <Text style={styles.modalCancelText}>Cancel</Text>
-                        </TouchableOpacity>
 
                         {/* Discount Requests Section */}
                         <View style={styles.discountSection}>

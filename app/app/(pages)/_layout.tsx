@@ -17,7 +17,7 @@ export default function PagesTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#0ea360",
+        tabBarActiveTintColor: "#065f46",
         tabBarInactiveTintColor: "#94a3b8",
         tabBarStyle: {
           backgroundColor: "#ffffff",
