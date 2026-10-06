@@ -81,7 +81,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
           .title {
             font-size: 14px;
             font-weight: bold;
-            color: #0ea360;
+            color: #065f46;
             margin-bottom: 2px;
           }
           .subtitle {
@@ -121,7 +121,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
           .total-amount {
             font-size: 18px;
             font-weight: 800;
-            color: #0ea360;
+            color: #065f46;
           }
           .footer {
             margin-top: 15px;

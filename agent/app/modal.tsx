@@ -6,7 +6,7 @@ export default function ModalScreen() {
     <View style={styles.container}>
       <Text style={{ fontSize: 18, fontWeight: '600' }}>This is a modal</Text>
       <Link href="/" dismissTo style={styles.link}>
-        <Text style={{ color: '#0ea360' }}>Go to home screen</Text>
+        <Text style={{ color: '#065f46' }}>Go to home screen</Text>
       </Link>
     </View>
   );

@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#f8fafc",
     borderWidth: 2,
-    borderColor: "#0ea360",
+    borderColor: "#065f46",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   welcomeSubtitle: {
     fontSize: 30,
     fontWeight: "800",
-    color: "#0ea360",
+    color: "#065f46",
     textAlign: "left",
     marginBottom: 16,
     lineHeight: 32,
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: "#0ea360",
+    backgroundColor: "#065f46",
   },
   dotInactive: {
     width: 8,
@@ -286,10 +286,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#0ea360",
+    borderColor: "#065f46",
   },
   primaryButton: {
-    backgroundColor: "#0ea360",
+    backgroundColor: "#065f46",
   },
   primaryButtonText: {
     color: "#fff",

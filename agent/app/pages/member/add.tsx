@@ -24,6 +24,8 @@ import {
   Search,
   Check,
   CheckCircle2,
+  ShieldCheck,
+  Layers,
 } from "lucide-react-native";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -99,7 +101,7 @@ export default function AgentAddEntityScreen() {
 
   const handleSubmit = async () => {
     if (!fullname.trim()) {
-      failed("Please enter the contact person or taxpayer full legal name.");
+      failed("Please enter the contact person or taxpayer legal name.");
       return;
     }
     if (type === "BUSINESS" && !businessName.trim()) {
@@ -115,7 +117,7 @@ export default function AgentAddEntityScreen() {
       return;
     }
     if (!bvn.trim() || bvn.trim().length !== 11 || !/^\d{11}$/.test(bvn.trim())) {
-      failed("An 11-digit Bank Verification Number (BVN) is compulsory for virtual wallet generation.");
+      failed("An 11-digit Bank Verification Number (BVN) is required for wallet creation.");
       return;
     }
     if (!selectedPropertyId) {
@@ -183,36 +185,42 @@ export default function AgentAddEntityScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Navigation Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => router.back()}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <ArrowLeft size={20} color="#0F172A" />
+            <ArrowLeft size={20} color="#0f172a" />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenTitle}>Add Taxpayer / Entity</Text>
-            <Text style={styles.screenSubtitle}>
-              Register a taxpayer under your agent coverage
-            </Text>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.badgeWrap}>
+              <ShieldCheck size={11} color="#065f46" />
+              <Text style={styles.badgeText}>TAXPAYER ENROLLMENT</Text>
+            </View>
+            <Text style={styles.screenTitle}>Register New Entity</Text>
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Classification Toggle */}
           <View style={styles.typeToggle}>
             <TouchableOpacity
               style={[styles.toggleBtn, type === "BUSINESS" && styles.toggleBtnActive]}
               onPress={() => setType("BUSINESS")}
+              activeOpacity={0.85}
             >
-              <Building size={16} color={type === "BUSINESS" ? "#0ea360" : "#64748B"} />
+              <Building size={16} color={type === "BUSINESS" ? "#065f46" : "#64748B"} />
               <Text style={[styles.toggleBtnText, type === "BUSINESS" && styles.toggleBtnTextActive]}>
                 Business Entity
               </Text>
@@ -221,8 +229,9 @@ export default function AgentAddEntityScreen() {
             <TouchableOpacity
               style={[styles.toggleBtn, type === "INDIVIDUAL" && styles.toggleBtnActive]}
               onPress={() => setType("INDIVIDUAL")}
+              activeOpacity={0.85}
             >
-              <User size={16} color={type === "INDIVIDUAL" ? "#0ea360" : "#64748B"} />
+              <User size={16} color={type === "INDIVIDUAL" ? "#065f46" : "#64748B"} />
               <Text style={[styles.toggleBtnText, type === "INDIVIDUAL" && styles.toggleBtnTextActive]}>
                 Individual Taxpayer
               </Text>
@@ -231,35 +240,33 @@ export default function AgentAddEntityScreen() {
 
           {/* Form Card */}
           <View style={styles.formCard}>
-            {/* Full Name */}
+            <Text style={styles.cardHeaderTitle}>Contact & Legal Identity</Text>
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
-                Contact Full Name <Text style={{ color: "#EF4444" }}>*</Text>
+                {type === "BUSINESS" ? "Contact Person Full Name *" : "Taxpayer Legal Full Name *"}
               </Text>
               <View style={styles.inputWrapper}>
-                <User size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                <User size={16} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Alhaji Ibrahim Musa"
-                  placeholderTextColor="#94A3B8"
+                  placeholder="e.g. Aliko Dangote"
+                  placeholderTextColor="#94a3b8"
                   value={fullname}
                   onChangeText={setFullname}
                 />
               </View>
             </View>
 
-            {/* Business Name (if Business) */}
             {type === "BUSINESS" && (
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  Enterprise / Company Name <Text style={{ color: "#EF4444" }}>*</Text>
-                </Text>
+                <Text style={styles.label}>Registered Enterprise Name *</Text>
                 <View style={styles.inputWrapper}>
-                  <Building size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <Building2 size={16} color="#64748B" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g. Summit Logistics Global Ltd"
-                    placeholderTextColor="#94A3B8"
+                    placeholder="e.g. Dangote Cement Plc"
+                    placeholderTextColor="#94a3b8"
                     value={businessName}
                     onChangeText={setBusinessName}
                   />
@@ -267,211 +274,138 @@ export default function AgentAddEntityScreen() {
               </View>
             )}
 
-            {/* Email */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Official Email Address <Text style={{ color: "#EF4444" }}>*</Text>
-              </Text>
+              <Text style={styles.label}>Official Email Address *</Text>
               <View style={styles.inputWrapper}>
-                <Mail size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                <Mail size={16} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. info@company.com"
-                  placeholderTextColor="#94A3B8"
-                  value={email}
-                  onChangeText={setEmail}
+                  placeholder="e.g. info@enterprise.ng"
+                  placeholderTextColor="#94a3b8"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
                 />
               </View>
             </View>
 
-            {/* Phone */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Phone Number <Text style={{ color: "#EF4444" }}>*</Text>
-              </Text>
+              <Text style={styles.label}>Phone Number *</Text>
               <View style={styles.inputWrapper}>
-                <Phone size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                <Phone size={16} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. 08031234567"
-                  placeholderTextColor="#94A3B8"
-                  value={phone}
-                  onChangeText={setPhone}
+                  placeholder="e.g. 08012345678"
+                  placeholderTextColor="#94a3b8"
                   keyboardType="phone-pad"
                   maxLength={11}
+                  value={phone}
+                  onChangeText={setPhone}
                 />
               </View>
             </View>
 
-            {/* BVN (COMPULSORY FOR WALLET) */}
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={styles.label}>
-                  Bank Verification Number (BVN) <Text style={{ color: "#EF4444" }}>*</Text>
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "700",
-                    color: bvn.length === 11 ? "#0ea360" : "#D97706",
-                  }}
-                >
-                  {bvn.length} / 11 digits
-                </Text>
-              </View>
-              <View style={[styles.inputWrapper, bvn.length === 11 && { borderColor: "#0ea360" }]}>
-                <CreditCard size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+              <Text style={styles.label}>Bank Verification Number (BVN) *</Text>
+              <View style={styles.inputWrapper}>
+                <CreditCard size={16} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="11-digit BVN (Compulsory for Wallet)"
-                  placeholderTextColor="#94A3B8"
-                  value={bvn}
-                  onChangeText={setBvn}
+                  placeholder="11-digit BVN"
+                  placeholderTextColor="#94a3b8"
                   keyboardType="number-pad"
                   maxLength={11}
+                  value={bvn}
+                  onChangeText={setBvn}
                 />
               </View>
               <Text style={styles.bvnHint}>
-                * Compulsory for automated virtual wallet provisioning & verification.
+                Required for provisioning the taxpayer's AMAC virtual wallet account.
               </Text>
             </View>
+          </View>
 
-            {/* Select Property from Council Registry */}
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={styles.label}>
-                  Select Property / Premises <Text style={{ color: "#EF4444" }}>*</Text>
-                </Text>
-                <Text style={{ fontSize: 11, color: "#64748B", fontWeight: "600" }}>
-                  {filteredProperties.length} available
-                </Text>
-              </View>
+          {/* Premises / Property Association Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.cardHeaderTitle}>Assigned Premises & Property</Text>
+            <Text style={styles.cardHeaderSub}>
+              Select the property where this taxpayer or business conducts operations.
+            </Text>
 
-              {/* Mini Search Bar */}
-              <View style={styles.searchBar}>
-                <Search size={16} color="#94A3B8" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search property by name, PID, address..."
-                  placeholderTextColor="#94A3B8"
-                  value={propertySearch}
-                  onChangeText={setPropertySearch}
-                  autoCapitalize="none"
-                />
-                {propertySearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setPropertySearch("")}>
-                    <Text style={{ fontSize: 11, color: "#0ea360", fontWeight: "600" }}>Clear</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            {/* Property Search */}
+            <View style={styles.searchBar}>
+              <Search size={16} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search registered properties by name, PID, or address..."
+                placeholderTextColor="#94a3b8"
+                value={propertySearch}
+                onChangeText={setPropertySearch}
+              />
+            </View>
 
-              {/* Scrollable Property Cards Container */}
+            {loadingProperties ? (
+              <ActivityIndicator color="#065f46" size="small" style={{ marginVertical: 14 }} />
+            ) : (
               <View style={styles.propertyScrollContainer}>
-                {loadingProperties ? (
-                  <View style={{ paddingVertical: 24, alignItems: "center" }}>
-                    <ActivityIndicator size="small" color="#0ea360" />
-                    <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
-                      Loading registered properties...
-                    </Text>
-                  </View>
-                ) : filteredProperties.length === 0 ? (
-                  <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                    <Building2 size={28} color="#CBD5E1" />
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#64748B", marginTop: 4 }}>
-                      {propertySearch ? "No matching properties found" : "No properties loaded"}
-                    </Text>
-                  </View>
-                ) : (
-                  <ScrollView
-                    nestedScrollEnabled={true}
-                    style={{ maxHeight: 220 }}
-                    contentContainerStyle={{ gap: 8, padding: 2 }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {filteredProperties.map((p) => {
-                      const isSelected = selectedPropertyId === p.id;
-                      const pAddress = p.address || p.location?.address || "AMAC Municipal";
-                      return (
-                        <TouchableOpacity
-                          key={p.id}
-                          activeOpacity={0.7}
-                          style={[
-                            styles.propertyCard,
-                            isSelected && styles.propertyCardSelected,
-                          ]}
-                          onPress={() => handleSelectProperty(p)}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <Text style={[styles.propertyName, isSelected && { color: "#065F46" }]}>
-                                {p.name}
-                              </Text>
-                              {p.pid && (
-                                <View style={styles.pidBadge}>
-                                  <Text style={styles.pidBadgeText}>{p.pid}</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={styles.propertyMeta}>
-                              {p.type || "Commercial"} • {p.size || "Standard"}
-                            </Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-                              <MapPin size={11} color="#94A3B8" />
-                              <Text style={styles.propertyAddress} numberOfLines={1}>
-                                {pAddress}
-                              </Text>
-                            </View>
+                {filteredProperties.slice(0, 5).map((prop) => {
+                  const isSelected = selectedPropertyId === prop.id;
+                  return (
+                    <TouchableOpacity
+                      key={prop.id}
+                      style={[styles.propertyCard, isSelected && styles.propertyCardSelected]}
+                      onPress={() => handleSelectProperty(prop)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                        {isSelected && <Check size={12} color="#ffffff" />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={styles.propertyName} numberOfLines={1}>{prop.name}</Text>
+                          <View style={styles.pidBadge}>
+                            <Text style={styles.pidBadgeText}>{prop.pid || "PID"}</Text>
                           </View>
-
-                          <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                            {isSelected && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
+                        </View>
+                        <Text style={styles.propertyAddress} numberOfLines={1}>
+                          {prop.address || prop.location?.address || "Address not provided"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+            )}
 
-              {/* Selected Property confirmation */}
-              {selectedPropertyId && (
-                <View style={styles.selectedConfirmBox}>
-                  <CheckCircle2 size={16} color="#0ea360" />
-                  <Text style={styles.selectedConfirmText} numberOfLines={1}>
-                    Selected: {properties.find((p) => p.id === selectedPropertyId)?.name}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Physical Address */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Physical Premises Address <Text style={{ color: "#EF4444" }}>*</Text>
-              </Text>
+              <Text style={styles.label}>Street / Premises Address *</Text>
               <View style={styles.inputWrapper}>
-                <MapPin size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                <MapPin size={16} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Suite 12, Area 1 Shopping Complex, Garki"
-                  placeholderTextColor="#94A3B8"
+                  placeholder="Plot number, Street name, District"
+                  placeholderTextColor="#94a3b8"
                   value={address}
                   onChangeText={setAddress}
                 />
               </View>
             </View>
+          </View>
 
-            {/* Category */}
+          {/* Classification & Operational Zone Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.cardHeaderTitle}>Business Category & Revenue Zone</Text>
+
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Business Sector / Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: "row" }}>
+              <Text style={styles.label}>Trade Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
                 {CATEGORIES.map((cat) => (
                   <TouchableOpacity
                     key={cat}
                     style={[styles.chip, category === cat && styles.chipActive]}
                     onPress={() => setCategory(cat)}
+                    activeOpacity={0.8}
                   >
                     <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
                       {cat}
@@ -481,15 +415,15 @@ export default function AgentAddEntityScreen() {
               </ScrollView>
             </View>
 
-            {/* Zone Selector */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>AMAC Revenue Zone</Text>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <Text style={styles.label}>Revenue Collection Zone</Text>
+              <View style={styles.zoneRow}>
                 {ZONES.map((z) => (
                   <TouchableOpacity
                     key={z}
                     style={[styles.zoneBtn, zone === z && styles.zoneBtnActive]}
                     onPress={() => setZone(z)}
+                    activeOpacity={0.8}
                   >
                     <Text style={[styles.zoneBtnText, zone === z && styles.zoneBtnTextActive]}>
                       Zone {z}
@@ -498,21 +432,21 @@ export default function AgentAddEntityScreen() {
                 ))}
               </View>
             </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitBtnText}>Register Entity & Create Wallet</Text>
-              )}
-            </TouchableOpacity>
           </View>
+
+          {/* Submit Action */}
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+            activeOpacity={0.85}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.submitBtnText}>Register Taxpayer & Provision Wallet</Text>
+            )}
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -522,44 +456,61 @@ export default function AgentAddEntityScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
-    gap: 12,
+    borderColor: "#f1f5f9",
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F1F5F9",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  badgeWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#e6f9f0",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 2,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.5,
   },
   screenTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#0F172A",
-  },
-  screenSubtitle: {
-    fontSize: 11,
-    color: "#64748B",
-    marginTop: 1,
+    color: "#0f172a",
+    letterSpacing: -0.2,
   },
   container: {
     padding: 16,
     gap: 16,
+    paddingBottom: 40,
   },
   typeToggle: {
     flexDirection: "row",
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#f8fafc",
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     padding: 4,
     gap: 4,
   },
@@ -568,218 +519,215 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    gap: 8,
+    paddingVertical: 11,
     borderRadius: 10,
-    gap: 6,
   },
   toggleBtnActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#ffffff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 2,
   },
   toggleBtnText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
+    fontWeight: "700",
+    color: "#64748b",
   },
   toggleBtnTextActive: {
-    color: "#0ea360",
-    fontWeight: "700",
+    color: "#065f46",
   },
   formCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#e2e8f0",
+    padding: 16,
     gap: 14,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  cardHeaderSub: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: -8,
   },
   inputGroup: {
     gap: 6,
   },
   label: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "700",
     color: "#334155",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#f8fafc",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
+    borderColor: "#e2e8f0",
     paddingHorizontal: 12,
+    height: 48,
+  },
+  inputIcon: {
+    marginRight: 8,
   },
   input: {
     flex: 1,
-    height: 46,
-    fontSize: 13,
-    color: "#0F172A",
+    height: "100%",
+    fontSize: 14,
+    color: "#0f172a",
   },
   bvnHint: {
     fontSize: 11,
-    color: "#0ea360",
-    marginTop: 2,
+    color: "#059669",
     fontWeight: "500",
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#f8fafc",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
+    borderColor: "#e2e8f0",
     paddingHorizontal: 12,
-    height: 42,
+    height: 44,
   },
   searchInput: {
     flex: 1,
     height: "100%",
-    fontSize: 12,
-    color: "#0F172A",
+    fontSize: 13,
+    color: "#0f172a",
   },
   propertyScrollContainer: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    padding: 8,
-    marginTop: 4,
+    gap: 8,
   },
   propertyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    padding: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 10,
   },
   propertyCardSelected: {
-    borderColor: "#0ea360",
-    backgroundColor: "#ECFDF5",
-  },
-  propertyName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  pidBadge: {
-    backgroundColor: "#E0F2FE",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  pidBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#0369A1",
-  },
-  propertyMeta: {
-    fontSize: 11,
-    color: "#64748B",
-    marginTop: 2,
-  },
-  propertyAddress: {
-    fontSize: 11,
-    color: "#64748B",
-    flex: 1,
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
   },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: "#CBD5E1",
+    borderColor: "#cbd5e1",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
   },
   radioCircleSelected: {
-    borderColor: "#0ea360",
-    backgroundColor: "#0ea360",
+    backgroundColor: "#065f46",
+    borderColor: "#065f46",
   },
-  selectedConfirmBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#ECFDF5",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-  },
-  selectedConfirmText: {
-    fontSize: 11,
+  propertyName: {
+    fontSize: 13,
     fontWeight: "700",
-    color: "#065F46",
-    flex: 1,
+    color: "#0f172a",
+  },
+  pidBadge: {
+    backgroundColor: "#e0f2fe",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  pidBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#0369a1",
+  },
+  propertyAddress: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 2,
   },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginRight: 8,
+    borderColor: "#e2e8f0",
+    marginHorizontal: 4,
   },
   chipActive: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#10B981",
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
   },
   chipText: {
     fontSize: 12,
-    color: "#64748B",
-    fontWeight: "500",
+    color: "#64748b",
+    fontWeight: "600",
   },
   chipTextActive: {
-    color: "#0ea360",
-    fontWeight: "700",
+    color: "#065f46",
+    fontWeight: "800",
+  },
+  zoneRow: {
+    flexDirection: "row",
+    gap: 8,
   },
   zoneBtn: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#e2e8f0",
   },
   zoneBtnActive: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#0ea360",
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
   },
   zoneBtnText: {
     fontSize: 12,
-    color: "#64748B",
     fontWeight: "600",
+    color: "#64748b",
   },
   zoneBtnTextActive: {
-    color: "#0ea360",
-    fontWeight: "700",
+    color: "#065f46",
+    fontWeight: "800",
   },
   submitBtn: {
-    backgroundColor: "#0ea360",
     height: 50,
+    backgroundColor: "#065f46",
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
+    shadowColor: "#065f46",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitBtnDisabled: {
     opacity: 0.5,
   },
   submitBtnText: {
-    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#ffffff",
   },
 });

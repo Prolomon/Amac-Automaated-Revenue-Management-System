@@ -1,4 +1,4 @@
-import { User, Search, MapPin, Mail, ChevronRight, UserPlus } from "lucide-react-native";
+import { User, Search, MapPin, Mail, ChevronRight, UserPlus, Building2, ShieldCheck, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -57,106 +57,149 @@ export default function MembersScreen() {
       (m) =>
         m.fullname?.toLowerCase().includes(search.toLowerCase()) ||
         m.email?.toLowerCase().includes(search.toLowerCase()) ||
-        m.uid?.toLowerCase().includes(search.toLowerCase())
+        m.uid?.toLowerCase().includes(search.toLowerCase()) ||
+        m.businessName?.toLowerCase().includes(search.toLowerCase())
     )
     : data;
 
   const formatLocation = (loc: any) => {
-    if (!loc) return "N/A";
+    if (!loc) return "Location Not Specified";
     if (typeof loc === "string") return loc;
     const parts = [loc.address, loc.city, loc.state].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "N/A";
+    return parts.length > 0 ? parts.join(", ") : "Location Not Specified";
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.headerCard}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <View style={{ flex: 1, paddingRight: 10 }}>
-            <Text style={styles.pageTitle}>Registered Members</Text>
-            <Text style={styles.pageSubtitle}>
-              Manage and review {data.length} registered member{data.length !== 1 ? "s" : ""} under your coverage.
-            </Text>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Header Bar */}
+      <View style={styles.header}>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <View style={styles.badgeWrap}>
+            <ShieldCheck size={12} color="#065f46" />
+            <Text style={styles.badgeText}>TAXPAYER REGISTRY</Text>
           </View>
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => router.push("/pages/member/add" as RelativePathString)}
-            activeOpacity={0.8}
-          >
-            <UserPlus size={15} color="#FFFFFF" />
-            <Text style={styles.addBtnText}>Add Entity</Text>
-          </TouchableOpacity>
+          <Text style={styles.pageTitle}>Entities & Taxpayers</Text>
+          <Text style={styles.pageSubtitle}>
+            {data.length} assigned taxpayer{data.length !== 1 ? "s" : ""} under your jurisdiction
+          </Text>
         </View>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => router.push("/pages/member/add" as RelativePathString)}
+          activeOpacity={0.85}
+        >
+          <UserPlus size={15} color="#FFFFFF" />
+          <Text style={styles.addBtnText}>Add Entity</Text>
+        </TouchableOpacity>
       </View>
 
+      {/* Search Input Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Search size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name, email or ID..."
+            placeholder="Search by name, business, or AMAC UID..."
             value={search}
             onChangeText={setSearch}
             placeholderTextColor="#94a3b8"
             autoCapitalize="none"
           />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")} hitSlop={10}>
+              <X size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0ea360" />
-          <Text style={styles.loadingText}>Loading members list...</Text>
+          <ActivityIndicator size="large" color="#065f46" />
+          <Text style={styles.loadingText}>Loading assigned entities...</Text>
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.uid || item.id}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#0ea360"]} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#065f46"
+              colors={["#065f46"]}
+            />
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.memberItem}
+              style={styles.memberCard}
               onPress={() => router.push(`/pages/member/${item.uid || item.id}` as RelativePathString)}
               activeOpacity={0.7}
             >
-              <View style={styles.memberItemContent}>
-                <View style={styles.memberAvatarWrap}>
+              <View style={styles.memberCardTop}>
+                <View style={styles.avatarWrap}>
                   <Text style={styles.avatarInitial}>
                     {(item.fullname || "M").charAt(0).toUpperCase()}
                   </Text>
                 </View>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>
+
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.memberName} numberOfLines={1}>
                     {item.fullname || "Unnamed Member"}
                   </Text>
-                  {item.businessName && (
-                    <Text style={styles.memberBusiness}>{item.businessName}</Text>
-                  )}
+                  {item.businessName ? (
+                    <Text style={styles.memberBusiness} numberOfLines={1}>
+                      {item.businessName}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.memberUid}>ID: {item.uid || "-"}</Text>
+                </View>
+
+                <View style={styles.chevronWrap}>
+                  <ChevronRight size={18} color="#94a3b8" />
+                </View>
+              </View>
+
+              <View style={styles.cardDivider} />
+
+              <View style={styles.metaContainer}>
+                {item.email ? (
                   <View style={styles.metaRow}>
-                    <Mail size={12} color="#94a3b8" />
+                    <Mail size={13} color="#64748b" />
                     <Text style={styles.metaText} numberOfLines={1}>{item.email}</Text>
                   </View>
-                  <View style={styles.metaRow}>
-                    <MapPin size={12} color="#94a3b8" />
-                    <Text style={styles.metaText} numberOfLines={1}>
-                      {formatLocation(item.location)}
-                    </Text>
-                  </View>
+                ) : null}
+
+                <View style={styles.metaRow}>
+                  <MapPin size={13} color="#64748b" />
+                  <Text style={styles.metaText} numberOfLines={1}>
+                    {formatLocation(item.location)}
+                  </Text>
                 </View>
-                <ChevronRight size={18} color="#cbd5e1" />
               </View>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <User size={48} color="#cbd5e1" />
-              <Text style={styles.emptyStateText}>No members found</Text>
+              <View style={styles.emptyIconWrap}>
+                <User size={32} color="#065f46" />
+              </View>
+              <Text style={styles.emptyStateTitle}>No Entities Found</Text>
               <Text style={styles.emptyStateSubtext}>
-                No registered members matched your criteria. Pull down to refresh.
+                {search.trim()
+                  ? "No registered entities matched your search query. Try another keyword."
+                  : "You do not have any registered taxpayers or premises yet."}
               </Text>
+              <TouchableOpacity
+                style={styles.emptyActionBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push("/pages/member/add" as RelativePathString)}
+              >
+                <UserPlus size={15} color="#FFFFFF" />
+                <Text style={styles.emptyActionBtnText}>Register New Entity</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -166,27 +209,60 @@ export default function MembersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "ghostwhite" },
-  headerCard: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
+  safe: {
+    flex: 1,
     backgroundColor: "#ffffff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#f1f5f9",
+  },
+  badgeWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#e6f9f0",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.5,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  pageSubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
   },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#0ea360",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    shadowColor: "#0ea360",
+    backgroundColor: "#065f46",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: "#065f46",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 3,
   },
   addBtnText: {
@@ -194,29 +270,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  pageTitle: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 13,
-    color: "#64748b",
-    lineHeight: 18,
-  },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#ffffff",
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#f1f5f9",
+    backgroundColor: "#ffffff",
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "ghostwhite",
-    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     paddingHorizontal: 12,
@@ -228,60 +293,83 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: "100%",
-    fontSize: 15,
+    fontSize: 14,
     color: "#0f172a",
   },
   listContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 40,
+    gap: 12,
   },
-  memberItem: {
+  memberCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    marginBottom: 12,
     padding: 14,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  memberItemContent: {
+  memberCardTop: {
     flexDirection: "row",
     alignItems: "center",
   },
-  memberAvatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  avatarWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#e6f9f0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
     borderWidth: 1,
     borderColor: "#d4f5e6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   avatarInitial: {
-    color: "#0ea360",
-    fontWeight: "bold",
+    color: "#065f46",
+    fontWeight: "800",
     fontSize: 18,
   },
-  memberInfo: {
-    flex: 1,
-    gap: 2,
-  },
   memberName: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "800",
     color: "#0f172a",
+    marginBottom: 2,
   },
   memberBusiness: {
-    fontSize: 13,
-    color: "#0ea360",
-    fontWeight: "600",
+    fontSize: 12,
+    color: "#065f46",
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  memberUid: {
+    fontSize: 11,
+    fontFamily: "monospace",
+    color: "#94a3b8",
+  },
+  chevronWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f8fafc",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: "#f1f5f9",
+    marginVertical: 10,
+  },
+  metaContainer: {
+    gap: 6,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 2,
   },
   metaText: {
     fontSize: 12,
@@ -292,28 +380,53 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 40,
+    paddingVertical: 50,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 14,
     color: "#64748b",
+    fontWeight: "500",
   },
   emptyState: {
-    paddingVertical: 64,
+    paddingVertical: 60,
     alignItems: "center",
-    gap: 8,
+    paddingHorizontal: 24,
   },
-  emptyStateText: {
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e6f9f0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  emptyStateTitle: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "800",
     color: "#0f172a",
+    marginBottom: 6,
   },
   emptyStateSubtext: {
     fontSize: 13,
-    color: "#94a3b8",
+    color: "#64748b",
     textAlign: "center",
-    maxWidth: 240,
     lineHeight: 18,
+    marginBottom: 20,
+  },
+  emptyActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#065f46",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  emptyActionBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#ffffff",
   },
 });

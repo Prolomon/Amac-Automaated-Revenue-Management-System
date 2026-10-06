@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,10 +5,19 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RelativePathString, useRouter } from "expo-router";
+import {
+  ScanBarcode,
+  Zap,
+  ZapOff,
+  ShieldCheck,
+  CreditCard,
+  Camera,
+  AlertTriangle,
+} from "lucide-react-native";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -42,7 +50,7 @@ export default function ScanPage() {
         if (parsed && typeof parsed === "object" && parsed.id) {
           extractedId = parsed.id;
         }
-      } catch (e) {
+      } catch {
         // use raw data
       }
     }
@@ -59,33 +67,53 @@ export default function ScanPage() {
 
   if (!permission) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0ea360" />
-        <Text style={{ color: "#64748b", marginTop: 12 }}>Requesting camera permission...</Text>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#065f46" />
+        <Text style={styles.permissionSub}>Initializing camera terminal...</Text>
+      </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={{ color: "#0f172a", fontSize: 16, fontWeight: "600" }}>No access to camera</Text>
-        <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-          <Text style={styles.permissionBtnText}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.centerContainer}>
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionIconWrap}>
+            <Camera size={36} color="#065f46" />
+          </View>
+          <Text style={styles.permissionTitle}>Camera Access Required</Text>
+          <Text style={styles.permissionSub}>
+            AMAC field agents require camera permission to scan taxpayer QR codes and verify physical demand notices.
+          </Text>
+          <TouchableOpacity
+            style={styles.permissionBtn}
+            activeOpacity={0.85}
+            onPress={requestPermission}
+          >
+            <Text style={styles.permissionBtnText}>Grant Camera Access</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Top Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Scan QR Code</Text>
-        <Text style={styles.headerSubtitle}>Align the payment QR code within the frame to scan</Text>
+        <View style={styles.badgeWrap}>
+          <ShieldCheck size={12} color="#065f46" />
+          <Text style={styles.badgeText}>FIELD VERIFICATION</Text>
+        </View>
+        <Text style={styles.headerTitle}>Scan Assessment QR</Text>
+        <Text style={styles.headerSubtitle}>
+          Align the taxpayer QR invoice or physical notice within the frame
+        </Text>
       </View>
 
-      <View style={styles.qrBoxWrap}>
-        <View style={styles.qrBox}>
+      {/* Viewfinder Section */}
+      <View style={styles.scannerContainer}>
+        <View style={styles.viewfinderWrap}>
           <CameraView
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -95,78 +123,249 @@ export default function ScanPage() {
               barcodeTypes: ["qr"],
             }}
           />
+
+          {/* Scanner Overlay Frame */}
+          <View style={styles.overlayFrame}>
+            <View style={[styles.cornerBracket, styles.topLeft]} />
+            <View style={[styles.cornerBracket, styles.topRight]} />
+            <View style={[styles.cornerBracket, styles.bottomLeft]} />
+            <View style={[styles.cornerBracket, styles.bottomRight]} />
+            <View style={styles.scanningLine} />
+          </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.flashBtn}
-          onPress={() => setFlash((f) => !f)}
-        >
-          <Ionicons
-            name={flash ? "flash" : "flash-off"}
-            size={24}
-            color="#0ea360"
-          />
-          <Text style={styles.flashText}>
-            {flash ? "Flash On" : "Flash Off"}
-          </Text>
-        </TouchableOpacity>
+        {/* Scanner Controls Row */}
+        <View style={styles.controlsRow}>
+          <TouchableOpacity
+            style={[styles.controlBtn, flash && styles.controlBtnActive]}
+            activeOpacity={0.8}
+            onPress={() => setFlash((f) => !f)}
+          >
+            {flash ? (
+              <Zap size={20} color="#065f46" />
+            ) : (
+              <ZapOff size={20} color="#64748b" />
+            )}
+            <Text style={[styles.controlBtnText, flash && styles.controlBtnTextActive]}>
+              {flash ? "Flashlight On" : "Flashlight Off"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.controlBtn}
+            activeOpacity={0.8}
+            onPress={() => router.push("/pages/(pages)/pay" as RelativePathString)}
+          >
+            <CreditCard size={20} color="#64748b" />
+            <Text style={styles.controlBtnText}>Manual Lookup</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "ghostwhite" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "ghostwhite" },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
+  container: {
+    flex: 1,
     backgroundColor: "#ffffff",
+  },
+  centerContainer: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#f1f5f9",
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "#64748b",
-    marginTop: 4,
-  },
-  permissionBtn: {
-    marginTop: 16,
-    backgroundColor: "#0ea360",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  permissionBtnText: {
-    color: "#ffffff",
-    fontWeight: "700",
-  },
-  qrBoxWrap: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 40, backgroundColor: "ghostwhite" },
-  qrBox: {
-    width: 280,
-    height: 280,
-    borderRadius: 18,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#0ea360",
-    backgroundColor: "#000000",
-  },
-  flashBtn: {
+  badgeWrap: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 4,
+    backgroundColor: "#e6f9f0",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#065f46",
+    letterSpacing: 0.5,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  scannerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 30,
+    backgroundColor: "#f8fafc",
+  },
+  viewfinderWrap: {
+    width: 290,
+    height: 290,
+    borderRadius: 24,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#000000",
+    shadowColor: "#065f46",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  overlayFrame: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cornerBracket: {
+    position: "absolute",
+    width: 32,
+    height: 32,
+    borderColor: "#065f46",
+  },
+  topLeft: {
+    top: 14,
+    left: 14,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 10,
+  },
+  topRight: {
+    top: 14,
+    right: 14,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 10,
+  },
+  bottomLeft: {
+    bottom: 14,
+    left: 14,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 10,
+  },
+  bottomRight: {
+    bottom: 14,
+    right: 14,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 10,
+  },
+  scanningLine: {
+    width: "80%",
+    height: 2,
+    backgroundColor: "#065f46",
+    opacity: 0.8,
+  },
+  controlsRow: {
+    flexDirection: "row",
+    gap: 12,
     marginTop: 32,
-    backgroundColor: "#ffffff",
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+  },
+  controlBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#e2e8f0",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  flashText: { color: "#0ea360", marginLeft: 10, fontSize: 16, fontWeight: "600" },
+  controlBtnActive: {
+    backgroundColor: "#e6f9f0",
+    borderColor: "#a7f3d0",
+  },
+  controlBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748b",
+  },
+  controlBtnTextActive: {
+    color: "#065f46",
+  },
+  permissionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 24,
+    alignItems: "center",
+    maxWidth: 360,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  permissionIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e6f9f0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  permissionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  permissionSub: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  permissionBtn: {
+    backgroundColor: "#065f46",
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: "#065f46",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  permissionBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#ffffff",
+  },
 });

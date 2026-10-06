@@ -1,0 +1,7 @@
+{
+  "name": "nomba-payment",
+  "version": "1.0.0",
+  "description": "Nomba POS payment integration for AMAC Agent",
+  "main": "index.ts",
+  "types": "index.ts"
+}

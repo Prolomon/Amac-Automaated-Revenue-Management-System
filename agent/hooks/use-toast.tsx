@@ -49,7 +49,7 @@ const TOAST_STYLES: Record<ToastType, ToastStyleConfig> = {
     bg: '#ffffff',
     border: '#bbf7d0',
     iconBg: '#e6f9f0',
-    iconColor: '#0ea360',
+    iconColor: '#065f46',
     Icon: CheckCircle2,
   },
   warn: {
