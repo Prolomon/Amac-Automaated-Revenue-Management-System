@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "amac-enumeration",
+    "name": "Amac Enumeration",
     "slug": "amac-enumeration",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/favicon.png",
     "scheme": "heroui-native-app",
     "userInterfaceStyle": "automatic",
     "ios": {
